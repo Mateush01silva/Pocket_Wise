@@ -12,3 +12,5 @@ export type { SelectProps } from './Select'
 
 export { CurrencyInput } from './CurrencyInput'
 export type { CurrencyInputProps } from './CurrencyInput'
+
+export { Modal } from './Modal'

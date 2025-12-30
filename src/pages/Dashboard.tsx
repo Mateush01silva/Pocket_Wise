@@ -1,11 +1,13 @@
-import { useMemo } from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui'
-import { TrendingUp, TrendingDown, Wallet, CreditCard } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button } from '../components/ui'
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore } from '../store'
 import { startOfMonth, endOfMonth, format } from 'date-fns'
+import { TransactionModal } from '../components/TransactionModal'
 
 export function Dashboard() {
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
 
   // Calcular dados do mês atual
@@ -87,9 +89,15 @@ export function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-100 mb-2">Dashboard</h1>
-        <p className="text-gray-400">Visão geral das suas finanças</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-100 mb-2">Dashboard</h1>
+          <p className="text-gray-400">Visão geral das suas finanças</p>
+        </div>
+        <Button onClick={() => setIsModalOpen(true)} className="gap-2">
+          <Plus className="w-5 h-5" />
+          Nova Transação
+        </Button>
       </div>
 
       {/* Stats Grid */}
@@ -216,6 +224,9 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Transaction Modal */}
+      <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   )
 }
