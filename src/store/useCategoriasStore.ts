@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-// import { persist } from 'zustand/middleware'
+import { persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import type { Categoria } from '../types'
 import { db } from '../services/database'
@@ -32,8 +32,7 @@ interface CategoriasActions {
 type CategoriasStore = CategoriasState & CategoriasActions
 
 export const useCategoriasStore = create<CategoriasStore>()(
-  // Persist temporariamente desabilitado para debug
-  // persist(
+  persist(
     immer((set, get) => ({
       // Estado inicial
       categorias: [],
@@ -183,14 +182,13 @@ export const useCategoriasStore = create<CategoriasStore>()(
       getCategoriasByTipo: (tipo) => {
         return get().categorias.filter((c) => c.tipo === tipo)
       },
-    }))
-    // Persist config desabilitado temporariamente
-    // ,{
-    //   name: 'pocketwise-categorias-store',
-    //   partialize: (state) => ({
-    //     categorias: state.categorias,
-    //     initialized: state.initialized,
-    //   }),
-    // }
-  // )
+    })),
+    {
+      name: 'pocketwise-categorias-store',
+      partialize: (state) => ({
+        categorias: state.categorias,
+        initialized: state.initialized,
+      }),
+    }
+  )
 )
