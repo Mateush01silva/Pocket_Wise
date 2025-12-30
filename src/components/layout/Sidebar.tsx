@@ -7,6 +7,7 @@ import {
   Settings,
   Wallet,
   Users,
+  FolderTree,
 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 
@@ -20,6 +21,7 @@ const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
   { name: 'Transações', path: '/transactions', icon: Receipt },
   { name: 'Cartões', path: '/credit-cards', icon: CreditCard },
+  { name: 'Categorias', path: '/categories', icon: FolderTree },
   { name: 'Orçamentos', path: '/budgets', icon: Wallet },
   { name: 'Projeções', path: '/projections', icon: TrendingUp },
   { name: 'Família', path: '/family', icon: Users },
