@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+// import { persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { format, addMonths, parseISO } from 'date-fns'
 import type {
@@ -48,7 +48,8 @@ interface TransacoesActions {
 type TransacoesStore = TransacoesState & TransacoesActions
 
 export const useTransacoesStore = create<TransacoesStore>()(
-  persist(
+  // Persist temporariamente desabilitado para debug
+  // persist(
     immer((set, get) => ({
       // Estado inicial
       lancamentos: [],
@@ -321,12 +322,13 @@ export const useTransacoesStore = create<TransacoesStore>()(
         set({ filters: {} })
         get().fetchLancamentos()
       },
-    })),
-    {
-      name: 'pocketwise-transacoes-store',
-      partialize: (state) => ({
-        lancamentos: state.lancamentos,
-      }),
-    }
-  )
+    }))
+    // Persist config desabilitado temporariamente
+    // ,{
+    //   name: 'pocketwise-transacoes-store',
+    //   partialize: (state) => ({
+    //     lancamentos: state.lancamentos,
+    //   }),
+    // }
+  // )
 )

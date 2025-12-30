@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+// import { persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import type { Cartao, CreateCartaoInput } from '../types'
 import { db } from '../services/database'
@@ -25,7 +25,8 @@ interface CartoesActions {
 type CartoesStore = CartoesState & CartoesActions
 
 export const useCartoesStore = create<CartoesStore>()(
-  persist(
+  // Persist temporariamente desabilitado para debug
+  // persist(
     immer((set, get) => ({
       // Estado inicial
       cartoes: [],
@@ -122,12 +123,13 @@ export const useCartoesStore = create<CartoesStore>()(
       getCartoesAtivos: () => {
         return get().cartoes.filter((c) => c.ativo)
       },
-    })),
-    {
-      name: 'pocketwise-cartoes-store',
-      partialize: (state) => ({
-        cartoes: state.cartoes,
-      }),
-    }
-  )
+    }))
+    // Persist config desabilitado temporariamente
+    // ,{
+    //   name: 'pocketwise-cartoes-store',
+    //   partialize: (state) => ({
+    //     cartoes: state.cartoes,
+    //   }),
+    // }
+  // )
 )
