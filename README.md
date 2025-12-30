@@ -95,6 +95,33 @@ npm run preview      # Preview da build de produção
 npm run lint         # Executa o ESLint
 ```
 
+## 🌐 Deploy na Vercel
+
+O projeto está configurado para deploy automático na Vercel!
+
+### Deploy Rápido
+
+1. Acesse [vercel.com](https://vercel.com) e faça login com GitHub
+2. Clique em **"Add New..."** → **"Project"**
+3. Importe o repositório **"Pocket_Wise"**
+4. Adicione a variável de ambiente:
+   ```
+   VITE_USE_LOCAL_STORAGE=true
+   ```
+5. Clique em **"Deploy"**
+6. 🎉 Pronto! Seu site estará no ar em poucos minutos
+
+### Documentação Completa
+
+Para instruções detalhadas, veja o arquivo [VERCEL_DEPLOY.md](./VERCEL_DEPLOY.md)
+
+### Atualizações Automáticas
+
+Após o primeiro deploy, toda vez que você fizer `git push`, a Vercel:
+- ✅ Detecta as mudanças automaticamente
+- ✅ Faz build da nova versão
+- ✅ Atualiza o site em produção
+
 ## 🗺️ Roadmap de Desenvolvimento
 
 ### ✅ Fase 1 - Setup Inicial (Concluído)
