@@ -15,6 +15,9 @@ export type { CurrencyInputProps } from './CurrencyInput'
 
 export { Modal } from './Modal'
 
+export { Tabs } from './Tabs'
+export type { TabsProps, TabItem } from './Tabs'
+
 // Re-export DateRangeFilter from parent components folder
 export { DateRangeFilter, getDefaultDateRange, getDateRangeFromPreset, saveDateRangeToStorage } from '../DateRangeFilter'
 export type { DateRange, DateRangePreset } from '../DateRangeFilter'
