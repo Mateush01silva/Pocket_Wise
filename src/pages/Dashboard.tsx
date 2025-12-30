@@ -1,13 +1,17 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { Card, CardContent, Button } from '../components/ui'
-import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
-import { useTransacoesStore } from '../store'
+import { useTransacoesStore, useCategoriasStore } from '../store'
 import { TransactionModal } from '../components/TransactionModal'
+import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
 
 export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
+  const categorias = useCategoriasStore((state) => state.categorias)
 
   // Stable callbacks to prevent render loops
   const handleOpenModal = useCallback(() => {
@@ -17,6 +21,13 @@ export function Dashboard() {
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false)
   }, [])
+
+  // Get category name by id
+  const getCategoryName = useCallback((categoriaId: string | null) => {
+    if (!categoriaId) return 'Sem categoria'
+    const categoria = categorias.find(c => c.id === categoriaId)
+    return categoria?.nome || 'Categoria desconhecida'
+  }, [categorias])
 
   // Calcular stats diretamente, sem useMemo complexo
   const hoje = new Date()
@@ -45,6 +56,71 @@ export function Dashboard() {
     .reduce((sum, l) => sum + l.valor, 0)
 
   const saldo = receitas - despesas
+
+  // Get recent transactions (last 5)
+  const transacoesRecentes = lancamentos
+    .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+    .slice(0, 5)
+
+  // Chart data - Gastos por Categoria (apenas despesas do mês atual)
+  const gastosPorCategoria = useMemo(() => {
+    const despesasMes = lancamentosMes.filter(l => l.tipo === 'despesa')
+
+    // Group by categoria_id
+    const grouped = despesasMes.reduce((acc, lancamento) => {
+      const catId = lancamento.categoria_id || 'sem-categoria'
+      if (!acc[catId]) {
+        acc[catId] = {
+          categoria_id: catId,
+          nome: getCategoryName(lancamento.categoria_id),
+          total: 0,
+          cor: categorias.find(c => c.id === catId)?.cor || '#6B7280'
+        }
+      }
+      acc[catId].total += lancamento.valor
+      return acc
+    }, {} as Record<string, { categoria_id: string; nome: string; total: number; cor: string }>)
+
+    // Convert to array and sort by total (descending)
+    return Object.values(grouped)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10) // Top 10
+  }, [lancamentosMes, categorias, getCategoryName])
+
+  // Chart data - Receitas x Despesas (últimos 6 meses)
+  const receitasDespesasPorMes = useMemo(() => {
+    const meses = []
+
+    for (let i = 5; i >= 0; i--) {
+      const mesData = subMonths(hoje, i)
+      const inicio = startOfMonth(mesData)
+      const fim = endOfMonth(mesData)
+
+      const lancamentosMes = lancamentos.filter(l => {
+        const dataLancamento = new Date(l.data)
+        return dataLancamento >= inicio && dataLancamento <= fim
+      })
+
+      const receitas = lancamentosMes
+        .filter(l => l.tipo === 'receita')
+        .reduce((sum, l) => sum + l.valor, 0)
+
+      const despesas = lancamentosMes
+        .filter(l => l.tipo === 'despesa')
+        .reduce((sum, l) => sum + l.valor, 0)
+
+      meses.push({
+        mes: format(mesData, 'MMM/yy', { locale: ptBR }),
+        receitas,
+        despesas,
+      })
+    }
+
+    return meses
+  }, [lancamentos, hoje])
+
+  // Chart colors
+  const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#06B6D4', '#84CC16']
 
   return (
     <div className="space-y-8">
@@ -133,26 +209,193 @@ export function Dashboard() {
         </Card>
       </div>
 
-      {/* Empty State */}
-      <Card>
-        <CardContent>
-          <div className="text-center py-12">
-            <Wallet className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-200 mb-2">
-              Bem-vindo ao PocketWise!
-            </h3>
-            <p className="text-gray-400 mb-6">
-              {lancamentos.length === 0
-                ? 'Comece adicionando sua primeira transação'
-                : `Você tem ${lancamentos.length} transação(ões) cadastrada(s)`}
-            </p>
-            <Button onClick={handleOpenModal} className="gap-2">
-              <Plus className="w-5 h-5" />
-              Adicionar Transação
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Charts Section */}
+      {lancamentos.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Gastos por Categoria */}
+          <Card>
+            <CardContent>
+              <h2 className="text-lg font-semibold text-gray-100 mb-4">
+                Gastos por Categoria (Mês Atual)
+              </h2>
+              {gastosPorCategoria.length > 0 ? (
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={gastosPorCategoria}
+                        dataKey="total"
+                        nameKey="nome"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={100}
+                        fill="#8884d8"
+                        label={(entry: any) => `${entry.nome}: ${formatCurrency(entry.total)}`}
+                        labelLine={false}
+                      >
+                        {gastosPorCategoria.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.cor || COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number | undefined) => value ? formatCurrency(value) : 'R$ 0,00'}
+                        contentStyle={{
+                          backgroundColor: '#1F2937',
+                          border: '1px solid #374151',
+                          borderRadius: '8px',
+                          color: '#F3F4F6'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-80 flex items-center justify-center text-gray-500">
+                  <p>Nenhuma despesa neste mês</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Receitas x Despesas */}
+          <Card>
+            <CardContent>
+              <h2 className="text-lg font-semibold text-gray-100 mb-4">
+                Receitas x Despesas (Últimos 6 Meses)
+              </h2>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={receitasDespesasPorMes}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis
+                      dataKey="mes"
+                      stroke="#9CA3AF"
+                      style={{ fontSize: '12px' }}
+                    />
+                    <YAxis
+                      stroke="#9CA3AF"
+                      style={{ fontSize: '12px' }}
+                      tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip
+                      formatter={(value: number | undefined) => value ? formatCurrency(value) : 'R$ 0,00'}
+                      contentStyle={{
+                        backgroundColor: '#1F2937',
+                        border: '1px solid #374151',
+                        borderRadius: '8px',
+                        color: '#F3F4F6'
+                      }}
+                    />
+                    <Legend
+                      wrapperStyle={{ color: '#9CA3AF' }}
+                      formatter={(value) => value === 'receitas' ? 'Receitas' : 'Despesas'}
+                    />
+                    <Bar dataKey="receitas" fill="#10B981" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="despesas" fill="#EF4444" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Recent Transactions or Empty State */}
+      {lancamentos.length > 0 ? (
+        <Card>
+          <CardContent>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-100">Transações Recentes</h2>
+              <Button variant="ghost" size="sm">
+                Ver todas
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {transacoesRecentes.map((lancamento) => (
+                <div
+                  key={lancamento.id}
+                  className="flex items-center justify-between p-4 bg-dark-800/50 rounded-lg border border-dark-700/50 hover:border-dark-600 transition-colors"
+                >
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                      lancamento.tipo === 'receita'
+                        ? 'bg-green-500/10'
+                        : 'bg-red-500/10'
+                    }`}>
+                      {lancamento.tipo === 'receita' ? (
+                        <ArrowUpRight className="w-5 h-5 text-green-400" />
+                      ) : (
+                        <ArrowDownLeft className="w-5 h-5 text-red-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-100 truncate">
+                        {getCategoryName(lancamento.categoria_id)}
+                        {lancamento.subcategoria_id && (
+                          <span className="text-gray-500"> • {getCategoryName(lancamento.subcategoria_id)}</span>
+                        )}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs text-gray-500">
+                          {format(new Date(lancamento.data), "dd 'de' MMM", { locale: ptBR })}
+                        </p>
+                        {lancamento.parcela_atual && lancamento.parcela_total && (
+                          <span className="text-xs text-gray-500">
+                            • {lancamento.parcela_atual}/{lancamento.parcela_total}x
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className={`text-sm font-semibold ${
+                        lancamento.tipo === 'receita'
+                          ? 'text-green-400'
+                          : 'text-red-400'
+                      }`}>
+                        {lancamento.tipo === 'receita' ? '+' : '-'} {formatCurrency(lancamento.valor)}
+                      </p>
+                      <div className="flex items-center justify-end gap-1 mt-1">
+                        {lancamento.status === 'pendente' && (
+                          <span className="inline-flex items-center gap-1 text-xs text-yellow-400">
+                            <Clock className="w-3 h-3" />
+                            Pendente
+                          </span>
+                        )}
+                        {lancamento.status === 'pago' && (
+                          <span className="text-xs text-gray-500">Pago</span>
+                        )}
+                        {lancamento.status === 'projetado' && (
+                          <span className="text-xs text-gray-500">Projetado</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent>
+            <div className="text-center py-12">
+              <Wallet className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-200 mb-2">
+                Bem-vindo ao PocketWise!
+              </h3>
+              <p className="text-gray-400 mb-6">
+                Comece adicionando sua primeira transação
+              </p>
+              <Button onClick={handleOpenModal} className="gap-2">
+                <Plus className="w-5 h-5" />
+                Adicionar Transação
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Transaction Modal */}
       <TransactionModal isOpen={isModalOpen} onClose={handleCloseModal} />
