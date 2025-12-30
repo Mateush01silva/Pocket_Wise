@@ -12,7 +12,7 @@ import {
   Settings,
 } from './pages'
 import { Categories } from './pages/Categories'
-import { DashboardSimple } from './pages/DashboardSimple'
+import { DashboardFixed } from './pages/DashboardFixed'
 import { useCategoriasStore, useTransacoesStore, useCartoesStore } from './store'
 
 function App() {
@@ -64,7 +64,7 @@ function App() {
     <BrowserRouter>
       <Layout>
         <Routes>
-          <Route path="/" element={<DashboardSimple />} />
+          <Route path="/" element={<DashboardFixed />} />
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/credit-cards" element={<CreditCards />} />
           <Route path="/categories" element={<Categories />} />
