@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import { Card, CardContent, Button } from '../components/ui'
 import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
@@ -62,62 +62,54 @@ export function Dashboard() {
     .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
     .slice(0, 5)
 
-  // Chart data - Gastos por Categoria (apenas despesas do mês atual)
-  const gastosPorCategoria = useMemo(() => {
-    const despesasMes = lancamentosMes.filter(l => l.tipo === 'despesa')
+  // Chart data - Gastos por Categoria (apenas despesas do mês atual) - SEM useMemo para evitar loops
+  const despesasMes = lancamentosMes.filter(l => l.tipo === 'despesa')
 
-    // Group by categoria_id
-    const grouped = despesasMes.reduce((acc, lancamento) => {
-      const catId = lancamento.categoria_id || 'sem-categoria'
-      if (!acc[catId]) {
-        acc[catId] = {
-          categoria_id: catId,
-          nome: getCategoryName(lancamento.categoria_id),
-          total: 0,
-          cor: categorias.find(c => c.id === catId)?.cor || '#6B7280'
-        }
+  const grouped = despesasMes.reduce((acc, lancamento) => {
+    const catId = lancamento.categoria_id || 'sem-categoria'
+    if (!acc[catId]) {
+      acc[catId] = {
+        categoria_id: catId,
+        nome: getCategoryName(lancamento.categoria_id),
+        total: 0,
+        cor: categorias.find(c => c.id === catId)?.cor || '#6B7280'
       }
-      acc[catId].total += lancamento.valor
-      return acc
-    }, {} as Record<string, { categoria_id: string; nome: string; total: number; cor: string }>)
-
-    // Convert to array and sort by total (descending)
-    return Object.values(grouped)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10) // Top 10
-  }, [lancamentosMes, categorias, getCategoryName])
-
-  // Chart data - Receitas x Despesas (últimos 6 meses)
-  const receitasDespesasPorMes = useMemo(() => {
-    const meses = []
-
-    for (let i = 5; i >= 0; i--) {
-      const mesData = subMonths(hoje, i)
-      const inicio = startOfMonth(mesData)
-      const fim = endOfMonth(mesData)
-
-      const lancamentosMes = lancamentos.filter(l => {
-        const dataLancamento = new Date(l.data)
-        return dataLancamento >= inicio && dataLancamento <= fim
-      })
-
-      const receitas = lancamentosMes
-        .filter(l => l.tipo === 'receita')
-        .reduce((sum, l) => sum + l.valor, 0)
-
-      const despesas = lancamentosMes
-        .filter(l => l.tipo === 'despesa')
-        .reduce((sum, l) => sum + l.valor, 0)
-
-      meses.push({
-        mes: format(mesData, 'MMM/yy', { locale: ptBR }),
-        receitas,
-        despesas,
-      })
     }
+    acc[catId].total += lancamento.valor
+    return acc
+  }, {} as Record<string, { categoria_id: string; nome: string; total: number; cor: string }>)
 
-    return meses
-  }, [lancamentos, hoje])
+  const gastosPorCategoria = Object.values(grouped)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 10) // Top 10
+
+  // Chart data - Receitas x Despesas (últimos 6 meses) - SEM useMemo para evitar loops
+  const mesesData = []
+  for (let i = 5; i >= 0; i--) {
+    const mesData = subMonths(hoje, i)
+    const inicio = startOfMonth(mesData)
+    const fim = endOfMonth(mesData)
+
+    const lancamentosMesIteracao = lancamentos.filter(l => {
+      const dataLancamento = new Date(l.data)
+      return dataLancamento >= inicio && dataLancamento <= fim
+    })
+
+    const receitasMes = lancamentosMesIteracao
+      .filter(l => l.tipo === 'receita')
+      .reduce((sum, l) => sum + l.valor, 0)
+
+    const despesasMes = lancamentosMesIteracao
+      .filter(l => l.tipo === 'despesa')
+      .reduce((sum, l) => sum + l.valor, 0)
+
+    mesesData.push({
+      mes: format(mesData, 'MMM/yy', { locale: ptBR }),
+      receitas: receitasMes,
+      despesas: despesasMes,
+    })
+  }
+  const receitasDespesasPorMes = mesesData
 
   // Chart colors
   const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#06B6D4', '#84CC16']
