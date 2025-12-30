@@ -22,9 +22,24 @@ function App() {
   // Inicializar stores na montagem do app
   useEffect(() => {
     const init = async () => {
-      await initializeCategorias()
-      await fetchLancamentos()
-      await fetchCartoes()
+      console.log('🚀 Inicializando PocketWise...')
+      try {
+        console.log('📦 Inicializando categorias...')
+        await initializeCategorias()
+        console.log('✅ Categorias inicializadas')
+
+        console.log('💰 Carregando transações...')
+        await fetchLancamentos()
+        console.log('✅ Transações carregadas')
+
+        console.log('💳 Carregando cartões...')
+        await fetchCartoes()
+        console.log('✅ Cartões carregados')
+
+        console.log('🎉 PocketWise inicializado com sucesso!')
+      } catch (error) {
+        console.error('❌ Erro ao inicializar PocketWise:', error)
+      }
     }
     init()
   }, [initializeCategorias, fetchLancamentos, fetchCartoes])
