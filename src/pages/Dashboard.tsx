@@ -208,7 +208,7 @@ export function Dashboard() {
                   2. Adicione suas Transações
                 </h4>
                 <p className="text-sm text-gray-400 mb-3">
-                  Em breve você poderá adicionar receitas e despesas diretamente pelo app.
+                  Clique no botão "Nova Transação" acima para adicionar suas receitas e despesas.
                 </p>
               </div>
 
