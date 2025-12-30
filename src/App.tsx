@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Layout } from './components/layout/Layout'
 import {
-  Dashboard,
+  // Dashboard,  // Temporariamente desabilitado para debug
   Transactions,
   CreditCards,
   Budgets,
@@ -12,6 +12,7 @@ import {
   Settings,
 } from './pages'
 import { Categories } from './pages/Categories'
+import { DashboardSimple } from './pages/DashboardSimple'
 import { useCategoriasStore, useTransacoesStore, useCartoesStore } from './store'
 
 function App() {
@@ -63,7 +64,7 @@ function App() {
     <BrowserRouter>
       <Layout>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<DashboardSimple />} />
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/credit-cards" element={<CreditCards />} />
           <Route path="/categories" element={<Categories />} />
