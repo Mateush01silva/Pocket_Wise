@@ -57,8 +57,8 @@ export function Dashboard() {
 
   const saldo = receitas - despesas
 
-  // Get recent transactions (last 5)
-  const transacoesRecentes = lancamentos
+  // Get recent transactions (last 5) - criar cópia antes de ordenar!
+  const transacoesRecentes = [...lancamentos]
     .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
     .slice(0, 5)
 

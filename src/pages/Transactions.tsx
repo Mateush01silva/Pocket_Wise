@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import { Card, CardContent, Button, Select, Input } from '../components/ui'
 import { Plus, Search, Trash2, Check } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
@@ -33,29 +33,27 @@ export function Transactions() {
     return categoria?.nome || 'Categoria desconhecida'
   }, [categorias])
 
-  // Filter and search transactions
-  const filteredLancamentos = useMemo(() => {
-    return lancamentos.filter(lancamento => {
-      // Filter by type
-      if (filterTipo !== 'all' && lancamento.tipo !== filterTipo) return false
+  // Filter and search transactions - sem useMemo para evitar loops
+  const filteredLancamentos = lancamentos.filter(lancamento => {
+    // Filter by type
+    if (filterTipo !== 'all' && lancamento.tipo !== filterTipo) return false
 
-      // Filter by status
-      if (filterStatus !== 'all' && lancamento.status !== filterStatus) return false
+    // Filter by status
+    if (filterStatus !== 'all' && lancamento.status !== filterStatus) return false
 
-      // Filter by category
-      if (filterCategoria !== 'all' && lancamento.categoria_id !== filterCategoria) return false
+    // Filter by category
+    if (filterCategoria !== 'all' && lancamento.categoria_id !== filterCategoria) return false
 
-      // Search term (category name or observacao)
-      if (searchTerm) {
-        const catName = getCategoryName(lancamento.categoria_id).toLowerCase()
-        const obs = lancamento.observacao?.toLowerCase() || ''
-        const search = searchTerm.toLowerCase()
-        if (!catName.includes(search) && !obs.includes(search)) return false
-      }
+    // Search term (category name or observacao)
+    if (searchTerm) {
+      const catName = getCategoryName(lancamento.categoria_id).toLowerCase()
+      const obs = lancamento.observacao?.toLowerCase() || ''
+      const search = searchTerm.toLowerCase()
+      if (!catName.includes(search) && !obs.includes(search)) return false
+    }
 
-      return true
-    }).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-  }, [lancamentos, filterTipo, filterStatus, filterCategoria, searchTerm, getCategoryName])
+    return true
+  }).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
 
   // Pagination
   const totalPages = Math.ceil(filteredLancamentos.length / itemsPerPage)
