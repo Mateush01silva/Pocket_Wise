@@ -1,73 +1,152 @@
-# React + TypeScript + Vite
+# 💰 PocketWise - Sistema de Gestão Financeira Pessoal/Familiar
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+PocketWise é um SaaS B2C para controle financeiro pessoal e familiar. Permite que famílias compartilhem e gerenciem suas finanças juntas, com múltiplos usuários editando os mesmos dados.
 
-Currently, two official plugins are available:
+## ✨ Funcionalidades Principais
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 📊 **Dashboard Interativo**: Visão geral completa do patrimônio e finanças
+- 💸 **Gestão de Transações**: Lançamento de despesas e receitas de qualquer lugar
+- 💳 **Controle de Cartões**: Gerenciamento de cartões de crédito e parcelamentos
+- 📈 **Projeções Financeiras**: Projeção de gastos futuros baseada no histórico
+- 👨‍👩‍👧‍👦 **Compartilhamento Familiar**: Múltiplos usuários gerenciando as mesmas finanças
+- 🎯 **Orçamentos**: Definição e acompanhamento de limites de gastos por categoria
 
-## React Compiler
+## 🚀 Stack Tecnológica
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Frontend
+- **React 18** - Framework principal
+- **TypeScript** - Type safety
+- **Vite** - Build tool e dev server
+- **TailwindCSS 3** - Estilização com design system dark mode
+- **React Router DOM** - Navegação
+- **Zustand** - State management
+- **Recharts** - Gráficos e visualizações
+- **Lucide React** - Ícones
+- **Sonner** - Toast notifications
+- **date-fns** - Manipulação de datas
 
-## Expanding the ESLint configuration
+### Backend & Infraestrutura (Próximas Fases)
+- **Supabase** - Banco de dados PostgreSQL + Auth + RLS
+- **Stripe** - Sistema de pagamentos e assinaturas
+- **Vercel** - Hospedagem e deploy
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🎨 Design System
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **Tema**: Dark mode com estética tech moderna
+- **Cores**:
+  - Background: `#0f0f0f` (dark-900)
+  - Primary: `#0ea5e9` (Azul tech)
+  - Secondary: `#a855f7` (Roxo)
+- **Estilo**: Cards com glassmorphism, bordas arredondadas, sombras suaves
+- **Tipografia**: Inter
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 📁 Estrutura do Projeto
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+src/
+├── components/
+│   ├── ui/              # Componentes de UI reutilizáveis (Button, Card, Input)
+│   ├── layout/          # Componentes de layout (Sidebar, Layout)
+│   └── features/        # Componentes específicos de features
+├── pages/               # Páginas da aplicação
+├── hooks/               # Custom React hooks
+├── store/               # Zustand stores
+├── types/               # TypeScript types e interfaces
+├── utils/               # Funções utilitárias (currency, date)
+├── lib/                 # Configurações de bibliotecas
+└── services/            # Serviços (localStorage, futuramente Supabase)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🛠️ Como Executar
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Pré-requisitos
+- Node.js 18+ instalado
+- npm ou yarn
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Instalação
+
+1. Clone o repositório:
+```bash
+git clone https://github.com/Mateush01silva/Pocket_Wise.git
+cd Pocket_Wise
 ```
+
+2. Instale as dependências:
+```bash
+npm install
+```
+
+3. Execute o projeto em modo desenvolvimento:
+```bash
+npm run dev
+```
+
+4. Acesse no navegador:
+```
+http://localhost:5173
+```
+
+### Scripts Disponíveis
+
+```bash
+npm run dev          # Inicia servidor de desenvolvimento
+npm run build        # Compila para produção
+npm run preview      # Preview da build de produção
+npm run lint         # Executa o ESLint
+```
+
+## 🗺️ Roadmap de Desenvolvimento
+
+### ✅ Fase 1 - Setup Inicial (Concluído)
+- [x] Configuração do projeto com Vite + React + TypeScript
+- [x] Setup do TailwindCSS e design system
+- [x] Criação de componentes base de UI
+- [x] Layout com sidebar e navegação
+- [x] Estrutura de pastas organizada
+- [x] Tipos TypeScript para entidades principais
+
+### 🚧 Fase 2 - MVP com LocalStorage (Em Planejamento)
+- [ ] CRUD de transações (receitas/despesas)
+- [ ] CRUD de cartões de crédito
+- [ ] Sistema de categorias
+- [ ] Dashboard com estatísticas básicas
+- [ ] Gráficos de gastos por categoria
+- [ ] Lista de transações recentes
+- [ ] Sistema de orçamentos
+
+### 📋 Fase 3 - Funcionalidades Avançadas
+- [ ] Transações recorrentes
+- [ ] Parcelamentos de cartão de crédito
+- [ ] Projeções financeiras
+- [ ] Filtros e busca avançada
+- [ ] Exportação de dados (CSV, PDF)
+
+### 🔐 Fase 4 - Integração Supabase
+- [ ] Migração do LocalStorage para Supabase
+- [ ] Sistema de autenticação
+- [ ] Compartilhamento familiar com RLS
+- [ ] Sincronização em tempo real
+
+### 💳 Fase 5 - Monetização
+- [ ] Integração com Stripe
+- [ ] Sistema de planos (Free, Premium, Family)
+- [ ] Gestão de assinaturas
+- [ ] Webhooks para pagamentos
+
+### 🚀 Fase 6 - Deploy
+- [ ] Deploy na Vercel
+- [ ] Configuração de domínio
+- [ ] Analytics e monitoramento
+- [ ] CI/CD pipeline
+
+## 🤝 Contribuindo
+
+Este é um projeto em desenvolvimento. Contribuições são bem-vindas!
+
+## 📄 Licença
+
+Este projeto está sob a licença MIT.
+
+---
+
+Desenvolvido com 💜 usando Claude Code
