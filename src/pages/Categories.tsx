@@ -1,13 +1,26 @@
+import { useMemo } from 'react'
 import { useCategoriasStore } from '../store'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui'
 
 export function Categories() {
   const categorias = useCategoriasStore((state) => state.categorias)
-  const categoriasPrincipais = useCategoriasStore((state) => state.getCategoriasPrincipais())
   const getSubcategorias = useCategoriasStore((state) => state.getSubcategorias)
 
-  const despesas = categoriasPrincipais.filter((c) => c.tipo === 'despesa')
-  const receitas = categoriasPrincipais.filter((c) => c.tipo === 'receita')
+  // Calcular categorias principais a partir das categorias
+  const categoriasPrincipais = useMemo(
+    () => categorias.filter((c) => !c.categoria_pai_id),
+    [categorias]
+  )
+
+  const despesas = useMemo(
+    () => categoriasPrincipais.filter((c) => c.tipo === 'despesa'),
+    [categoriasPrincipais]
+  )
+
+  const receitas = useMemo(
+    () => categoriasPrincipais.filter((c) => c.tipo === 'receita'),
+    [categoriasPrincipais]
+  )
 
   return (
     <div className="space-y-8">
