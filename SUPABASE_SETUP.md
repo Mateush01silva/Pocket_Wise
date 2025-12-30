@@ -22,10 +22,12 @@ Este guia vai te ajudar a configurar o Supabase para o PocketWise.
 
 ### 2. Obter Credenciais do Projeto
 
-1. No dashboard do seu projeto, vá em **Settings** (ícone de engrenagem) → **API**
+1. No dashboard do seu projeto, vá em **Settings** (ícone de engrenagem) → **Chaves de API** (ou **API Keys**)
 2. Copie os seguintes valores:
-   - **Project URL**: `https://xxxxxxxxxxx.supabase.co`
-   - **anon/public key**: Uma chave longa começando com `eyJ...`
+   - **Project URL**: `https://xxxxxxxxxxx.supabase.co` (encontrado em Settings → Project Settings → API)
+   - **Chave publicável** (Publishable Key): Uma chave começando com `sb_publishable_...`
+
+   ⚠️ **ATENÇÃO**: Use a "Chave publicável", NÃO use a "Chave secreta"! A chave secreta é apenas para backend/servidores.
 
 ### 3. Configurar Variáveis de Ambiente
 
