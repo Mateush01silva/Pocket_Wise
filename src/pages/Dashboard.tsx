@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button } from '../components/ui'
 import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
@@ -9,6 +9,11 @@ import { TransactionModal } from '../components/TransactionModal'
 export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
+
+  // Callback estável para fechar modal
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false)
+  }, [])
 
   // Calcular dados do mês atual
   const stats = useMemo(() => {
@@ -226,7 +231,7 @@ export function Dashboard() {
       </div>
 
       {/* Transaction Modal */}
-      <TransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <TransactionModal isOpen={isModalOpen} onClose={handleCloseModal} />
     </div>
   )
 }
