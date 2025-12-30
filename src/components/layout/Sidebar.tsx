@@ -1,0 +1,88 @@
+import { Link, useLocation } from 'react-router-dom'
+import {
+  LayoutDashboard,
+  Receipt,
+  CreditCard,
+  TrendingUp,
+  Settings,
+  Wallet,
+  Users,
+} from 'lucide-react'
+import { cn } from '../../lib/cn'
+
+interface NavItem {
+  name: string
+  path: string
+  icon: React.ComponentType<{ className?: string }>
+}
+
+const navItems: NavItem[] = [
+  { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { name: 'Transações', path: '/transactions', icon: Receipt },
+  { name: 'Cartões', path: '/credit-cards', icon: CreditCard },
+  { name: 'Orçamentos', path: '/budgets', icon: Wallet },
+  { name: 'Projeções', path: '/projections', icon: TrendingUp },
+  { name: 'Família', path: '/family', icon: Users },
+  { name: 'Configurações', path: '/settings', icon: Settings },
+]
+
+export function Sidebar() {
+  const location = useLocation()
+
+  return (
+    <aside className="fixed left-0 top-0 h-screen w-64 bg-dark-900 border-r border-dark-700/50 flex flex-col">
+      {/* Logo */}
+      <div className="p-6 border-b border-dark-700/50">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center">
+            <Wallet className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold gradient-text">PocketWise</h1>
+            <p className="text-xs text-gray-500">Gestão Financeira</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 p-4 overflow-y-auto">
+        <ul className="space-y-2">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const isActive = location.pathname === item.path
+
+            return (
+              <li key={item.path}>
+                <Link
+                  to={item.path}
+                  className={cn(
+                    'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200',
+                    isActive
+                      ? 'bg-primary-500/10 text-primary-400 shadow-lg shadow-primary-500/20'
+                      : 'text-gray-400 hover:bg-dark-800 hover:text-gray-200'
+                  )}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="font-medium">{item.name}</span>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      </nav>
+
+      {/* User info */}
+      <div className="p-4 border-t border-dark-700/50">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-dark-800/50">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-secondary-400 flex items-center justify-center">
+            <span className="text-sm font-semibold text-white">U</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-200 truncate">Usuário</p>
+            <p className="text-xs text-gray-500 truncate">Plano Free</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  )
+}
