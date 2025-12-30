@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Layout } from './components/layout/Layout'
@@ -15,6 +15,7 @@ import { Categories } from './pages/Categories'
 import { useCategoriasStore, useTransacoesStore, useCartoesStore } from './store'
 
 function App() {
+  const [isInitialized, setIsInitialized] = useState(false)
   const initializeCategorias = useCategoriasStore((state) => state.initialize)
   const fetchLancamentos = useTransacoesStore((state) => state.fetchLancamentos)
   const fetchCartoes = useCartoesStore((state) => state.fetchCartoes)
@@ -37,12 +38,26 @@ function App() {
         console.log('✅ Cartões carregados')
 
         console.log('🎉 PocketWise inicializado com sucesso!')
+        setIsInitialized(true)
       } catch (error) {
         console.error('❌ Erro ao inicializar PocketWise:', error)
+        setIsInitialized(true) // Permitir renderizar mesmo com erro
       }
     }
     init()
   }, [initializeCategorias, fetchLancamentos, fetchCartoes])
+
+  // Mostrar loading enquanto inicializa
+  if (!isInitialized) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-dark-900">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400 text-lg">Carregando PocketWise...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <BrowserRouter>
