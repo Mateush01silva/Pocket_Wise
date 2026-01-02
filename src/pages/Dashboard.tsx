@@ -88,7 +88,6 @@ export function Dashboard() {
     .reduce((sum, l) => sum + l.valor, 0)
 
   const saldoProjetado = saldoInicial - faturasCartao - gastosRealizados - contasPendentes
-  const saldo = receitas - despesas
 
   // Calcular período anterior para comparação
   const diasPeriodo = Math.abs(differenceInDays(dateRange.endDate, dateRange.startDate))

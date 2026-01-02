@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Calendar, ChevronDown } from 'lucide-react'
 import { Button } from './ui'
 import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 
 export type DateRangePreset =
   | 'current_month'

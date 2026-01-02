@@ -27,7 +27,7 @@ export function CategoryDetailsModal({
   if (!isOpen) return null
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="" maxWidth="max-w-3xl">
+    <Modal isOpen={isOpen} onClose={onClose} title="" maxWidth="2xl">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between">
