@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
-import { Card, CardContent, Button, Select, Input } from '../components/ui'
-import { Plus, Search, Trash2, Check } from 'lucide-react'
+import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
+import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
 import { TransactionModal } from '../components/TransactionModal'
@@ -118,10 +118,26 @@ export function Transactions() {
         </Button>
       </div>
 
-      {/* Filters */}
+      {/* Filters and Tabs */}
       <Card>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="space-y-4">
+          {/* Tabs */}
+          <Tabs
+            items={[
+              { value: 'all', label: 'Todas', icon: <List className="w-4 h-4" /> },
+              { value: 'receita', label: 'Receitas', icon: <TrendingUp className="w-4 h-4" /> },
+              { value: 'despesa', label: 'Despesas', icon: <TrendingDown className="w-4 h-4" /> },
+            ]}
+            value={filterTipo}
+            onChange={(value) => {
+              setFilterTipo(value as any)
+              setCurrentPage(1) // Reset to first page when changing tabs
+            }}
+          />
+
+          {/* Filters */}
+          <div className="pt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -132,17 +148,6 @@ export function Transactions() {
                 className="pl-10"
               />
             </div>
-
-            {/* Filter by Type */}
-            <Select
-              value={filterTipo}
-              onChange={(e) => setFilterTipo(e.target.value as any)}
-              options={[
-                { value: 'all', label: 'Todos os tipos' },
-                { value: 'receita', label: 'Receitas' },
-                { value: 'despesa', label: 'Despesas' },
-              ]}
-            />
 
             {/* Filter by Status */}
             <Select
@@ -168,7 +173,8 @@ export function Transactions() {
               ]}
             />
           </div>
-        </CardContent>
+          </div>
+        </div>
       </Card>
 
       {/* Bulk Actions */}
