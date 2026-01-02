@@ -118,24 +118,25 @@ export function Transactions() {
         </Button>
       </div>
 
-      {/* Tabs */}
+      {/* Filters and Tabs */}
       <Card>
-        <Tabs
-          items={[
-            { value: 'all', label: 'Todas', icon: <List className="w-4 h-4" /> },
-            { value: 'receita', label: 'Receitas', icon: <TrendingUp className="w-4 h-4" /> },
-            { value: 'despesa', label: 'Despesas', icon: <TrendingDown className="w-4 h-4" /> },
-          ]}
-          value={filterTipo}
-          onChange={(value) => {
-            setFilterTipo(value as any)
-            setCurrentPage(1) // Reset to first page when changing tabs
-          }}
-          className="px-6 pt-4"
-        />
+        <div className="space-y-4">
+          {/* Tabs */}
+          <Tabs
+            items={[
+              { value: 'all', label: 'Todas', icon: <List className="w-4 h-4" /> },
+              { value: 'receita', label: 'Receitas', icon: <TrendingUp className="w-4 h-4" /> },
+              { value: 'despesa', label: 'Despesas', icon: <TrendingDown className="w-4 h-4" /> },
+            ]}
+            value={filterTipo}
+            onChange={(value) => {
+              setFilterTipo(value as any)
+              setCurrentPage(1) // Reset to first page when changing tabs
+            }}
+          />
 
-        {/* Filters */}
-        <CardContent className="pt-4">
+          {/* Filters */}
+          <div className="pt-2">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Search */}
             <div className="relative">
@@ -172,7 +173,8 @@ export function Transactions() {
               ]}
             />
           </div>
-        </CardContent>
+          </div>
+        </div>
       </Card>
 
       {/* Bulk Actions */}

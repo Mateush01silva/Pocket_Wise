@@ -97,13 +97,23 @@ export function getDateRangeFromPreset(preset: DateRangePreset): { startDate: Da
 export function getDefaultDateRange(): DateRange {
   // Try to load from localStorage
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      return {
-        startDate: new Date(parsed.startDate),
-        endDate: new Date(parsed.endDate),
-        preset: parsed.preset as DateRangePreset
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        const startDate = new Date(parsed.startDate)
+        const endDate = new Date(parsed.endDate)
+
+        // Validate dates
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          throw new Error('Invalid dates in stored range')
+        }
+
+        return {
+          startDate,
+          endDate,
+          preset: parsed.preset as DateRangePreset
+        }
       }
     }
   } catch (error) {
