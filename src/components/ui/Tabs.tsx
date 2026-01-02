@@ -28,8 +28,8 @@ export function Tabs({ items, value, onChange, className = '' }: TabsProps) {
             }`}
           >
             <div className="flex items-center gap-2">
-              {item.icon}
-              {item.label}
+              {item.icon && <>{item.icon}</>}
+              <span>{item.label}</span>
             </div>
             {value === item.value && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-400" />
