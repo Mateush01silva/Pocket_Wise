@@ -186,13 +186,18 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
   }
 
   const getCurrentLabel = () => {
-    const preset = presets.find(p => p.value === value.preset)
+    try {
+      const preset = presets.find(p => p.value === value.preset)
 
-    if (value.preset === 'custom') {
-      return `${format(value.startDate, 'dd/MM/yy')} - ${format(value.endDate, 'dd/MM/yy')}`
+      if (value.preset === 'custom' && value.startDate && value.endDate) {
+        return `${format(value.startDate, 'dd/MM/yy')} - ${format(value.endDate, 'dd/MM/yy')}`
+      }
+
+      return preset?.label || 'Selecione um período'
+    } catch (error) {
+      console.error('Error getting label:', error)
+      return 'Erro ao carregar período'
     }
-
-    return preset?.label || 'Selecione um período'
   }
 
   return (
