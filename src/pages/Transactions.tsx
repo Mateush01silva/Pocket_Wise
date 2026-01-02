@@ -137,42 +137,42 @@ export function Transactions() {
 
           {/* Filters */}
           <div className="pt-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <Input
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input
+                  placeholder="Buscar..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Filter by Status */}
+              <Select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value as any)}
+                options={[
+                  { value: 'all', label: 'Todos os status' },
+                  { value: 'pago', label: 'Pago' },
+                  { value: 'pendente', label: 'Pendente' },
+                  { value: 'projetado', label: 'Projetado' },
+                ]}
+              />
+
+              {/* Filter by Category */}
+              <Select
+                value={filterCategoria}
+                onChange={(e) => setFilterCategoria(e.target.value)}
+                options={[
+                  { value: 'all', label: 'Todas as categorias' },
+                  ...categorias
+                    .filter(c => !c.categoria_pai_id)
+                    .map(cat => ({ value: cat.id, label: cat.nome })),
+                ]}
               />
             </div>
-
-            {/* Filter by Status */}
-            <Select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as any)}
-              options={[
-                { value: 'all', label: 'Todos os status' },
-                { value: 'pago', label: 'Pago' },
-                { value: 'pendente', label: 'Pendente' },
-                { value: 'projetado', label: 'Projetado' },
-              ]}
-            />
-
-            {/* Filter by Category */}
-            <Select
-              value={filterCategoria}
-              onChange={(e) => setFilterCategoria(e.target.value)}
-              options={[
-                { value: 'all', label: 'Todas as categorias' },
-                ...categorias
-                  .filter(c => !c.categoria_pai_id)
-                  .map(cat => ({ value: cat.id, label: cat.nome })),
-              ]}
-            />
-          </div>
           </div>
         </div>
       </Card>
