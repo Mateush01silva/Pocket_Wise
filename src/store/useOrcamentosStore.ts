@@ -388,6 +388,18 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
         orcamentos: state.orcamentos,
         categoriasBudget: state.categoriasBudget,
       }),
+      onRehydrateStorage: () => {
+        return (_state, error) => {
+          if (error) {
+            console.error('Erro ao hidratar store de orçamentos:', error)
+            try {
+              localStorage.removeItem('pocketwise-orcamentos-store')
+            } catch (e) {
+              console.error('Erro ao limpar storage:', e)
+            }
+          }
+        }
+      },
     }
   )
 )

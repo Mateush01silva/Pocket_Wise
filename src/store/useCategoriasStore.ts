@@ -189,6 +189,19 @@ export const useCategoriasStore = create<CategoriasStore>()(
         categorias: state.categorias,
         initialized: state.initialized,
       }),
+      onRehydrateStorage: () => {
+        return (_state, error) => {
+          if (error) {
+            console.error('Erro ao hidratar store de categorias:', error)
+            // Limpar storage corrompido
+            try {
+              localStorage.removeItem('pocketwise-categorias-store')
+            } catch (e) {
+              console.error('Erro ao limpar storage:', e)
+            }
+          }
+        }
+      },
     }
   )
 )
