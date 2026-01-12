@@ -453,9 +453,407 @@ export const categoriasService = {
   },
 }
 
+// =====================================================
+// ORÇAMENTOS MENSAIS Service
+// =====================================================
+
+export const orcamentosService = {
+  async getAll(filters?: { family_id?: string; mes_referencia?: string; status?: string }): Promise<DbListResult<import('../types').OrcamentoMensal>> {
+    if (useLocalStorage) {
+      let orcamentos = LocalStorageService.get<import('../types').OrcamentoMensal[]>(STORAGE_KEYS.ORCAMENTOS_MENSAIS) || []
+
+      if (filters) {
+        if (filters.mes_referencia) {
+          orcamentos = orcamentos.filter((o) => o.mes_referencia === filters.mes_referencia)
+        }
+        if (filters.status) {
+          orcamentos = orcamentos.filter((o) => o.status === filters.status)
+        }
+      }
+
+      return { data: orcamentos, error: null, count: orcamentos.length }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured'), count: null }
+    }
+
+    const familyId = await getUserFamilyId()
+    let query = supabase
+      .from('orcamentos_mensais')
+      .select('*', { count: 'exact' })
+      .eq('family_id', familyId as string)
+      .order('mes_referencia', { ascending: false })
+
+    if (filters?.mes_referencia) query = query.eq('mes_referencia', filters.mes_referencia)
+    if (filters?.status) query = query.eq('status', filters.status)
+
+    const { data, error, count } = await query
+    return { data: data as any, error, count }
+  },
+
+  async getById(id: string): Promise<DbResult<import('../types').OrcamentoMensal>> {
+    if (useLocalStorage) {
+      const orcamentos = LocalStorageService.get<import('../types').OrcamentoMensal[]>(STORAGE_KEYS.ORCAMENTOS_MENSAIS) || []
+      const orcamento = orcamentos.find((o) => o.id === id)
+      return { data: orcamento || null, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { data, error } = await supabase
+      .from('orcamentos_mensais')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    return { data: data as any, error }
+  },
+
+  async create(input: import('../types').CreateOrcamentoInput): Promise<DbResult<import('../types').OrcamentoMensal>> {
+    if (useLocalStorage) {
+      const orcamentos = LocalStorageService.get<import('../types').OrcamentoMensal[]>(STORAGE_KEYS.ORCAMENTOS_MENSAIS) || []
+      const newOrcamento: import('../types').OrcamentoMensal = {
+        id: crypto.randomUUID(),
+        ...input,
+        criado_por: null,
+        dia_inicio_ciclo: input.dia_inicio_ciclo || 1,
+        metodo_calculo: input.metodo_calculo || 'conservador',
+        status: input.status || 'rascunho',
+        meta_poupanca_percentual: input.meta_poupanca_percentual || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      orcamentos.push(newOrcamento)
+      LocalStorageService.set(STORAGE_KEYS.ORCAMENTOS_MENSAIS, orcamentos)
+      return { data: newOrcamento, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const user = await getCurrentUser()
+    const { data, error } = await supabase
+      .from('orcamentos_mensais')
+      .insert({
+        ...input,
+        criado_por: user?.id || null,
+      } as any)
+      .select()
+      .single()
+
+    return { data: data as any, error }
+  },
+
+  async update(input: import('../types').UpdateOrcamentoInput): Promise<DbResult<import('../types').OrcamentoMensal>> {
+    const { id, ...updateData } = input
+
+    if (useLocalStorage) {
+      const orcamentos = LocalStorageService.get<import('../types').OrcamentoMensal[]>(STORAGE_KEYS.ORCAMENTOS_MENSAIS) || []
+      const index = orcamentos.findIndex((o) => o.id === id)
+      if (index === -1) {
+        return { data: null, error: new Error('Orçamento not found') }
+      }
+      orcamentos[index] = {
+        ...orcamentos[index],
+        ...updateData,
+        updated_at: new Date().toISOString(),
+      }
+      LocalStorageService.set(STORAGE_KEYS.ORCAMENTOS_MENSAIS, orcamentos)
+      return { data: orcamentos[index], error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { data, error } = await supabase
+      .from('orcamentos_mensais')
+      .update(updateData as any)
+      .eq('id', id)
+      .select()
+      .single()
+
+    return { data: data as any, error }
+  },
+
+  async delete(id: string): Promise<DbResult<void>> {
+    if (useLocalStorage) {
+      const orcamentos = LocalStorageService.get<import('../types').OrcamentoMensal[]>(STORAGE_KEYS.ORCAMENTOS_MENSAIS) || []
+      const filtered = orcamentos.filter((o) => o.id !== id)
+      LocalStorageService.set(STORAGE_KEYS.ORCAMENTOS_MENSAIS, filtered)
+
+      // Deletar categorias budget relacionadas
+      const categoriasBudget = LocalStorageService.get<import('../types').CategoriaBudget[]>(STORAGE_KEYS.CATEGORIAS_BUDGET) || []
+      const filteredCategorias = categoriasBudget.filter((cb) => cb.orcamento_id !== id)
+      LocalStorageService.set(STORAGE_KEYS.CATEGORIAS_BUDGET, filteredCategorias)
+
+      return { data: undefined as void, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { error } = await supabase.from('orcamentos_mensais').delete().eq('id', id)
+    return { data: undefined as void, error }
+  },
+}
+
+// =====================================================
+// CATEGORIAS BUDGET Service
+// =====================================================
+
+export const categoriasBudgetService = {
+  async getAll(orcamento_id: string): Promise<DbListResult<import('../types').CategoriaBudget>> {
+    if (useLocalStorage) {
+      const categoriasBudget = LocalStorageService.get<import('../types').CategoriaBudget[]>(STORAGE_KEYS.CATEGORIAS_BUDGET) || []
+      const filtered = categoriasBudget.filter((cb) => cb.orcamento_id === orcamento_id)
+      return { data: filtered, error: null, count: filtered.length }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured'), count: null }
+    }
+
+    const { data, error, count } = await supabase
+      .from('categorias_budget')
+      .select('*', { count: 'exact' })
+      .eq('orcamento_id', orcamento_id)
+
+    return { data: data as any, error, count }
+  },
+
+  async create(input: import('../types').CreateCategoriaBudgetInput): Promise<DbResult<import('../types').CategoriaBudget>> {
+    if (useLocalStorage) {
+      const categoriasBudget = LocalStorageService.get<import('../types').CategoriaBudget[]>(STORAGE_KEYS.CATEGORIAS_BUDGET) || []
+      const newCategoriaBudget: import('../types').CategoriaBudget = {
+        id: crypto.randomUUID(),
+        ...input,
+        prioridade: input.prioridade || 'importante',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      categoriasBudget.push(newCategoriaBudget)
+      LocalStorageService.set(STORAGE_KEYS.CATEGORIAS_BUDGET, categoriasBudget)
+      return { data: newCategoriaBudget, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { data, error } = await supabase
+      .from('categorias_budget')
+      .insert(input as any)
+      .select()
+      .single()
+
+    return { data: data as any, error }
+  },
+
+  async bulkCreate(inputs: import('../types').BulkCategoriaBudgetInput): Promise<DbResult<import('../types').CategoriaBudget[]>> {
+    if (useLocalStorage) {
+      const categoriasBudget = LocalStorageService.get<import('../types').CategoriaBudget[]>(STORAGE_KEYS.CATEGORIAS_BUDGET) || []
+      const newCategorias = inputs.categorias.map((cat) => ({
+        id: crypto.randomUUID(),
+        orcamento_id: inputs.orcamento_id,
+        categoria_id: cat.categoria_id,
+        valor_orcado: cat.valor_orcado,
+        prioridade: cat.prioridade,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }))
+      categoriasBudget.push(...newCategorias)
+      LocalStorageService.set(STORAGE_KEYS.CATEGORIAS_BUDGET, categoriasBudget)
+      return { data: newCategorias as any, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const insertData = inputs.categorias.map((cat) => ({
+      orcamento_id: inputs.orcamento_id,
+      categoria_id: cat.categoria_id,
+      valor_orcado: cat.valor_orcado,
+      prioridade: cat.prioridade,
+    }))
+
+    const { data, error } = await supabase
+      .from('categorias_budget')
+      .insert(insertData as any)
+      .select()
+
+    return { data: data as any, error }
+  },
+
+  async update(input: import('../types').UpdateCategoriaBudgetInput): Promise<DbResult<import('../types').CategoriaBudget>> {
+    const { id, ...updateData } = input
+
+    if (useLocalStorage) {
+      const categoriasBudget = LocalStorageService.get<import('../types').CategoriaBudget[]>(STORAGE_KEYS.CATEGORIAS_BUDGET) || []
+      const index = categoriasBudget.findIndex((cb) => cb.id === id)
+      if (index === -1) {
+        return { data: null, error: new Error('Categoria budget not found') }
+      }
+      categoriasBudget[index] = {
+        ...categoriasBudget[index],
+        ...updateData,
+        updated_at: new Date().toISOString(),
+      }
+      LocalStorageService.set(STORAGE_KEYS.CATEGORIAS_BUDGET, categoriasBudget)
+      return { data: categoriasBudget[index], error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { data, error } = await supabase
+      .from('categorias_budget')
+      .update(updateData as any)
+      .eq('id', id)
+      .select()
+      .single()
+
+    return { data: data as any, error }
+  },
+
+  async delete(id: string): Promise<DbResult<void>> {
+    if (useLocalStorage) {
+      const categoriasBudget = LocalStorageService.get<import('../types').CategoriaBudget[]>(STORAGE_KEYS.CATEGORIAS_BUDGET) || []
+      const filtered = categoriasBudget.filter((cb) => cb.id !== id)
+      LocalStorageService.set(STORAGE_KEYS.CATEGORIAS_BUDGET, filtered)
+      return { data: undefined as void, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { error } = await supabase.from('categorias_budget').delete().eq('id', id)
+    return { data: undefined as void, error }
+  },
+}
+
+// =====================================================
+// ALERTAS ORÇAMENTO Service
+// =====================================================
+
+export const alertasOrcamentoService = {
+  async getAll(filters?: { lido?: boolean }): Promise<DbListResult<import('../types').AlertaOrcamento>> {
+    if (useLocalStorage) {
+      let alertas = LocalStorageService.get<import('../types').AlertaOrcamento[]>(STORAGE_KEYS.ALERTAS_ORCAMENTO) || []
+
+      if (filters?.lido !== undefined) {
+        alertas = alertas.filter((a) => a.lido === filters.lido)
+      }
+
+      return { data: alertas, error: null, count: alertas.length }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured'), count: null }
+    }
+
+    const familyId = await getUserFamilyId()
+    let query = supabase
+      .from('alertas_orcamento')
+      .select('*', { count: 'exact' })
+      .eq('family_id', familyId as string)
+      .order('created_at', { ascending: false })
+
+    if (filters?.lido !== undefined) {
+      query = query.eq('lido', filters.lido)
+    }
+
+    const { data, error, count } = await query
+    return { data: data as any, error, count }
+  },
+
+  async create(input: import('../types').CreateAlertaInput): Promise<DbResult<import('../types').AlertaOrcamento>> {
+    if (useLocalStorage) {
+      const alertas = LocalStorageService.get<import('../types').AlertaOrcamento[]>(STORAGE_KEYS.ALERTAS_ORCAMENTO) || []
+      const newAlerta: import('../types').AlertaOrcamento = {
+        id: crypto.randomUUID(),
+        ...input,
+        user_id: input.user_id || null,
+        orcamento_id: input.orcamento_id || null,
+        categoria_id: input.categoria_id || null,
+        lido: false,
+        created_at: new Date().toISOString(),
+      }
+      alertas.push(newAlerta)
+      LocalStorageService.set(STORAGE_KEYS.ALERTAS_ORCAMENTO, alertas)
+      return { data: newAlerta, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { data, error } = await supabase
+      .from('alertas_orcamento')
+      .insert(input as any)
+      .select()
+      .single()
+
+    return { data: data as any, error }
+  },
+
+  async marcarComoLido(id: string): Promise<DbResult<import('../types').AlertaOrcamento>> {
+    if (useLocalStorage) {
+      const alertas = LocalStorageService.get<import('../types').AlertaOrcamento[]>(STORAGE_KEYS.ALERTAS_ORCAMENTO) || []
+      const index = alertas.findIndex((a) => a.id === id)
+      if (index === -1) {
+        return { data: null, error: new Error('Alerta not found') }
+      }
+      alertas[index] = { ...alertas[index], lido: true }
+      LocalStorageService.set(STORAGE_KEYS.ALERTAS_ORCAMENTO, alertas)
+      return { data: alertas[index], error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { data, error } = await supabase
+      .from('alertas_orcamento')
+      .update({ lido: true } as any)
+      .eq('id', id)
+      .select()
+      .single()
+
+    return { data: data as any, error }
+  },
+
+  async delete(id: string): Promise<DbResult<void>> {
+    if (useLocalStorage) {
+      const alertas = LocalStorageService.get<import('../types').AlertaOrcamento[]>(STORAGE_KEYS.ALERTAS_ORCAMENTO) || []
+      const filtered = alertas.filter((a) => a.id !== id)
+      LocalStorageService.set(STORAGE_KEYS.ALERTAS_ORCAMENTO, filtered)
+      return { data: undefined as void, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { error } = await supabase.from('alertas_orcamento').delete().eq('id', id)
+    return { data: undefined as void, error }
+  },
+}
+
 // Export all services
 export const db = {
   lancamentos: lancamentosService,
   cartoes: cartoesService,
   categorias: categoriasService,
+  orcamentos: orcamentosService,
+  categoriasBudget: categoriasBudgetService,
+  alertas: alertasOrcamentoService,
 }

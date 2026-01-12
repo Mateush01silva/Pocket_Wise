@@ -9,6 +9,10 @@ const STORAGE_KEYS = {
   CATEGORIAS: 'pocketwise_categorias',
   PLANEJAMENTOS: 'pocketwise_planejamentos',
   RECEITAS_PROJETADAS: 'pocketwise_receitas_projetadas',
+  ORCAMENTOS_MENSAIS: 'pocketwise_orcamentos_mensais',
+  CATEGORIAS_BUDGET: 'pocketwise_categorias_budget',
+  ALERTAS_ORCAMENTO: 'pocketwise_alertas_orcamento',
+  CONFIGURACOES_ORCAMENTO: 'pocketwise_configuracoes_orcamento',
   USER: 'pocketwise_user',
   FAMILY: 'pocketwise_family',
 } as const
