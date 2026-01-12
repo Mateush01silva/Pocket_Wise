@@ -128,6 +128,18 @@ export const useCartoesStore = create<CartoesStore>()(
       partialize: (state) => ({
         cartoes: state.cartoes,
       }),
+      onRehydrateStorage: () => {
+        return (_state, error) => {
+          if (error) {
+            console.error('Erro ao hidratar store de cartões:', error)
+            try {
+              localStorage.removeItem('pocketwise-cartoes-store')
+            } catch (e) {
+              console.error('Erro ao limpar storage:', e)
+            }
+          }
+        }
+      },
     }
   )
 )

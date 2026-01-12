@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Limpar LocalStorage - PocketWise</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #f1f1f1;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: rgba(30, 30, 46, 0.9);
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    h1 {
+      color: #60a5fa;
+      margin-bottom: 20px;
+      font-size: 28px;
+    }
+
+    p {
+      line-height: 1.6;
+      margin-bottom: 20px;
+      color: #d1d5db;
+    }
+
+    .info-box {
+      background: rgba(234, 179, 8, 0.1);
+      border-left: 4px solid #eab308;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+
+    .info-box strong {
+      color: #fbbf24;
+    }
+
+    button {
+      width: 100%;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-bottom: 10px;
+    }
+
+    .btn-clear {
+      background: #ef4444;
+      color: white;
+    }
+
+    .btn-clear:hover {
+      background: #dc2626;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    }
+
+    .btn-back {
+      background: #3b82f6;
+      color: white;
+    }
+
+    .btn-back:hover {
+      background: #2563eb;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-inspect {
+      background: #10b981;
+      color: white;
+      margin-bottom: 20px;
+    }
+
+    .btn-inspect:hover {
+      background: #059669;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    }
+
+    .success {
+      background: rgba(16, 185, 129, 0.2);
+      border-left: 4px solid #10b981;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .success.show {
+      display: block;
+    }
+
+    .storage-info {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      max-height: 300px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .storage-info.show {
+      display: block;
+    }
+
+    .storage-info pre {
+      color: #93c5fd;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Ferramenta de Diagnóstico PocketWise</h1>
+
+    <p>
+      Esta página ajuda a resolver o erro de tela preta causado por dados
+      corrompidos no LocalStorage do navegador.
+    </p>
+
+    <div class="info-box">
+      <strong>⚠️ Atenção:</strong> Limpar o LocalStorage vai remover todas as
+      transações, categorias e configurações salvas localmente. Isso é seguro
+      e permitirá que o aplicativo reinicie do zero.
+    </div>
+
+    <button class="btn-inspect" onclick="inspectStorage()">
+      🔍 Inspecionar LocalStorage
+    </button>
+
+    <div id="storageInfo" class="storage-info"></div>
+
+    <button class="btn-clear" onclick="clearStorage()">
+      🗑️ Limpar LocalStorage e Recarregar
+    </button>
+
+    <div id="success" class="success">
+      <strong>✅ Sucesso!</strong> LocalStorage limpo. Redirecionando...
+    </div>
+
+    <button class="btn-back" onclick="goBack()">
+      ← Voltar para o PocketWise
+    </button>
+  </div>
+
+  <script>
+    function inspectStorage() {
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('pocketwise_'));
+      const infoDiv = document.getElementById('storageInfo');
+
+      if (keys.length === 0) {
+        infoDiv.innerHTML = '<pre>Nenhum dado do PocketWise encontrado no LocalStorage.</pre>';
+      } else {
+        let info = '<pre>Dados encontrados:\n\n';
+        keys.forEach(key => {
+          const value = localStorage.getItem(key);
+          const size = value ? (new Blob([value]).size / 1024).toFixed(2) : '0';
+          info += `${key}: ${size} KB\n`;
+        });
+        info += '\nTotal de chaves: ' + keys.length + '</pre>';
+        infoDiv.innerHTML = info;
+      }
+
+      infoDiv.classList.add('show');
+    }
+
+    function clearStorage() {
+      if (confirm('Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.')) {
+        try {
+          // Limpar todas as chaves do PocketWise
+          const keys = Object.keys(localStorage).filter(k => k.startsWith('pocketwise_'));
+          keys.forEach(key => localStorage.removeItem(key));
+
+          // Também limpar storage do Zustand
+          const allKeys = Object.keys(localStorage);
+          allKeys.forEach(key => {
+            if (key.includes('zustand') || key.includes('categorias') || key.includes('transacoes') || key.includes('orcamentos')) {
+              localStorage.removeItem(key);
+            }
+          });
+
+          // Mostrar mensagem de sucesso
+          document.getElementById('success').classList.add('show');
+
+          // Redirecionar após 2 segundos
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+        } catch (error) {
+          alert('Erro ao limpar LocalStorage: ' + error.message);
+        }
+      }
+    }
+
+    function goBack() {
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>

@@ -327,6 +327,18 @@ export const useTransacoesStore = create<TransacoesStore>()(
       partialize: (state) => ({
         lancamentos: state.lancamentos,
       }),
+      onRehydrateStorage: () => {
+        return (_state, error) => {
+          if (error) {
+            console.error('Erro ao hidratar store de transações:', error)
+            try {
+              localStorage.removeItem('pocketwise-transacoes-store')
+            } catch (e) {
+              console.error('Erro ao limpar storage:', e)
+            }
+          }
+        }
+      },
     }
   )
 )
