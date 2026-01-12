@@ -6,13 +6,14 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import {
   Dashboard,
   Transactions,
+  Categories,
   CreditCards,
   Budgets,
+  Envelopes,
   Projections,
   Family,
   Settings,
 } from './pages'
-import { Categories } from './pages/Categories'
 import { useCategoriasStore, useTransacoesStore, useCartoesStore } from './store'
 
 function App() {
@@ -70,6 +71,7 @@ function App() {
             <Route path="/credit-cards" element={<CreditCards />} />
             <Route path="/categories" element={<Categories />} />
             <Route path="/budgets" element={<Budgets />} />
+            <Route path="/envelopes" element={<Envelopes />} />
             <Route path="/projections" element={<Projections />} />
             <Route path="/family" element={<Family />} />
             <Route path="/settings" element={<Settings />} />

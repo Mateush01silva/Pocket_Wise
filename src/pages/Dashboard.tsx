@@ -1,17 +1,56 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Card, CardContent, Button } from '../components/ui'
-import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock, Package, AlertTriangle } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
+import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { TransactionModal } from '../components/TransactionModal'
+import { HealthIndicator } from '../components/HealthIndicator'
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
+import { useNavigate } from 'react-router-dom'
 
 export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
+  const navigate = useNavigate()
+
+  // Budget store
+  const {
+    orcamentoAtual,
+    initialize: initializeOrcamentos,
+    initialized: orcamentosInitialized,
+    getOrcamentoDoMes,
+    getProjecaoMensal,
+    getEnvelopesDigitais,
+    setOrcamentoAtual,
+  } = useOrcamentosStore()
+
+  // Initialize budget store
+  useEffect(() => {
+    if (!orcamentosInitialized) {
+      initializeOrcamentos().catch(err => {
+        console.error('Erro ao inicializar orçamentos:', err)
+      })
+    }
+  }, [orcamentosInitialized, initializeOrcamentos])
+
+  // Load current month's budget
+  useEffect(() => {
+    if (orcamentosInitialized && !orcamentoAtual) {
+      try {
+        const mesReferencia = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+        const orcamento = getOrcamentoDoMes(mesReferencia)
+        if (orcamento) {
+          setOrcamentoAtual(orcamento)
+        }
+      } catch (err) {
+        console.error('Erro ao carregar orçamento do mês:', err)
+      }
+    }
+  }, [orcamentosInitialized, orcamentoAtual, getOrcamentoDoMes, setOrcamentoAtual])
 
   // Stable callbacks to prevent render loops
   const handleOpenModal = useCallback(() => {
@@ -111,6 +150,23 @@ export function Dashboard() {
   }
   const receitasDespesasPorMes = mesesData
 
+  // Budget data - only calculate if all stores are initialized and have data
+  let projecao = null
+  let envelopes: any[] = []
+  let envelopesEmRisco: any[] = []
+  let envelopesCriticos: any[] = []
+
+  try {
+    if (orcamentoAtual && orcamentosInitialized && lancamentos.length >= 0 && categorias.length > 0) {
+      projecao = getProjecaoMensal(orcamentoAtual.id)
+      envelopes = getEnvelopesDigitais(orcamentoAtual.id)
+      envelopesEmRisco = envelopes.filter(e => e.percentual_usado >= 80 && e.status !== 'critico')
+      envelopesCriticos = envelopes.filter(e => e.status === 'critico')
+    }
+  } catch (err) {
+    console.error('Erro ao calcular dados de orçamento:', err)
+  }
+
   // Chart colors
   const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#06B6D4', '#84CC16']
 
@@ -200,6 +256,176 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Budget Section */}
+      {orcamentoAtual && projecao && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Budget Health Card */}
+          <Card hover>
+            <CardContent>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Saúde Financeira</p>
+                  <p className="text-lg font-semibold text-gray-100">
+                    {format(new Date(orcamentoAtual.mes_referencia), 'MMMM yyyy', { locale: ptBR })}
+                  </p>
+                </div>
+                <HealthIndicator saude={projecao.saude} size="lg" showLabel={false} />
+              </div>
+
+              <div className="space-y-3 pt-3 border-t border-dark-700">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Orçamento usado:</span>
+                  <span className="font-medium text-gray-200">
+                    {projecao.percentual_orcamento_usado.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Mês decorrido:</span>
+                  <span className="font-medium text-gray-200">
+                    {projecao.percentual_mes_decorrido.toFixed(1)}%
+                  </span>
+                </div>
+                {projecao.saude === 'saudavel' && (
+                  <div className="pt-2">
+                    <p className="text-xs text-green-400">✓ Gastos dentro do esperado</p>
+                  </div>
+                )}
+                {projecao.saude === 'atencao' && (
+                  <div className="pt-2">
+                    <p className="text-xs text-yellow-400">⚠ Atenção aos gastos</p>
+                  </div>
+                )}
+                {projecao.saude === 'critico' && (
+                  <div className="pt-2">
+                    <p className="text-xs text-red-400">⚠ Gastos acima do planejado</p>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full mt-4"
+                onClick={() => navigate('/budgets')}
+              >
+                Ver Orçamento Completo
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Projected Balance Card */}
+          <Card hover>
+            <CardContent>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-400 mb-1">Saldo Projetado Fim do Mês</p>
+                  <p className="text-2xl font-bold text-gray-100">
+                    {formatCurrency(projecao.saldo_projetado_fim_mes)}
+                  </p>
+                </div>
+                <div className={`w-12 h-12 rounded-lg ${
+                  projecao.saldo_projetado_fim_mes >= orcamentoAtual.meta_poupanca
+                    ? 'bg-green-500/10'
+                    : 'bg-yellow-500/10'
+                } flex items-center justify-center shrink-0`}>
+                  <Wallet className={`w-6 h-6 ${
+                    projecao.saldo_projetado_fim_mes >= orcamentoAtual.meta_poupanca
+                      ? 'text-green-400'
+                      : 'text-yellow-400'
+                  }`} />
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-3 border-t border-dark-700">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Meta de poupança:</span>
+                  <span className="font-medium text-gray-200">
+                    {formatCurrency(orcamentoAtual.meta_poupanca)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Diferença:</span>
+                  <span className={`font-medium ${
+                    projecao.saldo_projetado_fim_mes >= orcamentoAtual.meta_poupanca
+                      ? 'text-green-400'
+                      : 'text-yellow-400'
+                  }`}>
+                    {formatCurrency(projecao.saldo_projetado_fim_mes - orcamentoAtual.meta_poupanca)}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Envelopes at Risk Card */}
+          <Card hover>
+            <CardContent>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Envelopes Digitais</p>
+                  <p className="text-2xl font-bold text-gray-100">{envelopes.length}</p>
+                </div>
+                <div className="w-12 h-12 rounded-lg bg-primary-500/10 flex items-center justify-center shrink-0">
+                  <Package className="w-6 h-6 text-primary-400" />
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-3 border-t border-dark-700">
+                {envelopesCriticos.length > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-red-400" />
+                      <span className="text-red-400">Estourados:</span>
+                    </div>
+                    <span className="font-medium text-red-400">{envelopesCriticos.length}</span>
+                  </div>
+                )}
+                {envelopesEmRisco.length > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                      <span className="text-yellow-400">Em risco (≥80%):</span>
+                    </div>
+                    <span className="font-medium text-yellow-400">{envelopesEmRisco.length}</span>
+                  </div>
+                )}
+                {envelopesCriticos.length === 0 && envelopesEmRisco.length === 0 && (
+                  <p className="text-sm text-green-400">✓ Todos os envelopes saudáveis</p>
+                )}
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full mt-4"
+                onClick={() => navigate('/envelopes')}
+              >
+                Ver Todos os Envelopes
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Budget Empty State */}
+      {!orcamentoAtual && orcamentosInitialized && (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <Wallet className="w-12 h-12 text-gray-500 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-gray-100 mb-2">
+              Crie seu primeiro orçamento
+            </h3>
+            <p className="text-gray-400 mb-4 max-w-md mx-auto">
+              Comece a planejar suas finanças criando um orçamento mensal.
+              Acompanhe seus gastos e veja se pode fazer aquela compra!
+            </p>
+            <Button onClick={() => navigate('/budgets')}>
+              Criar Orçamento
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Charts Section */}
       {lancamentos.length > 0 && (
