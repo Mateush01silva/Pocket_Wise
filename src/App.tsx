@@ -26,6 +26,8 @@ function App() {
   useEffect(() => {
     const init = async () => {
       console.log('🚀 Inicializando PocketWise...')
+      console.log('🔧 Modo:', import.meta.env.VITE_USE_LOCAL_STORAGE === 'true' ? 'LocalStorage' : 'Supabase')
+
       try {
         console.log('📦 Inicializando categorias...')
         await initializeCategorias()
@@ -43,7 +45,9 @@ function App() {
         setIsInitialized(true)
       } catch (error) {
         console.error('❌ Erro ao inicializar PocketWise:', error)
-        setIsInitialized(true) // Permitir renderizar mesmo com erro
+        console.error('Stack trace:', error)
+        // Mostrar erro mas permitir renderizar
+        setIsInitialized(true)
       }
     }
     init()
