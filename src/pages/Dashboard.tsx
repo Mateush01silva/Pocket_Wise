@@ -31,17 +31,23 @@ export function Dashboard() {
   // Initialize budget store
   useEffect(() => {
     if (!orcamentosInitialized) {
-      initializeOrcamentos()
+      initializeOrcamentos().catch(err => {
+        console.error('Erro ao inicializar orçamentos:', err)
+      })
     }
   }, [orcamentosInitialized, initializeOrcamentos])
 
   // Load current month's budget
   useEffect(() => {
     if (orcamentosInitialized && !orcamentoAtual) {
-      const mesReferencia = format(startOfMonth(new Date()), 'yyyy-MM-dd')
-      const orcamento = getOrcamentoDoMes(mesReferencia)
-      if (orcamento) {
-        setOrcamentoAtual(orcamento)
+      try {
+        const mesReferencia = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+        const orcamento = getOrcamentoDoMes(mesReferencia)
+        if (orcamento) {
+          setOrcamentoAtual(orcamento)
+        }
+      } catch (err) {
+        console.error('Erro ao carregar orçamento do mês:', err)
       }
     }
   }, [orcamentosInitialized, orcamentoAtual, getOrcamentoDoMes, setOrcamentoAtual])
@@ -144,11 +150,22 @@ export function Dashboard() {
   }
   const receitasDespesasPorMes = mesesData
 
-  // Budget data
-  const projecao = orcamentoAtual ? getProjecaoMensal(orcamentoAtual.id) : null
-  const envelopes = orcamentoAtual ? getEnvelopesDigitais(orcamentoAtual.id) : []
-  const envelopesEmRisco = envelopes.filter(e => e.percentual_usado >= 80 && e.status !== 'critico')
-  const envelopesCriticos = envelopes.filter(e => e.status === 'critico')
+  // Budget data - only calculate if all stores are initialized and have data
+  let projecao = null
+  let envelopes: any[] = []
+  let envelopesEmRisco: any[] = []
+  let envelopesCriticos: any[] = []
+
+  try {
+    if (orcamentoAtual && orcamentosInitialized && lancamentos.length >= 0 && categorias.length > 0) {
+      projecao = getProjecaoMensal(orcamentoAtual.id)
+      envelopes = getEnvelopesDigitais(orcamentoAtual.id)
+      envelopesEmRisco = envelopes.filter(e => e.percentual_usado >= 80 && e.status !== 'critico')
+      envelopesCriticos = envelopes.filter(e => e.status === 'critico')
+    }
+  } catch (err) {
+    console.error('Erro ao calcular dados de orçamento:', err)
+  }
 
   // Chart colors
   const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#06B6D4', '#84CC16']
