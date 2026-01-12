@@ -572,6 +572,7 @@ export const orcamentosService = {
 
     const { data, error } = await supabase
       .from('orcamentos_mensais')
+      // @ts-ignore - Supabase types will be generated later
       .update(updateData as any)
       .eq('id', id)
       .select()
@@ -715,6 +716,7 @@ export const categoriasBudgetService = {
 
     const { data, error } = await supabase
       .from('categorias_budget')
+      // @ts-ignore - Supabase types will be generated later
       .update(updateData as any)
       .eq('id', id)
       .select()
@@ -823,6 +825,7 @@ export const alertasOrcamentoService = {
 
     const { data, error } = await supabase
       .from('alertas_orcamento')
+      // @ts-ignore - Supabase types will be generated later
       .update({ lido: true } as any)
       .eq('id', id)
       .select()

@@ -8,7 +8,6 @@ import {
   startOfMonth,
   endOfMonth,
   parseISO,
-  isWithinInterval,
   differenceInDays,
   format,
 } from 'date-fns'
@@ -16,7 +15,6 @@ import type {
   OrcamentoMensal,
   CategoriaBudget,
   Lancamento,
-  ReceitaProjetada,
   SaldoAtual,
   ProjecaoMensal,
   SaudeFinanceira,
@@ -109,8 +107,7 @@ export function calcularSaldoAtual(lancamentos: Lancamento[]): SaldoAtual {
 export function calcularProjecaoMensal(
   orcamento: OrcamentoMensal,
   categoriasBudget: CategoriaBudget[],
-  lancamentos: Lancamento[],
-  receitasProjetadas: ReceitaProjetada[]
+  lancamentos: Lancamento[]
 ): ProjecaoMensal {
   const hoje = new Date()
   const mesRefParsed = parseISO(orcamento.mes_referencia)
