@@ -242,6 +242,7 @@ export interface CreateCartaoInput {
   dia_vencimento: number
   limite?: number | null
   cor?: string
+  ativo?: boolean
 }
 
 export interface UpdateCartaoInput extends Partial<CreateCartaoInput> {
@@ -254,7 +255,7 @@ export interface CreateCategoriaInput {
   nome: string
   icone?: string | null
   tipo: TransactionType
-  categoria_pai_id?: string | null
+  categoria_pai_id: string | null
   cor?: string | null
 }
 
