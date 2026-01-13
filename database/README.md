@@ -9,23 +9,29 @@ Este diretório contém os scripts SQL para criar e atualizar o banco de dados d
 
 ## 🚀 Como executar as migrations
 
-### Passo 1: Acessar o SQL Editor
+### 🟢 PRIMEIRA VEZ ou SE TIVER ERRO
+
+Use este script (idempotente - pode rodar múltiplas vezes):
+
+**Arquivo:** `database/migrations/001_create_orcamentos_tables_v2.sql`
+
+#### Passo 1: Acessar o SQL Editor
 
 1. Acesse o [Supabase Dashboard](https://app.supabase.com/)
 2. Selecione seu projeto **Pocket_Wise**
 3. No menu lateral, clique em **SQL Editor**
 
-### Passo 2: Executar o script
+#### Passo 2: Executar o script
 
 1. Clique em **New Query** (ou use a aba vazia)
-2. Copie **TODO** o conteúdo do arquivo:
-   ```
-   database/migrations/001_create_orcamentos_tables.sql
-   ```
-3. Cole no editor SQL
-4. Clique em **Run** (ou pressione `Ctrl/Cmd + Enter`)
+2. Abra o arquivo: `database/migrations/001_create_orcamentos_tables_v2.sql`
+3. Copie **TODO** o conteúdo
+4. Cole no editor SQL
+5. Clique em **Run** (ou pressione `Ctrl/Cmd + Enter`)
 
-### Passo 3: Verificar se funcionou
+✅ **Este script pode ser executado múltiplas vezes sem dar erro!**
+
+#### Passo 3: Verificar se funcionou
 
 Execute a seguinte query para verificar se as tabelas foram criadas:
 
@@ -42,6 +48,17 @@ WHERE table_schema = 'public'
 ```
 
 Você deve ver as 4 tabelas listadas.
+
+---
+
+## 🔴 SE QUISER RECOMEÇAR DO ZERO (CUIDADO!)
+
+**⚠️ ATENÇÃO: Isso vai APAGAR todos os dados de orçamento!**
+
+Se você quer remover tudo e recriar do zero:
+
+1. Execute primeiro: `database/migrations/000_cleanup_orcamentos.sql`
+2. Depois execute: `database/migrations/001_create_orcamentos_tables_v2.sql`
 
 ## 📦 Tabelas criadas
 
