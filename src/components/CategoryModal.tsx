@@ -114,7 +114,9 @@ export function CategoryModal({ isOpen, onClose, categoria }: CategoryModalProps
         })
       } else {
         // Criar nova categoria
-        const categoriaData: CreateCategoriaInput = {
+        const categoriaData: Omit<Categoria, 'id' | 'created_at' | 'updated_at'> = {
+          user_id: null,
+          family_id: null,
           nome: formData.nome.trim(),
           tipo: formData.tipo as TransactionType,
           cor: formData.cor || CORES_DISPONIVEIS[0],
@@ -214,7 +216,7 @@ export function CategoryModal({ isOpen, onClose, categoria }: CategoryModalProps
           <label className="block text-sm font-medium text-gray-300 mb-2">Ícone</label>
           <Input
             type="text"
-            value={formData.icone}
+            value={formData.icone ?? ''}
             onChange={(e) => setFormData({ ...formData, icone: e.target.value })}
             placeholder="📦"
             maxLength={2}
