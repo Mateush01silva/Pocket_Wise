@@ -25,6 +25,7 @@ export function Budgets() {
   const getProjecaoMensal = useOrcamentosStore((state) => state.getProjecaoMensal)
   const setOrcamentoAtual = useOrcamentosStore((state) => state.setOrcamentoAtual)
   const copiarOrcamentoMesAnterior = useOrcamentosStore((state) => state.copiarOrcamentoMesAnterior)
+  const createOrcamento = useOrcamentosStore((state) => state.createOrcamento)
 
   useEffect(() => {
     isMounted.current = true
@@ -71,6 +72,32 @@ export function Budgets() {
     }
   }
 
+  const handleCriarDoZero = async () => {
+    if (isMounted.current) {
+      setIsCreating(true)
+    }
+    try {
+      const novoOrcamento = await createOrcamento({
+        mes_referencia: mesAtual,
+        meta_poupanca: 0,
+        meta_poupanca_percentual: null,
+        dia_inicio_ciclo: 1,
+        metodo_calculo: 'conservador',
+        status: 'ativo',
+      })
+      if (novoOrcamento && isMounted.current) {
+        setOrcamentoAtual(novoOrcamento)
+      }
+    } catch (error) {
+      console.error('Erro ao criar orçamento:', error)
+      alert('Erro ao criar orçamento. Tente novamente.')
+    } finally {
+      if (isMounted.current) {
+        setIsCreating(false)
+      }
+    }
+  }
+
   const totalOrcado = categoriasBudget.reduce((sum, cb) => sum + cb.valor_orcado, 0)
 
   if (isLoading || !initialized) {
@@ -107,11 +134,11 @@ export function Budgets() {
             </div>
 
             <div className="flex gap-3 justify-center">
-              <Button onClick={handleCopiarMesAnterior} isLoading={isCreating}>
+              <Button onClick={handleCopiarMesAnterior} isLoading={isCreating} disabled={isCreating}>
                 <Copy size={16} className="mr-2" />
                 Copiar Mês Anterior
               </Button>
-              <Button variant="ghost">
+              <Button variant="ghost" onClick={handleCriarDoZero} isLoading={isCreating} disabled={isCreating}>
                 <Plus size={16} className="mr-2" />
                 Criar do Zero
               </Button>
