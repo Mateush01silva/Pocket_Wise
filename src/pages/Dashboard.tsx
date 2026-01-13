@@ -19,15 +19,14 @@ export function Dashboard() {
   const navigate = useNavigate()
 
   // Budget store
-  const {
-    orcamentoAtual,
-    initialize: initializeOrcamentos,
-    initialized: orcamentosInitialized,
-    getOrcamentoDoMes,
-    getProjecaoMensal,
-    getEnvelopesDigitais,
-    setOrcamentoAtual,
-  } = useOrcamentosStore()
+  // Use selectors for each value/function to keep identities stable
+  const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
+  const initializeOrcamentos = useOrcamentosStore((state) => state.initialize)
+  const orcamentosInitialized = useOrcamentosStore((state) => state.initialized)
+  const getOrcamentoDoMes = useOrcamentosStore((state) => state.getOrcamentoDoMes)
+  const getProjecaoMensal = useOrcamentosStore((state) => state.getProjecaoMensal)
+  const getEnvelopesDigitais = useOrcamentosStore((state) => state.getEnvelopesDigitais)
+  const setOrcamentoAtual = useOrcamentosStore((state) => state.setOrcamentoAtual)
 
   // Initialize budget store
   useEffect(() => {

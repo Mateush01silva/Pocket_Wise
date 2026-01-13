@@ -12,7 +12,8 @@ interface TransactionModalProps {
 
 export function TransactionModal({ isOpen, onClose }: TransactionModalProps) {
   const categorias = useCategoriasStore((state) => state.categorias)
-  const cartoes = useCartoesStore((state) => state.getCartoesAtivos())
+  // Select raw cartoes array and derive active cards with memo to keep identity stable
+  const cartoes = useCartoesStore((state) => state.cartoes)
   const createLancamento = useTransacoesStore((state) => state.createLancamento)
   const createLancamentoParcelado = useTransacoesStore(
     (state) => state.createLancamentoParcelado
@@ -40,21 +41,23 @@ export function TransactionModal({ isOpen, onClose }: TransactionModalProps) {
     return categorias.filter((c) => c.categoria_pai_id === formData.categoria_id)
   }, [categorias, formData.categoria_id])
 
-  // Convert categorias to options format
-  const categoriaOptions = categoriasPrincipais.map((cat) => ({
+  // Convert categorias to options format (memoized)
+  const categoriaOptions = useMemo(() => categoriasPrincipais.map((cat) => ({
     value: cat.id,
     label: cat.nome,
-  }))
+  })), [categoriasPrincipais])
 
-  const subcategoriaOptions = subcategorias.map((sub) => ({
+  const subcategoriaOptions = useMemo(() => subcategorias.map((sub) => ({
     value: sub.id,
     label: sub.nome,
-  }))
+  })), [subcategorias])
 
-  const cartaoOptions = cartoes.map((cartao) => ({
-    value: cartao.id,
-    label: cartao.nome,
-  }))
+  const cartaoOptions = useMemo(() => {
+    return cartoes.filter(c => c.ativo).map((cartao) => ({
+      value: cartao.id,
+      label: cartao.nome,
+    }))
+  }, [cartoes])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
