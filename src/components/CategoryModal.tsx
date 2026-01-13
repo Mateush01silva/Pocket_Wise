@@ -40,6 +40,7 @@ export function CategoryModal({ isOpen, onClose, categoria }: CategoryModalProps
     tipo: 'despesa',
     cor: CORES_DISPONIVEIS[0],
     icone: '📦',
+    categoria_pai_id: null,
   })
   const [isLoading, setIsLoading] = useState(false)
 
@@ -53,7 +54,7 @@ export function CategoryModal({ isOpen, onClose, categoria }: CategoryModalProps
         tipo: categoria.tipo,
         cor: categoria.cor || CORES_DISPONIVEIS[0],
         icone: categoria.icone || '📦',
-        categoria_pai_id: categoria.categoria_pai_id || undefined,
+        categoria_pai_id: categoria.categoria_pai_id || null,
       })
     } else {
       setFormData({
@@ -61,6 +62,7 @@ export function CategoryModal({ isOpen, onClose, categoria }: CategoryModalProps
         tipo: 'despesa',
         cor: CORES_DISPONIVEIS[0],
         icone: '📦',
+        categoria_pai_id: null,
       })
     }
   }, [categoria])
@@ -129,6 +131,7 @@ export function CategoryModal({ isOpen, onClose, categoria }: CategoryModalProps
         tipo: 'despesa',
         cor: CORES_DISPONIVEIS[0],
         icone: '📦',
+        categoria_pai_id: null,
       })
       onClose()
     } catch (error) {
@@ -146,6 +149,7 @@ export function CategoryModal({ isOpen, onClose, categoria }: CategoryModalProps
         tipo: 'despesa',
         cor: CORES_DISPONIVEIS[0],
         icone: '📦',
+        categoria_pai_id: null,
       })
       onClose()
     }
@@ -191,7 +195,7 @@ export function CategoryModal({ isOpen, onClose, categoria }: CategoryModalProps
             Categoria Pai (opcional)
           </label>
           <Select
-            value={formData.categoria_pai_id || ''}
+            value={formData.categoria_pai_id === null ? '' : formData.categoria_pai_id}
             onChange={(e) =>
               setFormData({
                 ...formData,

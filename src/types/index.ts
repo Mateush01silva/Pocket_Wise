@@ -255,7 +255,7 @@ export interface CreateCategoriaInput {
   nome: string
   icone?: string | null
   tipo: TransactionType
-  categoria_pai_id?: string | null
+  categoria_pai_id: string | null
   cor?: string | null
 }
 
