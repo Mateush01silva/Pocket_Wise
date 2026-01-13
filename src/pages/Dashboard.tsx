@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Card, CardContent, Button } from '../components/ui'
-import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock, Package, AlertTriangle } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock, Package, AlertTriangle, DollarSign } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { TransactionModal } from '../components/TransactionModal'
 import { HealthIndicator } from '../components/HealthIndicator'
+import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
+import { calcularSaldoReal, calcularSaldoProjetado, calcularFaturasCartao, filtrarPorPeriodo } from '../lib/financialCalculations'
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
@@ -13,6 +15,11 @@ import { useNavigate } from 'react-router-dom'
 
 export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterValue>({
+    tipo: 'mes-atual',
+    dataInicio: startOfMonth(new Date()),
+    dataFim: endOfMonth(new Date()),
+  })
   const isMounted = useRef(true) // Track if component is mounted
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
@@ -84,33 +91,27 @@ export function Dashboard() {
     return categoria?.nome || 'Categoria desconhecida'
   }, [categorias])
 
-  // Calcular stats diretamente, sem useMemo complexo
-  const hoje = new Date()
-  const mesAtual = hoje.getMonth()
-  const anoAtual = hoje.getFullYear()
+  // Calcular stats usando os filtros de período
+  const lancamentosFiltrados = filtrarPorPeriodo(lancamentos, periodFilter.dataInicio, periodFilter.dataFim)
 
-  const lancamentosMes = lancamentos.filter((l) => {
-    const data = new Date(l.data_vencimento_fatura || l.data)
-    return (
-      data.getMonth() === mesAtual &&
-      data.getFullYear() === anoAtual &&
-      (l.status === 'pago' || l.status === 'pendente')
-    )
-  })
+  // Saldo REAL (apenas transações pagas até hoje)
+  const { saldoReal } = calcularSaldoReal(lancamentos)
 
-  const receitas = lancamentosMes
-    .filter((l) => l.tipo === 'receita')
-    .reduce((sum, l) => sum + l.valor, 0)
+  // Saldo PROJETADO (todas as transações do período filtrado)
+  const { receitasTotal, despesasTotal, saldoProjetado } = calcularSaldoProjetado(
+    lancamentos,
+    periodFilter.dataInicio,
+    periodFilter.dataFim
+  )
 
-  const despesas = lancamentosMes
-    .filter((l) => l.tipo === 'despesa')
-    .reduce((sum, l) => sum + l.valor, 0)
+  // Faturas de cartão do período
+  const faturasCartao = calcularFaturasCartao(lancamentos, periodFilter.dataInicio, periodFilter.dataFim)
 
-  const faturasCartao = lancamentosMes
-    .filter((l) => l.tipo === 'despesa' && l.cartao_id)
-    .reduce((sum, l) => sum + l.valor, 0)
-
-  const saldo = receitas - despesas
+  // Backward compatibility (para não quebrar código que usa essas variáveis)
+  const receitas = receitasTotal
+  const despesas = despesasTotal
+  const saldo = saldoProjetado
+  const lancamentosMes = lancamentosFiltrados
 
   // Get recent transactions (last 5) - criar cópia antes de ordenar!
   const transacoesRecentes = [...lancamentos]
@@ -139,6 +140,7 @@ export function Dashboard() {
     .slice(0, 10) // Top 10
 
   // Chart data - Receitas x Despesas (últimos 6 meses) - SEM useMemo para evitar loops
+  const hoje = new Date()
   const mesesData = []
   for (let i = 5; i >= 0; i--) {
     const mesData = subMonths(hoje, i)
@@ -200,14 +202,21 @@ export function Dashboard() {
         </Button>
       </div>
 
+      {/* Filtro de Período */}
+      <Card>
+        <CardContent>
+          <PeriodFilter value={periodFilter} onChange={setPeriodFilter} />
+        </CardContent>
+      </Card>
+
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Receitas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+        {/* Receitas do Período */}
         <Card hover>
           <CardContent>
             <div className="flex items-center justify-between mb-2">
               <div className="flex-1">
-                <p className="text-sm text-gray-400 mb-1">Receitas do Mês</p>
+                <p className="text-sm text-gray-400 mb-1">Receitas</p>
                 <p className="text-2xl font-bold text-gray-100">{formatCurrency(receitas)}</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
@@ -215,17 +224,17 @@ export function Dashboard() {
               </div>
             </div>
             <p className="text-xs text-gray-500">
-              {receitas > 0 ? 'Recebido e a receber' : 'Nenhuma receita cadastrada'}
+              {receitas > 0 ? 'Recebido e a receber' : 'Nenhuma receita'}
             </p>
           </CardContent>
         </Card>
 
-        {/* Despesas */}
+        {/* Despesas do Período */}
         <Card hover>
           <CardContent>
             <div className="flex items-center justify-between mb-2">
               <div className="flex-1">
-                <p className="text-sm text-gray-400 mb-1">Despesas do Mês</p>
+                <p className="text-sm text-gray-400 mb-1">Despesas</p>
                 <p className="text-2xl font-bold text-gray-100">{formatCurrency(despesas)}</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
@@ -233,12 +242,30 @@ export function Dashboard() {
               </div>
             </div>
             <p className="text-xs text-gray-500">
-              {despesas > 0 ? 'Pago e a pagar' : 'Nenhuma despesa cadastrada'}
+              {despesas > 0 ? 'Pago e a pagar' : 'Nenhuma despesa'}
             </p>
           </CardContent>
         </Card>
 
-        {/* Saldo */}
+        {/* Saldo REAL (apenas pagas até hoje) */}
+        <Card hover className="ring-2 ring-primary-500/20">
+          <CardContent>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex-1">
+                <p className="text-sm text-gray-400 mb-1">Saldo Real</p>
+                <p className="text-2xl font-bold text-gray-100">{formatCurrency(saldoReal)}</p>
+              </div>
+              <div className={`w-12 h-12 rounded-lg ${saldoReal >= 0 ? 'bg-blue-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
+                <DollarSign className={`w-6 h-6 ${saldoReal >= 0 ? 'text-blue-400' : 'text-red-400'}`} />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">
+              Apenas transações pagas
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Saldo Projetado */}
         <Card hover>
           <CardContent>
             <div className="flex items-center justify-between mb-2">
@@ -250,7 +277,9 @@ export function Dashboard() {
                 <Wallet className={`w-6 h-6 ${saldo >= 0 ? 'text-primary-400' : 'text-red-400'}`} />
               </div>
             </div>
-            <p className="text-xs text-gray-500">{saldo >= 0 ? 'Positivo' : 'Negativo'}</p>
+            <p className="text-xs text-gray-500">
+              Incluindo pendentes
+            </p>
           </CardContent>
         </Card>
 
@@ -267,7 +296,7 @@ export function Dashboard() {
               </div>
             </div>
             <p className="text-xs text-gray-500">
-              {faturasCartao > 0 ? 'Vencimento neste mês' : 'Nenhuma fatura'}
+              {faturasCartao > 0 ? 'Do período' : 'Nenhuma fatura'}
             </p>
           </CardContent>
         </Card>
