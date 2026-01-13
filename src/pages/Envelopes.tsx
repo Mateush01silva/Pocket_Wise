@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Filter, TrendingDown, AlertCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -15,6 +15,7 @@ type OrdenacaoCategoria = 'nome' | 'percentual_desc' | 'percentual_asc' | 'valor
 export function Envelopes() {
   const [filtro, setFiltro] = useState<FiltroCategoria>('todas')
   const [ordenacao, setOrdenacao] = useState<OrdenacaoCategoria>('percentual_desc')
+  const isMounted = useRef(true) // Track if component is mounted
 
   const {
     orcamentoAtual,
@@ -25,8 +26,14 @@ export function Envelopes() {
   } = useOrcamentosStore()
 
   useEffect(() => {
+    isMounted.current = true
+
     if (!initialized) {
       initialize()
+    }
+
+    return () => {
+      isMounted.current = false
     }
   }, [initialized, initialize])
 

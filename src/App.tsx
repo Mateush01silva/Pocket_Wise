@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Layout } from './components/layout/Layout'
@@ -18,12 +18,16 @@ import { useCategoriasStore, useTransacoesStore, useCartoesStore } from './store
 
 function App() {
   const [isInitialized, setIsInitialized] = useState(false)
+  const isMounted = useRef(true) // Track if component is mounted
   const initializeCategorias = useCategoriasStore((state) => state.initialize)
   const fetchLancamentos = useTransacoesStore((state) => state.fetchLancamentos)
   const fetchCartoes = useCartoesStore((state) => state.fetchCartoes)
 
   // Inicializar stores na montagem do app
   useEffect(() => {
+    // Set mounted to true when effect runs
+    isMounted.current = true
+
     const init = async () => {
       console.log('🚀 Inicializando PocketWise...')
       console.log('🔧 Modo:', import.meta.env.VITE_USE_LOCAL_STORAGE === 'true' ? 'LocalStorage' : 'Supabase')
@@ -36,18 +40,34 @@ function App() {
 
         console.log('📦 Inicializando categorias...')
         await initializeCategorias()
+
+        // Check if still mounted before continuing
+        if (!isMounted.current) return
+
         console.log('✅ Categorias inicializadas')
 
         console.log('💰 Carregando transações...')
         await fetchLancamentos()
+
+        // Check if still mounted before continuing
+        if (!isMounted.current) return
+
         console.log('✅ Transações carregadas')
 
         console.log('💳 Carregando cartões...')
         await fetchCartoes()
+
+        // Check if still mounted before updating state
+        if (!isMounted.current) return
+
         console.log('✅ Cartões carregados')
 
         console.log('🎉 PocketWise inicializado com sucesso!')
-        setIsInitialized(true)
+
+        // Only update state if component is still mounted
+        if (isMounted.current) {
+          setIsInitialized(true)
+        }
       } catch (error) {
         console.error('❌ Erro ao inicializar PocketWise:', error)
         console.error('Stack trace:', error)
@@ -65,21 +85,34 @@ function App() {
             localStorage.removeItem('pocketwise-transacoes-store')
             localStorage.removeItem('pocketwise-cartoes-store')
             console.log('🗑️ Stores limpos, recarregando...')
-            // Dar um tempo antes de recarregar
-            setTimeout(() => {
-              window.location.reload()
-            }, 1000)
+
+            // Only reload if component is still mounted
+            if (isMounted.current) {
+              // Dar um tempo antes de recarregar
+              setTimeout(() => {
+                if (isMounted.current) {
+                  window.location.reload()
+                }
+              }, 1000)
+            }
             return
           } catch (cleanError) {
             console.error('❌ Erro ao limpar dados:', cleanError)
           }
         }
 
-        // Mostrar erro mas permitir renderizar
-        setIsInitialized(true)
+        // Mostrar erro mas permitir renderizar - only if still mounted
+        if (isMounted.current) {
+          setIsInitialized(true)
+        }
       }
     }
     init()
+
+    // Cleanup function - set mounted to false when component unmounts
+    return () => {
+      isMounted.current = false
+    }
   }, [initializeCategorias, fetchLancamentos, fetchCartoes])
 
   // Mostrar loading enquanto inicializa

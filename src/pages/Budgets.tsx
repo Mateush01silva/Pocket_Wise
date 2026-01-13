@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Plus, Copy, Calendar } from 'lucide-react'
 import { format, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -13,6 +13,7 @@ import { cn } from '../lib/cn'
 export function Budgets() {
   const [mesAtual] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   const [isCreating, setIsCreating] = useState(false)
+  const isMounted = useRef(true) // Track if component is mounted
 
   const {
     orcamentoAtual,
@@ -27,31 +28,47 @@ export function Budgets() {
   } = useOrcamentosStore()
 
   useEffect(() => {
+    isMounted.current = true
+
     if (!initialized) {
       initialize()
+    }
+
+    return () => {
+      isMounted.current = false
     }
   }, [initialized, initialize])
 
   useEffect(() => {
+    isMounted.current = true
+
     if (initialized && !orcamentoAtual) {
       const orcamento = getOrcamentoDoMes(mesAtual)
-      if (orcamento) {
+      if (orcamento && isMounted.current) {
         setOrcamentoAtual(orcamento)
       }
+    }
+
+    return () => {
+      isMounted.current = false
     }
   }, [initialized, orcamentoAtual, mesAtual, getOrcamentoDoMes, setOrcamentoAtual])
 
   const projecao = orcamentoAtual ? getProjecaoMensal(orcamentoAtual.id) : null
 
   const handleCopiarMesAnterior = async () => {
-    setIsCreating(true)
+    if (isMounted.current) {
+      setIsCreating(true)
+    }
     try {
       const novoOrcamento = await copiarOrcamentoMesAnterior(mesAtual)
-      if (novoOrcamento) {
+      if (novoOrcamento && isMounted.current) {
         setOrcamentoAtual(novoOrcamento)
       }
     } finally {
-      setIsCreating(false)
+      if (isMounted.current) {
+        setIsCreating(false)
+      }
     }
   }
 

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Card, CardContent, Button } from '../components/ui'
 import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock, Package, AlertTriangle } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom'
 
 export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const isMounted = useRef(true) // Track if component is mounted
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
   const navigate = useNavigate()
@@ -30,25 +31,41 @@ export function Dashboard() {
 
   // Initialize budget store
   useEffect(() => {
+    isMounted.current = true
+
     if (!orcamentosInitialized) {
       initializeOrcamentos().catch(err => {
-        console.error('Erro ao inicializar orçamentos:', err)
+        if (isMounted.current) {
+          console.error('Erro ao inicializar orçamentos:', err)
+        }
       })
+    }
+
+    return () => {
+      isMounted.current = false
     }
   }, [orcamentosInitialized, initializeOrcamentos])
 
   // Load current month's budget
   useEffect(() => {
+    isMounted.current = true
+
     if (orcamentosInitialized && !orcamentoAtual) {
       try {
         const mesReferencia = format(startOfMonth(new Date()), 'yyyy-MM-dd')
         const orcamento = getOrcamentoDoMes(mesReferencia)
-        if (orcamento) {
+        if (orcamento && isMounted.current) {
           setOrcamentoAtual(orcamento)
         }
       } catch (err) {
-        console.error('Erro ao carregar orçamento do mês:', err)
+        if (isMounted.current) {
+          console.error('Erro ao carregar orçamento do mês:', err)
+        }
       }
+    }
+
+    return () => {
+      isMounted.current = false
     }
   }, [orcamentosInitialized, orcamentoAtual, getOrcamentoDoMes, setOrcamentoAtual])
 
