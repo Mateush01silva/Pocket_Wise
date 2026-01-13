@@ -17,13 +17,12 @@ export function Envelopes() {
   const [ordenacao, setOrdenacao] = useState<OrdenacaoCategoria>('percentual_desc')
   const isMounted = useRef(true) // Track if component is mounted
 
-  const {
-    orcamentoAtual,
-    isLoading,
-    initialize,
-    initialized,
-    getEnvelopesDigitais,
-  } = useOrcamentosStore()
+  // Use selectors for each store value/function to keep identities stable
+  const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
+  const isLoading = useOrcamentosStore((state) => state.isLoading)
+  const initialize = useOrcamentosStore((state) => state.initialize)
+  const initialized = useOrcamentosStore((state) => state.initialized)
+  const getEnvelopesDigitais = useOrcamentosStore((state) => state.getEnvelopesDigitais)
 
   useEffect(() => {
     isMounted.current = true

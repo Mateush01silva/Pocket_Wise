@@ -15,17 +15,16 @@ export function Budgets() {
   const [isCreating, setIsCreating] = useState(false)
   const isMounted = useRef(true) // Track if component is mounted
 
-  const {
-    orcamentoAtual,
-    categoriasBudget,
-    isLoading,
-    initialize,
-    initialized,
-    getOrcamentoDoMes,
-    getProjecaoMensal,
-    setOrcamentoAtual,
-    copiarOrcamentoMesAnterior,
-  } = useOrcamentosStore()
+  // Use selectors for each store value/function to keep identities stable
+  const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
+  const categoriasBudget = useOrcamentosStore((state) => state.categoriasBudget)
+  const isLoading = useOrcamentosStore((state) => state.isLoading)
+  const initialize = useOrcamentosStore((state) => state.initialize)
+  const initialized = useOrcamentosStore((state) => state.initialized)
+  const getOrcamentoDoMes = useOrcamentosStore((state) => state.getOrcamentoDoMes)
+  const getProjecaoMensal = useOrcamentosStore((state) => state.getProjecaoMensal)
+  const setOrcamentoAtual = useOrcamentosStore((state) => state.setOrcamentoAtual)
+  const copiarOrcamentoMesAnterior = useOrcamentosStore((state) => state.copiarOrcamentoMesAnterior)
 
   useEffect(() => {
     isMounted.current = true
