@@ -29,6 +29,11 @@ function App() {
       console.log('🔧 Modo:', import.meta.env.VITE_USE_LOCAL_STORAGE === 'true' ? 'LocalStorage' : 'Supabase')
 
       try {
+        // Validar se stores estão funcionando antes de continuar
+        if (!initializeCategorias || !fetchLancamentos || !fetchCartoes) {
+          throw new Error('Stores não foram inicializados corretamente')
+        }
+
         console.log('📦 Inicializando categorias...')
         await initializeCategorias()
         console.log('✅ Categorias inicializadas')
@@ -46,6 +51,30 @@ function App() {
       } catch (error) {
         console.error('❌ Erro ao inicializar PocketWise:', error)
         console.error('Stack trace:', error)
+
+        // Se o erro for crítico (como localStorage corrompido), tentar limpar
+        if (error instanceof Error && (
+          error.message.includes('JSON') ||
+          error.message.includes('parse') ||
+          error.message.includes('storage')
+        )) {
+          console.warn('⚠️ Detectado possível erro de dados corrompidos, tentando limpar...')
+          try {
+            // Limpar stores corrompidos
+            localStorage.removeItem('pocketwise-categorias-store')
+            localStorage.removeItem('pocketwise-transacoes-store')
+            localStorage.removeItem('pocketwise-cartoes-store')
+            console.log('🗑️ Stores limpos, recarregando...')
+            // Dar um tempo antes de recarregar
+            setTimeout(() => {
+              window.location.reload()
+            }, 1000)
+            return
+          } catch (cleanError) {
+            console.error('❌ Erro ao limpar dados:', cleanError)
+          }
+        }
+
         // Mostrar erro mas permitir renderizar
         setIsInitialized(true)
       }
