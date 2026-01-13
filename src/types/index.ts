@@ -242,6 +242,7 @@ export interface CreateCartaoInput {
   dia_vencimento: number
   limite?: number | null
   cor?: string
+  ativo?: boolean
 }
 
 export interface UpdateCartaoInput extends Partial<CreateCartaoInput> {

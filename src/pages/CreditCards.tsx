@@ -9,8 +9,7 @@ import {
   TrendingUp,
   AlertCircle,
 } from 'lucide-react'
-import { format, startOfMonth, endOfMonth } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { format } from 'date-fns'
 import { useCartoesStore, useTransacoesStore } from '../store'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CreditCardModal } from '../components/CreditCardModal'
@@ -43,8 +42,9 @@ export function CreditCards() {
           l.parcela_total > 1
       )
 
-      const limiteDisponivel = cartao.limite - totalFatura
-      const percentualUsado = cartao.limite > 0 ? (totalFatura / cartao.limite) * 100 : 0
+      const limite = cartao.limite ?? 0
+      const limiteDisponivel = limite - totalFatura
+      const percentualUsado = limite > 0 ? (totalFatura / limite) * 100 : 0
 
       return {
         ...cartao,
@@ -139,7 +139,7 @@ export function CreditCards() {
             <div>
               <p className="text-xs text-gray-500 mb-1">Limite Total</p>
               <p className="text-sm font-semibold text-gray-200">
-                {formatCurrency(cartao.limite)}
+                {formatCurrency(cartao.limite ?? 0)}
               </p>
             </div>
             <div>
@@ -237,7 +237,7 @@ export function CreditCards() {
                   <p className="text-sm text-gray-400 mb-1">Limite Total</p>
                   <p className="text-2xl font-bold text-gray-100">
                     {formatCurrency(
-                      cartoesAtivos.reduce((sum, c) => sum + c.limite, 0)
+                      cartoesAtivos.reduce((sum, c) => sum + (c.limite ?? 0), 0)
                     )}
                   </p>
                 </div>

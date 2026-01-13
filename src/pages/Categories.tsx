@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Plus, Pencil, Trash2, AlertCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { useCategoriasStore } from '../store'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CategoryModal } from '../components/CategoryModal'

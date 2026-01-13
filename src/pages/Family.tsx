@@ -14,11 +14,12 @@ import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/
 import { useTransacoesStore, useCartoesStore, useOrcamentosStore, useCategoriasStore } from '../store'
 import { formatCurrency } from '../utils/currency'
 import { format, startOfMonth } from 'date-fns'
+import type { OrcamentoMensal } from '../types'
 
 export function Family() {
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const cartoes = useCartoesStore((state) => state.cartoes)
-  const orcamentos = useOrcamentosStore((state) => state.orcamentos)
+  const orcamentos = useOrcamentosStore((state) => state.orcamentos) as OrcamentoMensal[]
   const categorias = useCategoriasStore((state) => state.categorias)
 
   // Estatísticas da família

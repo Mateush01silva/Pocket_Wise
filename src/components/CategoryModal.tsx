@@ -117,7 +117,7 @@ export function CategoryModal({ isOpen, onClose, categoria }: CategoryModalProps
           tipo: formData.tipo as TransactionType,
           cor: formData.cor || CORES_DISPONIVEIS[0],
           icone: formData.icone || '📦',
-          categoria_pai_id: formData.categoria_pai_id || undefined,
+          categoria_pai_id: formData.categoria_pai_id || null,
         }
 
         await createCategoria(categoriaData)
@@ -195,7 +195,7 @@ export function CategoryModal({ isOpen, onClose, categoria }: CategoryModalProps
             onChange={(e) =>
               setFormData({
                 ...formData,
-                categoria_pai_id: e.target.value || undefined,
+                categoria_pai_id: e.target.value || null,
               })
             }
             options={categoriaPaiOptions}

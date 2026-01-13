@@ -5,7 +5,6 @@ import {
   Calendar,
   CreditCard,
   Target,
-  DollarSign,
   AlertCircle,
 } from 'lucide-react'
 import { format, addMonths, startOfMonth } from 'date-fns'
@@ -14,11 +13,12 @@ import { useTransacoesStore, useCartoesStore, useOrcamentosStore } from '../stor
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui'
 import { formatCurrency } from '../utils/currency'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import type { OrcamentoMensal } from '../types'
 
 export function Projections() {
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const cartoes = useCartoesStore((state) => state.cartoes)
-  const orcamentos = useOrcamentosStore((state) => state.orcamentos)
+  const orcamentos = useOrcamentosStore((state) => state.orcamentos) as OrcamentoMensal[]
 
   // Calcular projeções para os próximos 6 meses
   const projecoes = useMemo(() => {
@@ -249,7 +249,7 @@ export function Projections() {
                     border: '1px solid #374151',
                     borderRadius: '0.5rem',
                   }}
-                  formatter={(value: number) => formatCurrency(value)}
+                  formatter={(value: number | undefined) => formatCurrency(value ?? 0)}
                 />
                 <Legend />
                 <Bar

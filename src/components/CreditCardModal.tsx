@@ -101,7 +101,7 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
         return
       }
 
-      if (formData.limite === undefined || formData.limite < 0) {
+      if (formData.limite === undefined || formData.limite === null || formData.limite < 0) {
         alert('O limite deve ser um valor positivo')
         setIsLoading(false)
         return
@@ -123,7 +123,7 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
           nome: formData.nome.trim(),
           dia_fechamento: formData.dia_fechamento!,
           dia_vencimento: formData.dia_vencimento!,
-          limite: formData.limite!,
+          limite: formData.limite ?? 0,
           cor: formData.cor || CORES_DISPONIVEIS[4],
           ativo: formData.ativo ?? true,
         }

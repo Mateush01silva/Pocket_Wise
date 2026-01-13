@@ -78,6 +78,7 @@ export function Budgets() {
     }
     try {
       const novoOrcamento = await createOrcamento({
+        family_id: 'local-storage-family',
         mes_referencia: mesAtual,
         meta_poupanca: 0,
         meta_poupanca_percentual: null,
