@@ -328,13 +328,43 @@ export const useTransacoesStore = create<TransacoesStore>()(
         lancamentos: state.lancamentos,
       }),
       onRehydrateStorage: () => {
-        return (_state, error) => {
+        console.log('🔄 Iniciando hidratação do store de transações...')
+        return (state, error) => {
           if (error) {
-            console.error('Erro ao hidratar store de transações:', error)
+            console.error('❌ Erro ao hidratar store de transações:', error)
             try {
               localStorage.removeItem('pocketwise-transacoes-store')
+              console.log('🗑️ Storage de transações corrompido foi limpo')
             } catch (e) {
               console.error('Erro ao limpar storage:', e)
+            }
+            return
+          }
+
+          // Validar dados hidratados
+          if (state) {
+            try {
+              // Garantir que lancamentos é um array
+              if (!Array.isArray(state.lancamentos)) {
+                console.warn('⚠️ Lançamentos não é um array, resetando...')
+                state.lancamentos = []
+              }
+
+              // Validar cada lançamento
+              state.lancamentos = state.lancamentos.filter((lanc: any) => {
+                return lanc && typeof lanc === 'object' && lanc.id && lanc.tipo && lanc.valor !== undefined
+              })
+
+              // Garantir que filters é um objeto
+              if (!state.filters || typeof state.filters !== 'object') {
+                state.filters = {}
+              }
+
+              console.log(`✅ Store de transações hidratado com ${state.lancamentos.length} lançamentos`)
+            } catch (validationError) {
+              console.error('❌ Erro ao validar dados hidratados:', validationError)
+              state.lancamentos = []
+              state.filters = {}
             }
           }
         }

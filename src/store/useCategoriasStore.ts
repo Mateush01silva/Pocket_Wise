@@ -190,14 +190,40 @@ export const useCategoriasStore = create<CategoriasStore>()(
         initialized: state.initialized,
       }),
       onRehydrateStorage: () => {
-        return (_state, error) => {
+        console.log('🔄 Iniciando hidratação do store de categorias...')
+        return (state, error) => {
           if (error) {
-            console.error('Erro ao hidratar store de categorias:', error)
+            console.error('❌ Erro ao hidratar store de categorias:', error)
             // Limpar storage corrompido
             try {
               localStorage.removeItem('pocketwise-categorias-store')
+              console.log('🗑️ Storage de categorias corrompido foi limpo')
             } catch (e) {
               console.error('Erro ao limpar storage:', e)
+            }
+            return
+          }
+
+          // Validar dados hidratados
+          if (state) {
+            try {
+              // Garantir que categorias é um array
+              if (!Array.isArray(state.categorias)) {
+                console.warn('⚠️ Categorias não é um array, resetando...')
+                state.categorias = []
+                state.initialized = false
+              }
+
+              // Validar cada categoria
+              state.categorias = state.categorias.filter((cat: any) => {
+                return cat && typeof cat === 'object' && cat.id && cat.nome && cat.tipo
+              })
+
+              console.log(`✅ Store de categorias hidratado com ${state.categorias.length} categorias`)
+            } catch (validationError) {
+              console.error('❌ Erro ao validar dados hidratados:', validationError)
+              state.categorias = []
+              state.initialized = false
             }
           }
         }

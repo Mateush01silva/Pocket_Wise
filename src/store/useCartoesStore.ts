@@ -129,13 +129,37 @@ export const useCartoesStore = create<CartoesStore>()(
         cartoes: state.cartoes,
       }),
       onRehydrateStorage: () => {
-        return (_state, error) => {
+        console.log('🔄 Iniciando hidratação do store de cartões...')
+        return (state, error) => {
           if (error) {
-            console.error('Erro ao hidratar store de cartões:', error)
+            console.error('❌ Erro ao hidratar store de cartões:', error)
             try {
               localStorage.removeItem('pocketwise-cartoes-store')
+              console.log('🗑️ Storage de cartões corrompido foi limpo')
             } catch (e) {
               console.error('Erro ao limpar storage:', e)
+            }
+            return
+          }
+
+          // Validar dados hidratados
+          if (state) {
+            try {
+              // Garantir que cartoes é um array
+              if (!Array.isArray(state.cartoes)) {
+                console.warn('⚠️ Cartões não é um array, resetando...')
+                state.cartoes = []
+              }
+
+              // Validar cada cartão
+              state.cartoes = state.cartoes.filter((cartao: any) => {
+                return cartao && typeof cartao === 'object' && cartao.id && cartao.nome
+              })
+
+              console.log(`✅ Store de cartões hidratado com ${state.cartoes.length} cartões`)
+            } catch (validationError) {
+              console.error('❌ Erro ao validar dados hidratados:', validationError)
+              state.cartoes = []
             }
           }
         }
