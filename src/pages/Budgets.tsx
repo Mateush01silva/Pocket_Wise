@@ -1,11 +1,14 @@
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Copy, Calendar } from 'lucide-react'
+import { Plus, Copy, Calendar, Edit2 } from 'lucide-react'
 import { format, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { BudgetSummaryCard } from '../components/BudgetSummaryCard'
 import { PossoComprarWidget } from '../components/PossoComprarWidget'
+import { BudgetPlanningModal } from '../components/BudgetPlanningModal'
+import { BudgetAlertsCard } from '../components/BudgetAlertsCard'
+import { BudgetComparativeReport } from '../components/BudgetComparativeReport'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
@@ -13,6 +16,7 @@ import { cn } from '../lib/cn'
 export function Budgets() {
   const [mesAtual] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   const [isCreating, setIsCreating] = useState(false)
+  const [isPlanningModalOpen, setIsPlanningModalOpen] = useState(false)
   const isMounted = useRef(true) // Track if component is mounted
 
   // Use selectors for each store value/function to keep identities stable
@@ -23,6 +27,7 @@ export function Budgets() {
   const initialized = useOrcamentosStore((state) => state.initialized)
   const getOrcamentoDoMes = useOrcamentosStore((state) => state.getOrcamentoDoMes)
   const getProjecaoMensal = useOrcamentosStore((state) => state.getProjecaoMensal)
+  const getEnvelopesDigitais = useOrcamentosStore((state) => state.getEnvelopesDigitais)
   const setOrcamentoAtual = useOrcamentosStore((state) => state.setOrcamentoAtual)
   const copiarOrcamentoMesAnterior = useOrcamentosStore((state) => state.copiarOrcamentoMesAnterior)
   const createOrcamento = useOrcamentosStore((state) => state.createOrcamento)
@@ -55,6 +60,7 @@ export function Budgets() {
   }, [initialized, orcamentoAtual, mesAtual, getOrcamentoDoMes, setOrcamentoAtual])
 
   const projecao = orcamentoAtual ? getProjecaoMensal(orcamentoAtual.id) : null
+  const envelopes = orcamentoAtual ? getEnvelopesDigitais(orcamentoAtual.id) : []
 
   const handleCopiarMesAnterior = async () => {
     if (isMounted.current) {
@@ -161,72 +167,136 @@ export function Budgets() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm">
-            <Calendar size={16} className="mr-2" />
-            Mudar Mês
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsPlanningModalOpen(true)}
+          >
+            <Edit2 size={16} className="mr-2" />
+            Editar Orçamento
           </Button>
-          <Button size="sm">
+          <Button size="sm" onClick={() => setIsPlanningModalOpen(true)}>
             <Plus size={16} className="mr-2" />
-            Novo Orçamento
+            Adicionar Categorias
           </Button>
         </div>
       </div>
 
       {/* Grid principal */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Coluna esquerda: Resumo e Categorias */}
-        <div className="lg:col-span-2 space-y-6">
+      <div className="space-y-6">
+        {/* Linha 1: Resumo + Alertas */}
+        <div className="grid lg:grid-cols-3 gap-6">
           {/* Resumo do orçamento */}
-          {projecao && <BudgetSummaryCard projecao={projecao} />}
+          <div className="lg:col-span-2">
+            {projecao && <BudgetSummaryCard projecao={projecao} />}
+          </div>
 
-          {/* Lista de categorias com orçamento */}
+          {/* Alertas */}
+          <div>
+            <BudgetAlertsCard orcamentoId={orcamentoAtual.id} />
+          </div>
+        </div>
+
+        {/* Linha 2: Envelopes + Widget */}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Coluna esquerda: Envelopes */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Envelopes Digitais */}
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
-                <CardTitle>Categorias Orçadas</CardTitle>
+                <CardTitle>Envelopes Digitais</CardTitle>
                 <span className="text-sm text-gray-400">
-                  {categoriasBudget.length} categorias • {formatCurrency(totalOrcado)} total
+                  {envelopes.length} categorias • {formatCurrency(totalOrcado)} total
                 </span>
               </div>
             </CardHeader>
             <CardContent>
-              {categoriasBudget.length === 0 ? (
+              {envelopes.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   <p>Nenhuma categoria orçada ainda.</p>
-                  <Button className="mt-4" size="sm">
+                  <Button className="mt-4" size="sm" onClick={() => setIsPlanningModalOpen(true)}>
+                    <Plus size={16} className="mr-2" />
                     Adicionar Categorias
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {categoriasBudget.slice(0, 10).map((cb) => (
-                    <div
-                      key={cb.id}
-                      className="flex justify-between items-center p-3 bg-dark-700/30 rounded-lg hover:bg-dark-700/50 transition-colors"
-                    >
-                      <div>
-                        <p className="font-medium text-gray-200">Categoria #{cb.categoria_id.slice(0, 8)}</p>
-                        <p className="text-xs text-gray-500 capitalize">{cb.prioridade}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium text-primary-400">{formatCurrency(cb.valor_orcado)}</p>
-                      </div>
-                    </div>
-                  ))}
-                  {categoriasBudget.length > 10 && (
-                    <button className="w-full text-center py-2 text-sm text-gray-400 hover:text-gray-300">
-                      Ver todas ({categoriasBudget.length})
-                    </button>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                <div className="space-y-4">
+                  {envelopes.map((envelope) => {
+                    const { categoria, valor_orcado, valor_gasto, valor_disponivel, percentual_usado, status } = envelope
 
-        {/* Coluna direita: Widget Posso Comprar */}
-        <div className="space-y-6">
-          <PossoComprarWidget orcamentoId={orcamentoAtual.id} />
+                    return (
+                      <div
+                        key={categoria.id}
+                        className="p-4 bg-dark-700/30 rounded-lg hover:bg-dark-700/50 transition-colors border border-dark-600"
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">{categoria.icone}</span>
+                            <div>
+                              <p className="font-medium text-gray-200">{categoria.nome}</p>
+                              <p className="text-xs text-gray-500 capitalize">{envelope.prioridade}</p>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <p
+                              className={cn(
+                                'font-bold text-lg',
+                                valor_disponivel >= 0 ? 'text-green-400' : 'text-red-400'
+                              )}
+                            >
+                              {formatCurrency(valor_disponivel)}
+                            </p>
+                            <p className="text-xs text-gray-500">disponível</p>
+                          </div>
+                        </div>
+
+                        {/* Barra de progresso */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-400">
+                              {formatCurrency(valor_gasto)} de {formatCurrency(valor_orcado)}
+                            </span>
+                            <span
+                              className={cn(
+                                'font-medium',
+                                status === 'saudavel'
+                                  ? 'text-green-400'
+                                  : status === 'atencao'
+                                    ? 'text-yellow-400'
+                                    : 'text-red-400'
+                              )}
+                            >
+                              {percentual_usado.toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="h-2 bg-dark-700 rounded-full overflow-hidden">
+                            <div
+                              className={cn(
+                                'h-full transition-all duration-300',
+                                status === 'saudavel'
+                                  ? 'bg-green-500'
+                                  : status === 'atencao'
+                                    ? 'bg-yellow-500'
+                                    : 'bg-red-500'
+                              )}
+                              style={{ width: `${Math.min(percentual_usado, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Coluna direita: Widget Posso Comprar */}
+          <div className="space-y-6">
+            <PossoComprarWidget orcamentoId={orcamentoAtual.id} />
 
           {/* Card de meta de poupança */}
           <Card>
@@ -269,8 +339,20 @@ export function Budgets() {
               </div>
             </CardContent>
           </Card>
+          </div>
         </div>
+
+        {/* Linha 3: Relatório Comparativo */}
+        <BudgetComparativeReport orcamentoId={orcamentoAtual.id} />
       </div>
+
+      {/* Modal de Planejamento */}
+      <BudgetPlanningModal
+        isOpen={isPlanningModalOpen}
+        onClose={() => setIsPlanningModalOpen(false)}
+        orcamento={orcamentoAtual || undefined}
+        mesReferencia={mesAtual}
+      />
     </div>
   )
 }

@@ -6,6 +6,19 @@ import { CategoryModal } from '../components/CategoryModal'
 import type { Categoria } from '../types'
 import { cn } from '../lib/cn'
 
+// Helper para verificar se é um emoji válido ou texto em inglês
+function isValidEmoji(str: string | null | undefined): boolean {
+  if (!str) return false
+  // Se tiver apenas letras ASCII, hífens ou underscores = texto em inglês
+  const isEnglishText = /^[a-zA-Z\-_]+$/.test(str)
+  return !isEnglishText
+}
+
+// Helper para obter ícone seguro (só exibe se for emoji válido)
+function getSafeIcon(icon: string | null | undefined, fallback: string = ''): string {
+  return isValidEmoji(icon) ? (icon || fallback) : fallback
+}
+
 export function Categories() {
   const categorias = useCategoriasStore((state) => state.categorias)
   const getSubcategorias = useCategoriasStore((state) => state.getSubcategorias)
@@ -148,9 +161,11 @@ export function Categories() {
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="flex items-center gap-2">
-                        <span className="text-2xl" role="img" aria-label={categoria.icone || ''}>
-                          {categoria.icone || '📦'}
-                        </span>
+                        {getSafeIcon(categoria.icone) && (
+                          <span className="text-2xl" role="img" aria-label={categoria.icone || ''}>
+                            {getSafeIcon(categoria.icone)}
+                          </span>
+                        )}
                         <div className="flex flex-col">
                           <span className="text-base font-semibold">{categoria.nome}</span>
                           {subcategorias.length > 0 && (
@@ -190,7 +205,9 @@ export function Categories() {
                             >
                               <div className="flex items-center gap-2">
                                 <span className="text-gray-500">└─</span>
-                                <span className="text-xs">{sub.icone || '📄'}</span>
+                                {getSafeIcon(sub.icone) && (
+                                  <span className="text-xs">{getSafeIcon(sub.icone)}</span>
+                                )}
                                 <span>{sub.nome}</span>
                               </div>
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -276,9 +293,11 @@ export function Categories() {
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="flex items-center gap-2">
-                        <span className="text-2xl" role="img" aria-label={categoria.icone || ''}>
-                          {categoria.icone || '💰'}
-                        </span>
+                        {getSafeIcon(categoria.icone) && (
+                          <span className="text-2xl" role="img" aria-label={categoria.icone || ''}>
+                            {getSafeIcon(categoria.icone)}
+                          </span>
+                        )}
                         <div className="flex flex-col">
                           <span className="text-base font-semibold">{categoria.nome}</span>
                           {subcategorias.length > 0 && (
@@ -318,7 +337,9 @@ export function Categories() {
                             >
                               <div className="flex items-center gap-2">
                                 <span className="text-gray-500">└─</span>
-                                <span className="text-xs">{sub.icone || '💵'}</span>
+                                {getSafeIcon(sub.icone) && (
+                                  <span className="text-xs">{getSafeIcon(sub.icone)}</span>
+                                )}
                                 <span>{sub.nome}</span>
                               </div>
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
