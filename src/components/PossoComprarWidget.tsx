@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ShoppingCart, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card'
 import { CurrencyInput } from './ui/CurrencyInput'
@@ -20,8 +20,12 @@ export function PossoComprarWidget({ orcamentoId, className }: PossoComprarWidge
   const [resultado, setResultado] = useState<ReturnType<typeof simularCompra> | null>(null)
 
   const simularCompra = useOrcamentosStore((state) => state.simularCompra)
-  const categorias = useCategoriasStore((state) =>
-    state.categorias.filter((c) => c.tipo === 'despesa' && !c.categoria_pai_id)
+  const categoriasRaw = useCategoriasStore((state) => state.categorias)
+  
+  // Filtrar categorias com useMemo para evitar novo array a cada render
+  const categorias = useMemo(
+    () => categoriasRaw.filter((c) => c.tipo === 'despesa' && !c.categoria_pai_id),
+    [categoriasRaw]
   )
 
   const handleSimular = () => {
