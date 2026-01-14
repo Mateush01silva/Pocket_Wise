@@ -15,7 +15,7 @@ export function BudgetAlertsCard({ orcamentoId, className }: BudgetAlertsCardPro
   const getProjecaoMensal = useOrcamentosStore((state) => state.getProjecaoMensal)
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
 
-  const categoriasEmRisco = getCategoriasEmRisco(orcamentoId)
+  const categoriasEmRisco = getCategoriasEmRisco(orcamentoId) || []
   const projecao = getProjecaoMensal(orcamentoId)
 
   // Gerar alertas baseado em diferentes condições

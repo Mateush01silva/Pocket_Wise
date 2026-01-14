@@ -61,6 +61,7 @@ export function Budgets() {
 
   const projecao = orcamentoAtual ? getProjecaoMensal(orcamentoAtual.id) : null
   const envelopes = orcamentoAtual ? getEnvelopesDigitais(orcamentoAtual.id) : []
+  const totalOrcado = categoriasBudget?.reduce((sum, cb) => sum + cb.valor_orcado, 0) || 0
 
   const handleCopiarMesAnterior = async () => {
     if (isMounted.current) {
@@ -104,8 +105,6 @@ export function Budgets() {
       }
     }
   }
-
-  const totalOrcado = categoriasBudget.reduce((sum, cb) => sum + cb.valor_orcado, 0)
 
   if (isLoading || !initialized) {
     return (
