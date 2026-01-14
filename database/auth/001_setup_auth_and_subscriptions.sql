@@ -59,8 +59,8 @@ BEGIN
   INSERT INTO public.users (id, email, full_name)
   VALUES (
     NEW.id,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário'),
+    COALESCE(NEW.email, NEW.raw_user_meta_data->>'email'),
+    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário')
   );
 
   -- Criar assinatura trial de 7 dias
