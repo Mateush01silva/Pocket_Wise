@@ -1,3 +1,11 @@
+// Auth pages
+export { Landing } from './Landing'
+export { Login } from './Login'
+export { SignUp } from './SignUp'
+export { ForgotPassword } from './ForgotPassword'
+export { Paywall } from './Paywall'
+
+// App pages
 export { Dashboard } from './Dashboard'
 export { Transactions } from './Transactions'
 export { Categories } from './Categories'

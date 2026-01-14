@@ -1,9 +1,18 @@
 import { useEffect, useState, useRef } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Layout } from './components/layout/Layout'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { PrivateRoute } from './components/PrivateRoute'
+import { AuthProvider } from './contexts/AuthContext'
 import {
+  // Auth pages
+  Landing,
+  Login,
+  SignUp,
+  ForgotPassword,
+  Paywall,
+  // App pages
   Dashboard,
   Transactions,
   Categories,
@@ -15,10 +24,11 @@ import {
   Settings,
 } from './pages'
 import { useCategoriasStore, useTransacoesStore, useCartoesStore } from './store'
+import { isSupabaseConfigured } from './lib/supabase'
 
-function App() {
+function AppRoutes() {
   const [isInitialized, setIsInitialized] = useState(false)
-  const isMounted = useRef(true) // Track if component is mounted
+  const isMounted = useRef(true)
   const initializeCategorias = useCategoriasStore((state) => state.initialize)
   const fetchLancamentos = useTransacoesStore((state) => state.fetchLancamentos)
   const fetchCartoes = useCartoesStore((state) => state.fetchCartoes)
@@ -127,25 +137,155 @@ function App() {
     )
   }
 
+  // Se Supabase não está configurado, usar rotas antigas (modo localStorage)
+  if (!isSupabaseConfigured()) {
+    return (
+      <ErrorBoundary>
+        <BrowserRouter>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/transactions" element={<Transactions />} />
+              <Route path="/credit-cards" element={<CreditCards />} />
+              <Route path="/categories" element={<Categories />} />
+              <Route path="/budgets" element={<Budgets />} />
+              <Route path="/envelopes" element={<Envelopes />} />
+              <Route path="/projections" element={<Projections />} />
+              <Route path="/family" element={<Family />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </Layout>
+          <Toaster position="top-right" theme="dark" richColors />
+        </BrowserRouter>
+      </ErrorBoundary>
+    )
+  }
+
+  // Modo produção com autenticação
   return (
     <ErrorBoundary>
       <BrowserRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/transactions" element={<Transactions />} />
-            <Route path="/credit-cards" element={<CreditCards />} />
-            <Route path="/categories" element={<Categories />} />
-            <Route path="/budgets" element={<Budgets />} />
-            <Route path="/envelopes" element={<Envelopes />} />
-            <Route path="/projections" element={<Projections />} />
-            <Route path="/family" element={<Family />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
-        </Layout>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/cadastro" element={<SignUp />} />
+          <Route path="/recuperar-senha" element={<ForgotPassword />} />
+          <Route path="/app/assinar" element={<Paywall />} />
+
+          {/* Private routes */}
+          <Route
+            path="/app"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Dashboard />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/transacoes"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Transactions />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/categorias"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Categories />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/cartoes"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <CreditCards />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/orcamento"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Budgets />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/envelopes"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Envelopes />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/projecoes"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Projections />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/familia"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Family />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/configuracoes"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Settings />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+
+          {/* Redirect old routes */}
+          <Route path="/transactions" element={<Navigate to="/app/transacoes" replace />} />
+          <Route path="/credit-cards" element={<Navigate to="/app/cartoes" replace />} />
+          <Route path="/categories" element={<Navigate to="/app/categorias" replace />} />
+          <Route path="/budgets" element={<Navigate to="/app/orcamento" replace />} />
+          <Route path="/envelopes" element={<Navigate to="/app/envelopes" replace />} />
+          <Route path="/projections" element={<Navigate to="/app/projecoes" replace />} />
+          <Route path="/family" element={<Navigate to="/app/familia" replace />} />
+          <Route path="/settings" element={<Navigate to="/app/configuracoes" replace />} />
+        </Routes>
         <Toaster position="top-right" theme="dark" richColors />
       </BrowserRouter>
     </ErrorBoundary>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   )
 }
 
