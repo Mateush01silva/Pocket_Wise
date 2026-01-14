@@ -561,7 +561,7 @@ export function Dashboard() {
                 variant="ghost"
                 size="sm"
                 className="w-full mt-4"
-                onClick={() => navigate('/envelopes')}
+                onClick={() => navigate('/budgets')}
               >
                 Ver Todos os Envelopes
               </Button>
