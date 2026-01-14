@@ -22,6 +22,9 @@ export function BudgetComparativeReport({ orcamentoId, className }: BudgetCompar
   if (!orcamento) return null
 
   const categoriasBudgetDoOrcamento = categoriasBudget.filter((cb) => cb.orcamento_id === orcamentoId)
+
+  // Se não há categorias orçadas ainda, não mostrar o relatório
+  if (categoriasBudgetDoOrcamento.length === 0) return null
   const comparativo = gerarComparativoCategoria(
     categoriasBudgetDoOrcamento,
     lancamentos,
