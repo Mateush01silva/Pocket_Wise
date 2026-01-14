@@ -8,6 +8,7 @@ interface CategoryModalProps {
   isOpen: boolean
   onClose: () => void
   categoria?: Categoria // Para edição
+  categoriaPaiIdInicial?: string | null // Para pré-selecionar categoria pai ao criar subcategoria
 }
 
 const CORES_DISPONIVEIS = [
@@ -30,7 +31,7 @@ const CORES_DISPONIVEIS = [
   '#f43f5e', // rose
 ]
 
-export function CategoryModal({ isOpen, onClose, categoria }: CategoryModalProps) {
+export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicial }: CategoryModalProps) {
   const categorias = useCategoriasStore((state) => state.categorias)
   const createCategoria = useCategoriasStore((state) => state.createCategoria)
   const updateCategoria = useCategoriasStore((state) => state.updateCategoria)
@@ -46,7 +47,7 @@ export function CategoryModal({ isOpen, onClose, categoria }: CategoryModalProps
 
   const isEditMode = !!categoria
 
-  // Preencher form com dados da categoria ao editar
+  // Preencher form com dados da categoria ao editar ou pré-selecionar categoria pai
   useEffect(() => {
     if (categoria) {
       setFormData({
@@ -62,10 +63,10 @@ export function CategoryModal({ isOpen, onClose, categoria }: CategoryModalProps
         tipo: 'despesa',
         cor: CORES_DISPONIVEIS[0],
         icone: '📦',
-        categoria_pai_id: null,
+        categoria_pai_id: categoriaPaiIdInicial || null, // Pré-selecionar se fornecido
       })
     }
-  }, [categoria])
+  }, [categoria, categoriaPaiIdInicial])
 
   // Filtrar categorias principais por tipo para seleção de categoria pai
   const categoriasPrincipais = useMemo(() => {

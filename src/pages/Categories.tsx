@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, FolderPlus, ListPlus } from 'lucide-react'
 import { useCategoriasStore } from '../store'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CategoryModal } from '../components/CategoryModal'
 import type { Categoria } from '../types'
+import { cn } from '../lib/cn'
 
 export function Categories() {
   const categorias = useCategoriasStore((state) => state.categorias)
@@ -12,6 +13,7 @@ export function Categories() {
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [categoriaToEdit, setCategoriaToEdit] = useState<Categoria | undefined>()
+  const [categoriaPaiIdParaNova, setCategoriaPaiIdParaNova] = useState<string | null>(null)
 
   // Calcular categorias principais a partir das categorias
   const categoriasPrincipais = useMemo(
@@ -31,6 +33,7 @@ export function Categories() {
 
   const handleEdit = (categoria: Categoria) => {
     setCategoriaToEdit(categoria)
+    setCategoriaPaiIdParaNova(null)
     setIsModalOpen(true)
   }
 
@@ -52,195 +55,312 @@ export function Categories() {
     }
   }
 
+  const handleNovaCategoria = () => {
+    setCategoriaToEdit(undefined)
+    setCategoriaPaiIdParaNova(null)
+    setIsModalOpen(true)
+  }
+
+  const handleNovaSubcategoria = (categoriaPai: Categoria) => {
+    setCategoriaToEdit(undefined)
+    setCategoriaPaiIdParaNova(categoriaPai.id)
+    setIsModalOpen(true)
+  }
+
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setCategoriaToEdit(undefined)
+    setCategoriaPaiIdParaNova(null)
   }
+
+  const totalSubcategorias = categorias.filter((c) => c.categoria_pai_id !== null).length
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold text-gray-100 mb-2">Categorias</h1>
-          <p className="text-gray-400">
-            Total de {categorias.length} categorias cadastradas ({categoriasPrincipais.length}{' '}
-            principais)
+          <div className="flex items-center gap-4 text-sm text-gray-400">
+            <div className="flex items-center gap-2">
+              <FolderPlus className="w-4 h-4 text-primary-400" />
+              <span>
+                <strong className="text-gray-300">{categoriasPrincipais.length}</strong> categorias
+                principais
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <ListPlus className="w-4 h-4 text-secondary-400" />
+              <span>
+                <strong className="text-gray-300">{totalSubcategorias}</strong> subcategorias
+              </span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            💡 Organize suas despesas e receitas em categorias. Adicione subcategorias para maior
+            detalhamento.
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus size={16} className="mr-2" />
-          Nova Categoria
+        <Button onClick={handleNovaCategoria} size="lg">
+          <Plus size={18} className="mr-2" />
+          Nova Categoria Principal
         </Button>
       </div>
 
       {/* Categorias de Despesa */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-100 mb-4">Despesas</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {despesas.map((categoria) => {
-            const subcategorias = getSubcategorias(categoria.id)
-            return (
-              <Card key={categoria.id} className="hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <span
-                        className="text-xl"
-                        role="img"
-                        aria-label={categoria.icone || ''}
-                      >
-                        {categoria.icone || '📦'}
-                      </span>
-                      <span
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: categoria.cor || '#6b7280' }}
-                      />
-                      {categoria.nome}
-                    </CardTitle>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleEdit(categoria)}
-                        className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
-                        title="Editar categoria"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(categoria)}
-                        className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-red-400"
-                        title="Deletar categoria"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {subcategorias.length > 0 ? (
-                    <div className="space-y-1">
-                      <p className="text-sm text-gray-400 mb-2">
-                        {subcategorias.length} subcategorias:
-                      </p>
-                      <ul className="text-sm text-gray-300 space-y-2">
-                        {subcategorias.map((sub) => (
-                          <li key={sub.id} className="flex items-center justify-between group">
-                            <div className="flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-gray-500" />
-                              {sub.nome}
-                            </div>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={() => handleEdit(sub)}
-                                className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-primary-400"
-                                title="Editar subcategoria"
-                              >
-                                <Pencil size={12} />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(sub)}
-                                className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-red-400"
-                                title="Deletar subcategoria"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">Sem subcategorias</p>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+              <span className="text-lg">💸</span>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-100">Despesas</h2>
+            <span className="text-sm text-gray-500">({despesas.length} categorias)</span>
+          </div>
         </div>
+
+        {despesas.length === 0 ? (
+          <Card className="border-dashed border-2">
+            <CardContent className="py-12 text-center">
+              <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">💸</span>
+              </div>
+              <p className="text-gray-400 mb-4">Nenhuma categoria de despesa cadastrada</p>
+              <Button onClick={handleNovaCategoria} variant="ghost">
+                <Plus size={16} className="mr-2" />
+                Criar primeira categoria de despesa
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {despesas.map((categoria) => {
+              const subcategorias = getSubcategorias(categoria.id)
+              return (
+                <Card
+                  key={categoria.id}
+                  className={cn(
+                    'hover:shadow-xl transition-all hover:scale-[1.02]',
+                    'border-l-4'
+                  )}
+                  style={{ borderLeftColor: categoria.cor || '#ef4444' }}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <span className="text-2xl" role="img" aria-label={categoria.icone || ''}>
+                          {categoria.icone || '📦'}
+                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-base font-semibold">{categoria.nome}</span>
+                          {subcategorias.length > 0 && (
+                            <span className="text-xs text-gray-500 font-normal">
+                              {subcategorias.length} subcategoria
+                              {subcategorias.length !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                      </CardTitle>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEdit(categoria)}
+                          className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
+                          title="Editar categoria"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(categoria)}
+                          className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-red-400"
+                          title="Deletar categoria"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {subcategorias.length > 0 ? (
+                      <div className="space-y-2 mb-3">
+                        <ul className="text-sm text-gray-300 space-y-2 max-h-40 overflow-y-auto">
+                          {subcategorias.map((sub) => (
+                            <li
+                              key={sub.id}
+                              className="flex items-center justify-between group p-2 rounded hover:bg-dark-700/30 transition-colors"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-500">└─</span>
+                                <span className="text-xs">{sub.icone || '📄'}</span>
+                                <span>{sub.nome}</span>
+                              </div>
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => handleEdit(sub)}
+                                  className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-primary-400"
+                                  title="Editar subcategoria"
+                                >
+                                  <Pencil size={12} />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(sub)}
+                                  className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-red-400"
+                                  title="Deletar subcategoria"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 italic mb-3">Sem subcategorias</p>
+                    )}
+
+                    {/* Botão Adicionar Subcategoria */}
+                    <Button
+                      onClick={() => handleNovaSubcategoria(categoria)}
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs"
+                    >
+                      <Plus size={14} className="mr-1" />
+                      Adicionar Subcategoria
+                    </Button>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Categorias de Receita */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-100 mb-4">Receitas</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {receitas.map((categoria) => {
-            const subcategorias = getSubcategorias(categoria.id)
-            return (
-              <Card key={categoria.id} className="hover:shadow-xl transition-shadow">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <span
-                        className="text-xl"
-                        role="img"
-                        aria-label={categoria.icone || ''}
-                      >
-                        {categoria.icone || '💰'}
-                      </span>
-                      <span
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: categoria.cor || '#6b7280' }}
-                      />
-                      {categoria.nome}
-                    </CardTitle>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleEdit(categoria)}
-                        className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
-                        title="Editar categoria"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(categoria)}
-                        className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-red-400"
-                        title="Deletar categoria"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {subcategorias.length > 0 ? (
-                    <div className="space-y-1">
-                      <p className="text-sm text-gray-400 mb-2">
-                        {subcategorias.length} subcategorias:
-                      </p>
-                      <ul className="text-sm text-gray-300 space-y-2">
-                        {subcategorias.map((sub) => (
-                          <li key={sub.id} className="flex items-center justify-between group">
-                            <div className="flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-gray-500" />
-                              {sub.nome}
-                            </div>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={() => handleEdit(sub)}
-                                className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-primary-400"
-                                title="Editar subcategoria"
-                              >
-                                <Pencil size={12} />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(sub)}
-                                className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-red-400"
-                                title="Deletar subcategoria"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">Sem subcategorias</p>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center">
+              <span className="text-lg">💰</span>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-100">Receitas</h2>
+            <span className="text-sm text-gray-500">({receitas.length} categorias)</span>
+          </div>
         </div>
+
+        {receitas.length === 0 ? (
+          <Card className="border-dashed border-2">
+            <CardContent className="py-12 text-center">
+              <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">💰</span>
+              </div>
+              <p className="text-gray-400 mb-4">Nenhuma categoria de receita cadastrada</p>
+              <Button onClick={handleNovaCategoria} variant="ghost">
+                <Plus size={16} className="mr-2" />
+                Criar primeira categoria de receita
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {receitas.map((categoria) => {
+              const subcategorias = getSubcategorias(categoria.id)
+              return (
+                <Card
+                  key={categoria.id}
+                  className={cn(
+                    'hover:shadow-xl transition-all hover:scale-[1.02]',
+                    'border-l-4'
+                  )}
+                  style={{ borderLeftColor: categoria.cor || '#10b981' }}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <span className="text-2xl" role="img" aria-label={categoria.icone || ''}>
+                          {categoria.icone || '💰'}
+                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-base font-semibold">{categoria.nome}</span>
+                          {subcategorias.length > 0 && (
+                            <span className="text-xs text-gray-500 font-normal">
+                              {subcategorias.length} subcategoria
+                              {subcategorias.length !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                      </CardTitle>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEdit(categoria)}
+                          className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
+                          title="Editar categoria"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(categoria)}
+                          className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-red-400"
+                          title="Deletar categoria"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    {subcategorias.length > 0 ? (
+                      <div className="space-y-2 mb-3">
+                        <ul className="text-sm text-gray-300 space-y-2 max-h-40 overflow-y-auto">
+                          {subcategorias.map((sub) => (
+                            <li
+                              key={sub.id}
+                              className="flex items-center justify-between group p-2 rounded hover:bg-dark-700/30 transition-colors"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-500">└─</span>
+                                <span className="text-xs">{sub.icone || '💵'}</span>
+                                <span>{sub.nome}</span>
+                              </div>
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => handleEdit(sub)}
+                                  className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-primary-400"
+                                  title="Editar subcategoria"
+                                >
+                                  <Pencil size={12} />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(sub)}
+                                  className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-red-400"
+                                  title="Deletar subcategoria"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-500 italic mb-3">Sem subcategorias</p>
+                    )}
+
+                    {/* Botão Adicionar Subcategoria */}
+                    <Button
+                      onClick={() => handleNovaSubcategoria(categoria)}
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-xs"
+                    >
+                      <Plus size={14} className="mr-1" />
+                      Adicionar Subcategoria
+                    </Button>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Modal de Categoria */}
@@ -248,6 +368,7 @@ export function Categories() {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         categoria={categoriaToEdit}
+        categoriaPaiIdInicial={categoriaPaiIdParaNova}
       />
     </div>
   )
