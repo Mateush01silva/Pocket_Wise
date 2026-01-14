@@ -44,6 +44,34 @@ CREATE TABLE IF NOT EXISTS users (
   UNIQUE(email)
 );
 
+-- Adicionar colunas se não existirem (para tabelas já criadas)
+DO $$
+BEGIN
+  -- Adicionar coluna email se não existir
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='users' AND column_name='email') THEN
+    ALTER TABLE users ADD COLUMN email VARCHAR(255) NOT NULL DEFAULT '';
+  END IF;
+
+  -- Adicionar coluna full_name se não existir
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='users' AND column_name='full_name') THEN
+    ALTER TABLE users ADD COLUMN full_name VARCHAR(255) NOT NULL DEFAULT 'Usuário';
+  END IF;
+
+  -- Adicionar coluna avatar_url se não existir
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='users' AND column_name='avatar_url') THEN
+    ALTER TABLE users ADD COLUMN avatar_url TEXT;
+  END IF;
+
+  -- Adicionar coluna family_id se não existir
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_name='users' AND column_name='family_id') THEN
+    ALTER TABLE users ADD COLUMN family_id UUID REFERENCES families(id) ON DELETE SET NULL;
+  END IF;
+END $$;
+
 -- Índices
 CREATE INDEX IF NOT EXISTS idx_users_family_id ON users(family_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
