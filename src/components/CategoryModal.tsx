@@ -31,6 +31,32 @@ const CORES_DISPONIVEIS = [
   '#f43f5e', // rose
 ]
 
+const EMOJIS_DISPONIVEIS = {
+  despesa: [
+    '🍴', '🍕', '🍔', '🥗', '🍜', // Alimentação
+    '🚗', '🚕', '🚌', '🚇', '✈️', // Transporte
+    '🏠', '🏡', '🏢', '🏬', '🏪', // Moradia/Compras
+    '❤️', '💊', '🏥', '⚕️', '💉', // Saúde
+    '😊', '🎮', '🎬', '🎵', '🎨', // Lazer
+    '📚', '🎓', '✏️', '📝', '🖊️', // Educação
+    '👕', '👗', '👔', '👠', '👟', // Vestuário
+    '💡', '💧', '🔥', '📺', '📱', // Utilidades
+    '🐶', '🐱', '🐾', '🦴', '🐟', // Pets
+    '🔧', '🔨', '🛠️', '⚙️', '🪛', // Manutenção
+    '💳', '💰', '🏦', '📊', '📈', // Finanças
+    '🛒', '🛍️', '🎁', '🎀', '🎉', // Outros
+  ],
+  receita: [
+    '💰', '💵', '💴', '💶', '💷', // Dinheiro
+    '💳', '💎', '🏆', '🎁', '🎖️', // Ganhos
+    '📈', '📊', '💹', '🏅', '⭐', // Investimentos/Bônus
+    '🏢', '💼', '👔', '🖊️', '📝', // Trabalho
+    '🏠', '🏡', '🏘️', '🏗️', '🏛️', // Patrimônio
+  ],
+}
+
+const EMOJI_DEFAULT = '📦'
+
 export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicial }: CategoryModalProps) {
   const categorias = useCategoriasStore((state) => state.categorias)
   const createCategoria = useCategoriasStore((state) => state.createCategoria)
@@ -40,7 +66,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
     nome: '',
     tipo: 'despesa',
     cor: CORES_DISPONIVEIS[0],
-    icone: '📦',
+    icone: EMOJI_DEFAULT,
     categoria_pai_id: null,
   })
   const [isLoading, setIsLoading] = useState(false)
@@ -54,7 +80,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
         nome: categoria.nome,
         tipo: categoria.tipo,
         cor: categoria.cor || CORES_DISPONIVEIS[0],
-        icone: categoria.icone || '📦',
+        icone: categoria.icone || EMOJI_DEFAULT,
         categoria_pai_id: categoria.categoria_pai_id || null,
       })
     } else {
@@ -62,11 +88,21 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
         nome: '',
         tipo: 'despesa',
         cor: CORES_DISPONIVEIS[0],
-        icone: '📦',
+        icone: EMOJI_DEFAULT,
         categoria_pai_id: categoriaPaiIdInicial || null, // Pré-selecionar se fornecido
       })
     }
   }, [categoria, categoriaPaiIdInicial])
+
+  // Atualizar emoji ao mudar tipo se o emoji atual não estiver na lista do novo tipo
+  useEffect(() => {
+    if (!categoria && formData.tipo && formData.icone) {
+      const emojisDoTipo = EMOJIS_DISPONIVEIS[formData.tipo as 'despesa' | 'receita']
+      if (!emojisDoTipo.includes(formData.icone)) {
+        setFormData((prev) => ({ ...prev, icone: emojisDoTipo[0] || EMOJI_DEFAULT }))
+      }
+    }
+  }, [formData.tipo, categoria])
 
   // Filtrar categorias principais por tipo para seleção de categoria pai
   const categoriasPrincipais = useMemo(() => {
@@ -110,7 +146,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
           nome: formData.nome.trim(),
           tipo: formData.tipo,
           cor: formData.cor || CORES_DISPONIVEIS[0],
-          icone: formData.icone || '📦',
+          icone: formData.icone || EMOJI_DEFAULT,
           categoria_pai_id: formData.categoria_pai_id || null,
         })
       } else {
@@ -121,7 +157,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
           nome: formData.nome.trim(),
           tipo: formData.tipo as TransactionType,
           cor: formData.cor || CORES_DISPONIVEIS[0],
-          icone: formData.icone || '📦',
+          icone: formData.icone || EMOJI_DEFAULT,
           categoria_pai_id: formData.categoria_pai_id || null,
         }
 
@@ -133,7 +169,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
         nome: '',
         tipo: 'despesa',
         cor: CORES_DISPONIVEIS[0],
-        icone: '📦',
+        icone: EMOJI_DEFAULT,
         categoria_pai_id: null,
       })
       onClose()
@@ -151,7 +187,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
         nome: '',
         tipo: 'despesa',
         cor: CORES_DISPONIVEIS[0],
-        icone: '📦',
+        icone: EMOJI_DEFAULT,
         categoria_pai_id: null,
       })
       onClose()
@@ -214,16 +250,28 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
 
         {/* Ícone */}
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">Ícone</label>
-          <Input
-            type="text"
-            value={formData.icone ?? ''}
-            onChange={(e) => setFormData({ ...formData, icone: e.target.value })}
-            placeholder="📦"
-            maxLength={2}
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Use um emoji para representar a categoria
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Ícone (Emoji selecionado: {formData.icone || EMOJI_DEFAULT})
+          </label>
+          <div className="grid grid-cols-10 gap-1 max-h-32 overflow-y-auto p-2 bg-dark-700 rounded-lg border border-dark-600">
+            {EMOJIS_DISPONIVEIS[formData.tipo as 'despesa' | 'receita' || 'despesa'].map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => setFormData({ ...formData, icone: emoji })}
+                className={`text-2xl p-2 rounded transition-all hover:bg-dark-600 ${
+                  formData.icone === emoji
+                    ? 'bg-primary-500/20 ring-2 ring-primary-500 scale-110'
+                    : 'hover:scale-105'
+                }`}
+                title={emoji}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Clique em um emoji para selecioná-lo como ícone da categoria
           </p>
         </div>
 
