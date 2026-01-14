@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Card, CardContent, Button } from '../components/ui'
-import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock, Package, AlertTriangle, DollarSign } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock, Package, AlertTriangle, DollarSign, Landmark } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
-import { useTransacoesStore, useCategoriasStore } from '../store'
+import { useTransacoesStore, useCategoriasStore, usePatrimonioStore } from '../store'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { TransactionModal } from '../components/TransactionModal'
+import { PatrimonioModal } from '../components/PatrimonioModal'
 import { HealthIndicator } from '../components/HealthIndicator'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
 import { calcularSaldoReal, calcularSaldoProjetado, calcularFaturasCartao, filtrarPorPeriodo } from '../lib/financialCalculations'
@@ -15,6 +16,7 @@ import { useNavigate } from 'react-router-dom'
 
 export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isPatrimonioModalOpen, setIsPatrimonioModalOpen] = useState(false)
   const [periodFilter, setPeriodFilter] = useState<PeriodFilterValue>({
     tipo: 'mes-atual',
     dataInicio: startOfMonth(new Date()),
@@ -34,6 +36,12 @@ export function Dashboard() {
   const getProjecaoMensal = useOrcamentosStore((state) => state.getProjecaoMensal)
   const getEnvelopesDigitais = useOrcamentosStore((state) => state.getEnvelopesDigitais)
   const setOrcamentoAtual = useOrcamentosStore((state) => state.setOrcamentoAtual)
+
+  // Patrimonio store
+  const patrimonioAtual = usePatrimonioStore((state) => state.patrimonioAtual)
+  const initializePatrimonio = usePatrimonioStore((state) => state.initialize)
+  const patrimonioInitialized = usePatrimonioStore((state) => state.initialized)
+  const calcularPatrimonioAtualizado = usePatrimonioStore((state) => state.calcularPatrimonioAtualizado)
 
   // Initialize budget store
   useEffect(() => {
@@ -75,6 +83,23 @@ export function Dashboard() {
     }
   }, [orcamentosInitialized, orcamentoAtual, getOrcamentoDoMes, setOrcamentoAtual])
 
+  // Initialize patrimonio store
+  useEffect(() => {
+    isMounted.current = true
+
+    if (!patrimonioInitialized) {
+      initializePatrimonio().catch(err => {
+        if (isMounted.current) {
+          console.error('Erro ao inicializar patrimônio:', err)
+        }
+      })
+    }
+
+    return () => {
+      isMounted.current = false
+    }
+  }, [patrimonioInitialized, initializePatrimonio])
+
   // Stable callbacks to prevent render loops
   const handleOpenModal = useCallback(() => {
     setIsModalOpen(true)
@@ -106,6 +131,14 @@ export function Dashboard() {
 
   // Faturas de cartão do período
   const faturasCartao = calcularFaturasCartao(lancamentos, periodFilter.dataInicio, periodFilter.dataFim)
+
+  // Patrimônio atualizado (base + transações pagas)
+  const valorPatrimonioBase = patrimonioAtual?.valor_total || 0
+  const { receitasRecebidas, despesasPagas } = calcularSaldoReal(lancamentos)
+  const patrimonioAtualizado = calcularPatrimonioAtualizado(valorPatrimonioBase, {
+    receitas: receitasRecebidas,
+    despesas: despesasPagas,
+  })
 
   // Backward compatibility (para não quebrar código que usa essas variáveis)
   const receitas = receitasTotal
@@ -301,6 +334,90 @@ export function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Patrimônio Líquido Section */}
+      <Card className="border-2 border-purple-500/30 bg-gradient-to-br from-purple-500/5 to-transparent">
+        <CardContent>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-3">
+                <Landmark className="w-5 h-5 text-purple-400" />
+                <h2 className="text-lg font-semibold text-gray-100">Patrimônio Líquido</h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Patrimônio Base */}
+                <div className="p-3 bg-dark-700/50 rounded-lg border border-dark-600">
+                  <p className="text-xs text-gray-400 mb-1">Patrimônio Base</p>
+                  <p className="text-xl font-bold text-gray-200">
+                    {formatCurrency(valorPatrimonioBase)}
+                  </p>
+                  {patrimonioAtual && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Atualizado em {format(new Date(patrimonioAtual.data_atualizacao), 'dd/MM/yyyy')}
+                    </p>
+                  )}
+                </div>
+
+                {/* Movimentações */}
+                <div className="p-3 bg-dark-700/50 rounded-lg border border-dark-600">
+                  <p className="text-xs text-gray-400 mb-1">Movimentações (pagas)</p>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-green-400">+ Receitas:</span>
+                      <span className="font-medium text-green-400">{formatCurrency(receitasRecebidas)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-red-400">- Despesas:</span>
+                      <span className="font-medium text-red-400">{formatCurrency(despesasPagas)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Patrimônio Atualizado */}
+                <div className="p-3 bg-purple-500/10 rounded-lg border border-purple-500/30">
+                  <p className="text-xs text-gray-400 mb-1">Patrimônio Atual</p>
+                  <p className="text-2xl font-bold text-purple-400">
+                    {formatCurrency(patrimonioAtualizado)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {patrimonioAtualizado > valorPatrimonioBase ? (
+                      <span className="text-green-400">
+                        ↑ {formatCurrency(patrimonioAtualizado - valorPatrimonioBase)}
+                      </span>
+                    ) : patrimonioAtualizado < valorPatrimonioBase ? (
+                      <span className="text-red-400">
+                        ↓ {formatCurrency(valorPatrimonioBase - patrimonioAtualizado)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">Sem alterações</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Botão Atualizar */}
+            <Button
+              onClick={() => setIsPatrimonioModalOpen(true)}
+              size="sm"
+              className="ml-4 shrink-0"
+            >
+              <Landmark className="w-4 h-4 mr-2" />
+              Atualizar
+            </Button>
+          </div>
+
+          {!patrimonioAtual && (
+            <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <p className="text-sm text-gray-300">
+                💡 <strong>Dica:</strong> Configure seu patrimônio base para acompanhar sua evolução
+                financeira. O sistema atualizará automaticamente com base nas suas transações.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Budget Section */}
       {orcamentoAtual && projecao && (
@@ -662,6 +779,14 @@ export function Dashboard() {
 
       {/* Transaction Modal */}
       <TransactionModal isOpen={isModalOpen} onClose={handleCloseModal} />
+
+      {/* Patrimônio Modal */}
+      <PatrimonioModal
+        isOpen={isPatrimonioModalOpen}
+        onClose={() => setIsPatrimonioModalOpen(false)}
+        patrimonioAtual={valorPatrimonioBase}
+        saldoRealAtual={saldoReal}
+      />
     </div>
   )
 }
