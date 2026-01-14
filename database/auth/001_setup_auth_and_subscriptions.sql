@@ -81,7 +81,7 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
-  EXECUTE FUNCTION handle_new_user();
+  EXECUTE PROCEDURE handle_new_user();
 
 -- ============================================================================
 -- 4. TRIGGER: Atualizar updated_at automaticamente
@@ -100,13 +100,13 @@ DROP TRIGGER IF EXISTS update_users_updated_at ON users;
 CREATE TRIGGER update_users_updated_at
   BEFORE UPDATE ON users
   FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+  EXECUTE PROCEDURE update_updated_at_column();
 
 DROP TRIGGER IF EXISTS update_assinaturas_updated_at ON assinaturas;
 CREATE TRIGGER update_assinaturas_updated_at
   BEFORE UPDATE ON assinaturas
   FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+  EXECUTE PROCEDURE update_updated_at_column();
 
 -- ============================================================================
 -- 5. ROW LEVEL SECURITY (RLS)
