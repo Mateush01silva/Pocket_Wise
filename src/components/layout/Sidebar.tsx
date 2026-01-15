@@ -19,15 +19,15 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { name: 'Transações', path: '/transactions', icon: Receipt },
-  { name: 'Cartões', path: '/credit-cards', icon: CreditCard },
-  { name: 'Categorias', path: '/categories', icon: FolderTree },
-  { name: 'Orçamentos', path: '/budgets', icon: Wallet },
-  { name: 'Envelopes', path: '/envelopes', icon: Package },
-  { name: 'Projeções', path: '/projections', icon: TrendingUp },
-  { name: 'Família', path: '/family', icon: Users },
-  { name: 'Configurações', path: '/settings', icon: Settings },
+  { name: 'Dashboard', path: '/app', icon: LayoutDashboard },
+  { name: 'Transações', path: '/app/transacoes', icon: Receipt },
+  { name: 'Cartões', path: '/app/cartoes', icon: CreditCard },
+  { name: 'Categorias', path: '/app/categorias', icon: FolderTree },
+  { name: 'Orçamentos', path: '/app/orcamento', icon: Wallet },
+  { name: 'Envelopes', path: '/app/envelopes', icon: Package },
+  { name: 'Projeções', path: '/app/projecoes', icon: TrendingUp },
+  { name: 'Família', path: '/app/familia', icon: Users },
+  { name: 'Configurações', path: '/app/configuracoes', icon: Settings },
 ]
 
 export function Sidebar() {
