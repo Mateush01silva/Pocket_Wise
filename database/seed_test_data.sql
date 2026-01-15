@@ -404,11 +404,11 @@ BEGIN
       WHEN c.nome ILIKE '%educa%' THEN 300.00
       ELSE 200.00
     END,
-    CASE
+    (CASE
       WHEN c.nome ILIKE '%morad%' OR c.nome ILIKE '%alimenta%' OR c.nome ILIKE '%sa%de%' THEN 'essencial'
       WHEN c.nome ILIKE '%transport%' OR c.nome ILIKE '%educa%' THEN 'importante'
       ELSE 'desejavel'
-    END
+    END)::categoria_prioridade
   FROM orcamentos_mensais o
   CROSS JOIN categorias c
   WHERE o.family_id = v_family_id
@@ -438,11 +438,11 @@ BEGIN
       WHEN c.nome ILIKE '%educa%' THEN 200.00
       ELSE 300.00
     END,
-    CASE
+    (CASE
       WHEN c.nome ILIKE '%morad%' OR c.nome ILIKE '%alimenta%' OR c.nome ILIKE '%sa%de%' THEN 'essencial'
       WHEN c.nome ILIKE '%transport%' OR c.nome ILIKE '%educa%' THEN 'importante'
       ELSE 'desejavel'
-    END
+    END)::categoria_prioridade
   FROM orcamentos_mensais o
   CROSS JOIN categorias c
   WHERE o.family_id = v_family_id
