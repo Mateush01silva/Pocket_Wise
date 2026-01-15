@@ -6,19 +6,15 @@
 -- ============================================================================
 
 -- ============================================================================
--- 1. CRIAR TABELA FAMILIES
+-- 1. CRIAR TABELA FAMILIES (SEM criado_por para evitar circular dependency)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS families (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nome VARCHAR(255) NOT NULL DEFAULT 'Minha Família',
-  criado_por UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- Índices
-CREATE INDEX IF NOT EXISTS idx_families_criado_por ON families(criado_por);
 
 -- Habilitar RLS
 ALTER TABLE families ENABLE ROW LEVEL SECURITY;
@@ -45,10 +41,9 @@ DECLARE
   new_family_id UUID;
 BEGIN
   -- Criar uma nova família para o usuário
-  INSERT INTO public.families (nome, criado_por)
+  INSERT INTO public.families (nome)
   VALUES (
-    'Família de ' || COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário'),
-    NEW.id
+    'Família de ' || COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário')
   )
   RETURNING id INTO new_family_id;
 
@@ -101,10 +96,9 @@ BEGIN
     WHERE u.family_id IS NULL
   LOOP
     -- Criar família
-    INSERT INTO families (nome, criado_por)
+    INSERT INTO families (nome)
     VALUES (
-      'Família de ' || COALESCE(user_record.full_name, 'Usuário'),
-      user_record.id
+      'Família de ' || COALESCE(user_record.full_name, 'Usuário')
     )
     RETURNING id INTO new_family_id;
 
@@ -137,6 +131,64 @@ BEGIN
   END IF;
 END $$;
 
-RAISE NOTICE '✅ Script executado com sucesso!';
-RAISE NOTICE '📝 Execute este script no Supabase SQL Editor';
-RAISE NOTICE '🔄 Após executar, teste criar uma nova transação no app';
+-- ============================================================================
+-- 5. CORRIGIR ACESSO DE ADMIN
+-- ============================================================================
+-- Esta seção configura o primeiro usuário como admin com acesso ilimitado
+
+DO $$
+DECLARE
+  first_user_email VARCHAR;
+  first_user_id UUID;
+BEGIN
+  -- Pegar o primeiro usuário cadastrado
+  SELECT u.id, u.email INTO first_user_id, first_user_email
+  FROM users u
+  ORDER BY u.created_at ASC
+  LIMIT 1;
+
+  IF first_user_id IS NOT NULL THEN
+    -- Configurar como admin
+    UPDATE users
+    SET role = 'admin'
+    WHERE id = first_user_id;
+
+    -- Atualizar assinatura para ativa com período longo
+    UPDATE assinaturas
+    SET status = 'active',
+        plan = 'annual',
+        current_period_start = NOW(),
+        current_period_end = NOW() + INTERVAL '100 years',
+        updated_at = NOW()
+    WHERE user_id = first_user_id;
+
+    RAISE NOTICE '✅ Usuário % configurado como ADMIN com acesso ilimitado!', first_user_email;
+  ELSE
+    RAISE WARNING '⚠️ Nenhum usuário encontrado!';
+  END IF;
+END $$;
+
+-- ============================================================================
+-- MENSAGENS FINAIS
+-- ============================================================================
+
+DO $$
+BEGIN
+  RAISE NOTICE '';
+  RAISE NOTICE '====================================';
+  RAISE NOTICE '✅ Script executado com sucesso!';
+  RAISE NOTICE '====================================';
+  RAISE NOTICE '';
+  RAISE NOTICE '📋 O que foi feito:';
+  RAISE NOTICE '   1. Tabela families criada';
+  RAISE NOTICE '   2. Trigger para auto-criar família configurado';
+  RAISE NOTICE '   3. Famílias criadas para usuários existentes';
+  RAISE NOTICE '   4. Primeiro usuário configurado como ADMIN';
+  RAISE NOTICE '';
+  RAISE NOTICE '🔄 Próximos passos:';
+  RAISE NOTICE '   1. Faça LOGOUT do app';
+  RAISE NOTICE '   2. Faça LOGIN novamente';
+  RAISE NOTICE '   3. Você terá acesso como ADMIN!';
+  RAISE NOTICE '   4. Teste criar uma nova transação';
+  RAISE NOTICE '';
+END $$;
