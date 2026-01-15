@@ -56,15 +56,15 @@ export function Modal({
 
       {/* Modal */}
       <div
-        className={`relative w-full ${maxWidthClasses[maxWidth]} bg-dark-900 border border-dark-700/50 rounded-xl shadow-2xl`}
+        className={`relative w-full ${maxWidthClasses[maxWidth]} bg-dark-900 border border-dark-700/50 rounded-xl shadow-2xl max-h-[90vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-dark-700/50">
-          <div>
-            <h2 className="text-xl font-bold text-gray-100">{title}</h2>
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-dark-700/50 shrink-0">
+          <div className="min-w-0 pr-4">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-100 truncate">{title}</h2>
             {description && (
-              <p className="text-sm text-gray-400 mt-1">{description}</p>
+              <p className="text-xs sm:text-sm text-gray-400 mt-1">{description}</p>
             )}
           </div>
           <Button
@@ -77,8 +77,8 @@ export function Modal({
           </Button>
         </div>
 
-        {/* Content */}
-        <div className="p-6">{children}</div>
+        {/* Content - Scrollable */}
+        <div className="p-4 sm:p-6 overflow-y-auto">{children}</div>
       </div>
     </div>
   )

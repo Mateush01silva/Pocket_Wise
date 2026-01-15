@@ -30,11 +30,20 @@ const navItems: NavItem[] = [
   { name: 'Configurações', path: '/app/configuracoes', icon: Settings },
 ]
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-dark-900 border-r border-dark-700/50 flex flex-col">
+    <aside className={cn(
+      "fixed left-0 top-0 h-screen w-64 bg-dark-900 border-r border-dark-700/50 flex flex-col z-50 transition-transform duration-300",
+      "lg:translate-x-0",
+      isOpen ? "translate-x-0" : "-translate-x-full"
+    )}>
       {/* Logo */}
       <div className="p-6 border-b border-dark-700/50">
         <div className="flex items-center gap-3">
@@ -59,6 +68,7 @@ export function Sidebar() {
               <li key={item.path}>
                 <Link
                   to={item.path}
+                  onClick={onClose}
                   className={cn(
                     'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200',
                     isActive
