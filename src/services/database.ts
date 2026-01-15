@@ -152,10 +152,12 @@ export const lancamentosService = {
     }
 
     const user = await getCurrentUser()
+    const familyId = await getUserFamilyId()
     const { data, error } = await supabase
       .from('lancamentos')
       .insert({
         ...input,
+        family_id: familyId,
         criado_por: user?.id || null,
       } as any)
       .select()
@@ -536,10 +538,12 @@ export const orcamentosService = {
     }
 
     const user = await getCurrentUser()
-    const { data, error } = await supabase
+    const familyId = await getUserFamilyId()
+    const { data, error} = await supabase
       .from('orcamentos_mensais')
       .insert({
         ...input,
+        family_id: familyId,
         criado_por: user?.id || null,
       } as any)
       .select()
