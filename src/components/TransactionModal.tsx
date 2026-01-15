@@ -107,8 +107,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
 
       // Se está editando
       if (editingLancamento) {
-        await updateLancamento({
-          id: editingLancamento.id,
+        await updateLancamento(editingLancamento.id, {
           tipo: formData.tipo as 'receita' | 'despesa',
           categoria_id: formData.categoria_id!,
           subcategoria_id: formData.subcategoria_id,
