@@ -13,10 +13,18 @@ interface Subscription {
   created_at: string
 }
 
+interface UserProfile {
+  id: string
+  email: string
+  full_name: string
+  role: 'user' | 'admin'
+}
+
 interface AuthContextType {
   user: User | null
   session: Session | null
   subscription: Subscription | null
+  userProfile: UserProfile | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, name: string) => Promise<void>
@@ -32,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -46,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
+        fetchUserProfile(session.user.id)
         fetchSubscription(session.user.id)
       }
       setLoading(false)
@@ -58,14 +68,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
+        fetchUserProfile(session.user.id)
         fetchSubscription(session.user.id)
       } else {
+        setUserProfile(null)
         setSubscription(null)
       }
     })
 
     return () => authSubscription.unsubscribe()
   }, [])
+
+  const fetchUserProfile = async (userId: string) => {
+    if (!supabase) return
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email, full_name, role')
+        .eq('id', userId)
+        .single()
+
+      if (error) throw error
+      setUserProfile(data)
+    } catch (error) {
+      console.error('Erro ao buscar perfil do usuário:', error)
+    }
+  }
 
   const fetchSubscription = async (userId: string) => {
     if (!supabase) return
@@ -112,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Subscription trial será criada automaticamente via trigger no banco
     if (data.user) {
+      await fetchUserProfile(data.user.id)
       await fetchSubscription(data.user.id)
     }
   }
@@ -134,6 +164,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const hasAccess = (): boolean => {
+    // Admins têm acesso ilimitado
+    if (userProfile?.role === 'admin') {
+      return true
+    }
+
     if (!subscription) return false
 
     // Se está em trial, verificar se ainda não expirou
@@ -169,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     session,
     subscription,
+    userProfile,
     loading,
     signIn,
     signUp,
