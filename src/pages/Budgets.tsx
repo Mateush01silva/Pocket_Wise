@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Copy, Calendar, Edit2 } from 'lucide-react'
-import { format, startOfMonth } from 'date-fns'
+import { Plus, Copy, Calendar, Edit2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { format, startOfMonth, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -14,7 +14,7 @@ import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
 
 export function Budgets() {
-  const [mesAtual] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
+  const [mesAtual, setMesAtual] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   const [isCreating, setIsCreating] = useState(false)
   const [isPlanningModalOpen, setIsPlanningModalOpen] = useState(false)
   const isMounted = useRef(true) // Track if component is mounted
@@ -47,17 +47,31 @@ export function Budgets() {
   useEffect(() => {
     isMounted.current = true
 
-    if (initialized && !orcamentoAtual) {
+    if (initialized) {
       const orcamento = getOrcamentoDoMes(mesAtual)
-      if (orcamento && isMounted.current) {
-        setOrcamentoAtual(orcamento)
+      if (isMounted.current) {
+        setOrcamentoAtual(orcamento || null)
       }
     }
 
     return () => {
       isMounted.current = false
     }
-  }, [initialized, orcamentoAtual, mesAtual, getOrcamentoDoMes, setOrcamentoAtual])
+  }, [initialized, mesAtual, getOrcamentoDoMes, setOrcamentoAtual])
+
+  const handlePreviousMonth = () => {
+    const newDate = subMonths(new Date(mesAtual), 1)
+    setMesAtual(format(startOfMonth(newDate), 'yyyy-MM-dd'))
+  }
+
+  const handleNextMonth = () => {
+    const newDate = addMonths(new Date(mesAtual), 1)
+    setMesAtual(format(startOfMonth(newDate), 'yyyy-MM-dd'))
+  }
+
+  const handleCurrentMonth = () => {
+    setMesAtual(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
+  }
 
   const projecao = orcamentoAtual ? getProjecaoMensal(orcamentoAtual.id) : null
   const envelopes = orcamentoAtual ? getEnvelopesDigitais(orcamentoAtual.id) : []
@@ -158,13 +172,48 @@ export function Budgets() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex-1">
           <h1 className="text-3xl font-bold text-gray-100 mb-2">Orçamentos</h1>
-          <p className="text-gray-400">
-            {format(new Date(orcamentoAtual.mes_referencia), 'MMMM yyyy', { locale: ptBR })}
-          </p>
+
+          {/* Seletor de Mês */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handlePreviousMonth}
+              className="p-2"
+            >
+              <ChevronLeft size={20} />
+            </Button>
+
+            <div className="flex items-center gap-2 min-w-[200px] justify-center">
+              <p className="text-lg font-medium text-gray-300 capitalize">
+                {format(new Date(mesAtual), 'MMMM yyyy', { locale: ptBR })}
+              </p>
+              {mesAtual !== format(startOfMonth(new Date()), 'yyyy-MM-dd') && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCurrentMonth}
+                  className="text-xs"
+                >
+                  Hoje
+                </Button>
+              )}
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleNextMonth}
+              className="p-2"
+            >
+              <ChevronRight size={20} />
+            </Button>
+          </div>
         </div>
+
         <div className="flex gap-2">
           <Button
             variant="ghost"
@@ -173,10 +222,6 @@ export function Budgets() {
           >
             <Edit2 size={16} className="mr-2" />
             Editar Orçamento
-          </Button>
-          <Button size="sm" onClick={() => setIsPlanningModalOpen(true)}>
-            <Plus size={16} className="mr-2" />
-            Adicionar Categorias
           </Button>
         </div>
       </div>

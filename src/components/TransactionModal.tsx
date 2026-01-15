@@ -1,16 +1,17 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select, CurrencyInput } from './ui'
 import { useCategoriasStore, useCartoesStore, useTransacoesStore } from '../store'
-import type { CreateLancamentoInput } from '../types'
+import type { CreateLancamentoInput, Lancamento } from '../types'
 import { format } from 'date-fns'
 
 interface TransactionModalProps {
   isOpen: boolean
   onClose: () => void
+  editingLancamento?: Lancamento
 }
 
-export function TransactionModal({ isOpen, onClose }: TransactionModalProps) {
+export function TransactionModal({ isOpen, onClose, editingLancamento }: TransactionModalProps) {
   const categorias = useCategoriasStore((state) => state.categorias)
   // Select raw cartoes array and derive active cards with memo to keep identity stable
   const cartoes = useCartoesStore((state) => state.cartoes)
@@ -18,6 +19,7 @@ export function TransactionModal({ isOpen, onClose }: TransactionModalProps) {
   const createLancamentoParcelado = useTransacoesStore(
     (state) => state.createLancamentoParcelado
   )
+  const updateLancamento = useTransacoesStore((state) => state.updateLancamento)
 
   const [formData, setFormData] = useState<Partial<CreateLancamentoInput>>({
     tipo: 'despesa',
@@ -59,6 +61,32 @@ export function TransactionModal({ isOpen, onClose }: TransactionModalProps) {
     }))
   }, [cartoes])
 
+  // Effect to populate form when editing
+  useEffect(() => {
+    if (editingLancamento && isOpen) {
+      setFormData({
+        tipo: editingLancamento.tipo,
+        categoria_id: editingLancamento.categoria_id || undefined,
+        subcategoria_id: editingLancamento.subcategoria_id || undefined,
+        valor: editingLancamento.valor,
+        data: editingLancamento.data,
+        forma_pagamento: editingLancamento.forma_pagamento,
+        cartao_id: editingLancamento.cartao_id || undefined,
+        observacao: editingLancamento.observacao || undefined,
+      })
+      setParcelas(editingLancamento.parcela_total || 1)
+    } else if (!isOpen) {
+      // Reset form when closing
+      setFormData({
+        tipo: 'despesa',
+        data: format(new Date(), 'yyyy-MM-dd'),
+        forma_pagamento: 'dinheiro',
+        valor: 0,
+      })
+      setParcelas(1)
+    }
+  }, [editingLancamento, isOpen])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -77,29 +105,43 @@ export function TransactionModal({ isOpen, onClose }: TransactionModalProps) {
         return
       }
 
-      // Use a dummy family_id for LocalStorage mode (until auth is implemented)
-      const lancamentoData: CreateLancamentoInput = {
-        family_id: 'local-storage-family',
-        tipo: formData.tipo as 'receita' | 'despesa',
-        categoria_id: formData.categoria_id!,
-        subcategoria_id: formData.subcategoria_id,
-        valor: formData.valor!,
-        data: formData.data!,
-        forma_pagamento: formData.forma_pagamento as any,
-        cartao_id: formData.cartao_id,
-        observacao: formData.observacao,
-        status: 'pendente',
-      }
-
-      // Se é cartão de crédito com parcelamento
-      if (
-        formData.forma_pagamento === 'credito' &&
-        formData.cartao_id &&
-        parcelas > 1
-      ) {
-        await createLancamentoParcelado(lancamentoData, parcelas)
+      // Se está editando
+      if (editingLancamento) {
+        await updateLancamento(editingLancamento.id, {
+          tipo: formData.tipo as 'receita' | 'despesa',
+          categoria_id: formData.categoria_id!,
+          subcategoria_id: formData.subcategoria_id,
+          valor: formData.valor!,
+          data: formData.data!,
+          forma_pagamento: formData.forma_pagamento as any,
+          cartao_id: formData.cartao_id,
+          observacao: formData.observacao,
+        })
       } else {
-        await createLancamento(lancamentoData)
+        // Criando novo
+        const lancamentoData: CreateLancamentoInput = {
+          family_id: 'local-storage-family',
+          tipo: formData.tipo as 'receita' | 'despesa',
+          categoria_id: formData.categoria_id!,
+          subcategoria_id: formData.subcategoria_id,
+          valor: formData.valor!,
+          data: formData.data!,
+          forma_pagamento: formData.forma_pagamento as any,
+          cartao_id: formData.cartao_id,
+          observacao: formData.observacao,
+          status: 'pendente',
+        }
+
+        // Se é cartão de crédito com parcelamento
+        if (
+          formData.forma_pagamento === 'credito' &&
+          formData.cartao_id &&
+          parcelas > 1
+        ) {
+          await createLancamentoParcelado(lancamentoData, parcelas)
+        } else {
+          await createLancamento(lancamentoData)
+        }
       }
 
       // Reset form and close
@@ -136,8 +178,14 @@ export function TransactionModal({ isOpen, onClose }: TransactionModalProps) {
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title={formData.tipo === 'despesa' ? 'Nova Despesa' : 'Nova Receita'}
-      description="Adicione uma nova transação às suas finanças"
+      title={editingLancamento
+        ? `Editar ${formData.tipo === 'despesa' ? 'Despesa' : 'Receita'}`
+        : formData.tipo === 'despesa' ? 'Nova Despesa' : 'Nova Receita'
+      }
+      description={editingLancamento
+        ? "Edite os detalhes da transação"
+        : "Adicione uma nova transação às suas finanças"
+      }
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
