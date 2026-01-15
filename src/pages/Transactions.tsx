@@ -1,30 +1,47 @@
 import { useState, useCallback } from 'react'
 import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
-import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown } from 'lucide-react'
+import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2 } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
-import { useTransacoesStore, useCategoriasStore } from '../store'
+import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
 import { TransactionModal } from '../components/TransactionModal'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import type { Lancamento } from '../types'
 
 export function Transactions() {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingLancamento, setEditingLancamento] = useState<Lancamento | undefined>(undefined)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [filterTipo, setFilterTipo] = useState<'all' | 'receita' | 'despesa'>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'pago' | 'pendente' | 'projetado'>('all')
   const [filterCategoria, setFilterCategoria] = useState<string>('all')
+  const [filterFormaPagamento, setFilterFormaPagamento] = useState<string>('all')
+  const [filterCartao, setFilterCartao] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
+  const cartoes = useCartoesStore((state) => state.cartoes)
   const deleteLancamento = useTransacoesStore((state) => state.deleteLancamento)
   const marcarComoPago = useTransacoesStore((state) => state.marcarComoPago)
 
   // Stable callbacks
-  const handleOpenModal = useCallback(() => setIsModalOpen(true), [])
-  const handleCloseModal = useCallback(() => setIsModalOpen(false), [])
+  const handleOpenModal = useCallback(() => {
+    setEditingLancamento(undefined)
+    setIsModalOpen(true)
+  }, [])
+
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false)
+    setEditingLancamento(undefined)
+  }, [])
+
+  const handleEditLancamento = useCallback((lancamento: Lancamento) => {
+    setEditingLancamento(lancamento)
+    setIsModalOpen(true)
+  }, [])
 
   // Get category name
   const getCategoryName = useCallback((categoriaId: string | null) => {
@@ -32,6 +49,26 @@ export function Transactions() {
     const categoria = categorias.find(c => c.id === categoriaId)
     return categoria?.nome || 'Categoria desconhecida'
   }, [categorias])
+
+  // Get card name
+  const getCardName = useCallback((cartaoId: string | null) => {
+    if (!cartaoId) return '-'
+    const cartao = cartoes.find(c => c.id === cartaoId)
+    return cartao?.nome || 'Cartão desconhecido'
+  }, [cartoes])
+
+  // Translate payment method
+  const translatePaymentMethod = useCallback((method: string) => {
+    const translations: Record<string, string> = {
+      'dinheiro': 'Dinheiro',
+      'debito': 'Débito',
+      'credito': 'Crédito',
+      'pix': 'PIX',
+      'transferencia': 'Transferência',
+      'boleto': 'Boleto',
+    }
+    return translations[method] || method
+  }, [])
 
   // Filter and search transactions - sem useMemo para evitar loops
   const filteredLancamentos = lancamentos.filter(lancamento => {
@@ -43,6 +80,12 @@ export function Transactions() {
 
     // Filter by category
     if (filterCategoria !== 'all' && lancamento.categoria_id !== filterCategoria) return false
+
+    // Filter by payment method
+    if (filterFormaPagamento !== 'all' && lancamento.forma_pagamento !== filterFormaPagamento) return false
+
+    // Filter by card
+    if (filterCartao !== 'all' && lancamento.cartao_id !== filterCartao) return false
 
     // Search term (category name or observacao)
     if (searchTerm) {
@@ -137,7 +180,7 @@ export function Transactions() {
 
           {/* Filters */}
           <div className="pt-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -170,6 +213,31 @@ export function Transactions() {
                   ...categorias
                     .filter(c => !c.categoria_pai_id)
                     .map(cat => ({ value: cat.id, label: cat.nome })),
+                ]}
+              />
+
+              {/* Filter by Payment Method */}
+              <Select
+                value={filterFormaPagamento}
+                onChange={(e) => setFilterFormaPagamento(e.target.value)}
+                options={[
+                  { value: 'all', label: 'Todas as formas' },
+                  { value: 'dinheiro', label: 'Dinheiro' },
+                  { value: 'debito', label: 'Débito' },
+                  { value: 'credito', label: 'Crédito' },
+                  { value: 'pix', label: 'PIX' },
+                  { value: 'transferencia', label: 'Transferência' },
+                  { value: 'boleto', label: 'Boleto' },
+                ]}
+              />
+
+              {/* Filter by Card */}
+              <Select
+                value={filterCartao}
+                onChange={(e) => setFilterCartao(e.target.value)}
+                options={[
+                  { value: 'all', label: 'Todos os cartões' },
+                  ...cartoes.map(cartao => ({ value: cartao.id, label: cartao.nome })),
                 ]}
               />
             </div>
@@ -228,15 +296,17 @@ export function Transactions() {
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Data</th>
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Categoria</th>
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Descrição</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-400">Forma Pgto</th>
+                  <th className="text-left p-4 text-sm font-medium text-gray-400">Cartão</th>
                   <th className="text-right p-4 text-sm font-medium text-gray-400">Valor</th>
                   <th className="text-center p-4 text-sm font-medium text-gray-400">Status</th>
-                  <th className="text-center p-4 text-sm font-medium text-gray-400 w-12">Ações</th>
+                  <th className="text-center p-4 text-sm font-medium text-gray-400 w-20">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedLancamentos.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-12 text-gray-500">
+                    <td colSpan={9} className="text-center py-12 text-gray-500">
                       {filteredLancamentos.length === 0 && lancamentos.length === 0
                         ? 'Nenhuma transação encontrada. Adicione sua primeira transação!'
                         : 'Nenhuma transação encontrada com os filtros aplicados.'}
@@ -287,6 +357,16 @@ export function Transactions() {
                           )}
                         </div>
                       </td>
+                      <td className="p-4">
+                        <p className="text-sm text-gray-300">
+                          {translatePaymentMethod(lancamento.forma_pagamento)}
+                        </p>
+                      </td>
+                      <td className="p-4">
+                        <p className="text-sm text-gray-300">
+                          {getCardName(lancamento.cartao_id)}
+                        </p>
+                      </td>
                       <td className="p-4 text-right">
                         <p className={`text-sm font-semibold ${
                           lancamento.tipo === 'receita' ? 'text-green-400' : 'text-red-400'
@@ -307,13 +387,23 @@ export function Transactions() {
                           {lancamento.status === 'projetado' && 'Projetado'}
                         </span>
                       </td>
-                      <td className="p-4 text-center">
-                        <button
-                          onClick={() => handleDeleteSingle(lancamento.id)}
-                          className="p-1 hover:bg-dark-700 rounded transition-colors text-gray-400 hover:text-red-400"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <td className="p-4">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => handleEditLancamento(lancamento)}
+                            className="p-1 hover:bg-dark-700 rounded transition-colors text-gray-400 hover:text-primary-400"
+                            title="Editar"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSingle(lancamento.id)}
+                            className="p-1 hover:bg-dark-700 rounded transition-colors text-gray-400 hover:text-red-400"
+                            title="Deletar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -367,7 +457,11 @@ export function Transactions() {
       </Card>
 
       {/* Transaction Modal */}
-      <TransactionModal isOpen={isModalOpen} onClose={handleCloseModal} />
+      <TransactionModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        editingLancamento={editingLancamento}
+      />
     </div>
   )
 }
