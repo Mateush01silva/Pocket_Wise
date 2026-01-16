@@ -203,16 +203,9 @@ export function Budgets() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-gray-100">Orçamentos</h1>
-            {orcamentoAtual && (
-              <span className="px-3 py-1 bg-primary-500/20 text-primary-400 rounded-full text-sm font-medium border border-primary-500/30">
-                Orçamento de {format(new Date(orcamentoAtual.mes_referencia), 'MMMM yyyy', { locale: ptBR })}
-              </span>
-            )}
-          </div>
+          <h1 className="text-3xl font-bold text-gray-100 mb-2">Orçamentos</h1>
 
-          {/* Seletor de Mês */}
+          {/* Seletor de Mês com Badge */}
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -227,6 +220,11 @@ export function Budgets() {
               <p className="text-lg font-medium text-gray-300 capitalize">
                 {format(new Date(mesAtual), 'MMMM yyyy', { locale: ptBR })}
               </p>
+              {orcamentoAtual && (
+                <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs font-medium border border-green-500/30">
+                  ✓
+                </span>
+              )}
               {mesAtual !== format(startOfMonth(new Date()), 'yyyy-MM-dd') && (
                 <Button
                   variant="ghost"
