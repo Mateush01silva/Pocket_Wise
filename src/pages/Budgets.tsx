@@ -9,14 +9,18 @@ import { PossoComprarWidget } from '../components/PossoComprarWidget'
 import { BudgetPlanningModal } from '../components/BudgetPlanningModal'
 import { BudgetAlertsCard } from '../components/BudgetAlertsCard'
 import { BudgetComparativeReport } from '../components/BudgetComparativeReport'
+import { CategoryTransactionsModal } from '../components/CategoryTransactionsModal'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
+import { useTransacoesStore } from '../store/useTransacoesStore'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
+import type { EnvelopeDigital } from '../types'
 
 export function Budgets() {
   const [mesAtual, setMesAtual] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   const [isCreating, setIsCreating] = useState(false)
   const [isPlanningModalOpen, setIsPlanningModalOpen] = useState(false)
+  const [selectedEnvelope, setSelectedEnvelope] = useState<EnvelopeDigital | null>(null)
   const isMounted = useRef(true) // Track if component is mounted
 
   // Use selectors for each store value/function to keep identities stable
@@ -31,6 +35,7 @@ export function Budgets() {
   const setOrcamentoAtual = useOrcamentosStore((state) => state.setOrcamentoAtual)
   const copiarOrcamentoMesAnterior = useOrcamentosStore((state) => state.copiarOrcamentoMesAnterior)
   const createOrcamento = useOrcamentosStore((state) => state.createOrcamento)
+  const lancamentos = useTransacoesStore((state) => state.lancamentos)
 
   useEffect(() => {
     isMounted.current = true
@@ -118,6 +123,28 @@ export function Budgets() {
         setIsCreating(false)
       }
     }
+  }
+
+  const handleEnvelopeClick = (envelope: EnvelopeDigital) => {
+    setSelectedEnvelope(envelope)
+  }
+
+  const handleCloseModal = () => {
+    setSelectedEnvelope(null)
+  }
+
+  // Filtrar transações do envelope selecionado
+  const getEnvelopeTransactions = (envelope: EnvelopeDigital | null) => {
+    if (!envelope || !orcamentoAtual) return []
+
+    const anoMes = orcamentoAtual.mes_referencia.substring(0, 7)
+    return lancamentos.filter(
+      (l) =>
+        l.categoria_id === envelope.categoria.id &&
+        l.tipo === 'despesa' &&
+        l.data.substring(0, 7) === anoMes &&
+        l.status === 'pago'
+    ).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
   }
 
   if (isLoading || !initialized) {
@@ -279,7 +306,8 @@ export function Budgets() {
                     return (
                       <div
                         key={categoria.id}
-                        className="p-4 bg-dark-700/30 rounded-lg hover:bg-dark-700/50 transition-colors border border-dark-600"
+                        onClick={() => handleEnvelopeClick(envelope)}
+                        className="p-4 bg-dark-700/30 rounded-lg hover:bg-dark-700/50 transition-colors border border-dark-600 cursor-pointer"
                       >
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-2">
@@ -404,6 +432,19 @@ export function Budgets() {
         orcamento={orcamentoAtual || undefined}
         mesReferencia={mesAtual}
       />
+
+      {/* Modal de Transações */}
+      {selectedEnvelope && orcamentoAtual && (
+        <CategoryTransactionsModal
+          isOpen={!!selectedEnvelope}
+          onClose={handleCloseModal}
+          categoria={selectedEnvelope.categoria}
+          transacoes={getEnvelopeTransactions(selectedEnvelope)}
+          mesReferencia={orcamentoAtual.mes_referencia}
+          valorOrcado={selectedEnvelope.valor_orcado}
+          valorGasto={selectedEnvelope.valor_gasto}
+        />
+      )}
     </div>
   )
 }
