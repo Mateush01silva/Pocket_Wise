@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Filter, TrendingDown, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { format, startOfMonth, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -13,6 +14,7 @@ type FiltroCategoria = 'todas' | 'essencial' | 'importante' | 'desejavel' | 'est
 type OrdenacaoCategoria = 'nome' | 'percentual_desc' | 'percentual_asc' | 'valor_desc'
 
 export function Envelopes() {
+  const navigate = useNavigate()
   const [mesAtual, setMesAtual] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   const [filtro, setFiltro] = useState<FiltroCategoria>('todas')
   const [ordenacao, setOrdenacao] = useState<OrdenacaoCategoria>('percentual_desc')
@@ -66,6 +68,11 @@ export function Envelopes() {
 
   const handleCurrentMonth = () => {
     setMesAtual(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
+  }
+
+  const handleEnvelopeClick = (categoriaId: string) => {
+    // Navegar para página de transações com filtro de categoria
+    navigate(`/transactions?categoria=${categoriaId}`)
   }
 
   if (isLoading || !initialized) {
@@ -371,7 +378,11 @@ export function Envelopes() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {envelopesFiltrados.map((envelope) => (
-              <EnvelopeCard key={envelope.categoria.id} envelope={envelope} />
+              <EnvelopeCard
+                key={envelope.categoria.id}
+                envelope={envelope}
+                onClick={() => handleEnvelopeClick(envelope.categoria.id)}
+              />
             ))}
           </div>
         </>

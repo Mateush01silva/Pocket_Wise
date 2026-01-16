@@ -1,4 +1,4 @@
-import { forwardRef, useState } from 'react'
+import { forwardRef, useState, useEffect } from 'react'
 import type { InputHTMLAttributes } from 'react'
 import { cn } from '../../lib/cn'
 
@@ -16,6 +16,15 @@ const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       if (value === undefined || value === 0) return ''
       return formatCurrencyDisplay(value)
     })
+
+    // Sincronizar displayValue quando o prop value mudar (necessário para edição)
+    useEffect(() => {
+      if (value === undefined || value === 0) {
+        setDisplayValue('')
+      } else {
+        setDisplayValue(formatCurrencyDisplay(value))
+      }
+    }, [value])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const rawValue = e.target.value.replace(/\D/g, '')
