@@ -12,6 +12,7 @@ import { BudgetComparativeReport } from '../components/BudgetComparativeReport'
 import { CategoryTransactionsModal } from '../components/CategoryTransactionsModal'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useTransacoesStore } from '../store/useTransacoesStore'
+import { useCategoriasStore } from '../store/useCategoriasStore'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
 import type { EnvelopeDigital } from '../types'
@@ -36,6 +37,7 @@ export function Budgets() {
   const copiarOrcamentoMesAnterior = useOrcamentosStore((state) => state.copiarOrcamentoMesAnterior)
   const createOrcamento = useOrcamentosStore((state) => state.createOrcamento)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
+  const categorias = useCategoriasStore((state) => state.categorias)
 
   useEffect(() => {
     isMounted.current = true
@@ -439,6 +441,7 @@ export function Budgets() {
           isOpen={!!selectedEnvelope}
           onClose={handleCloseModal}
           categoria={selectedEnvelope.categoria}
+          subcategorias={categorias.filter(c => c.categoria_pai_id === selectedEnvelope.categoria.id)}
           transacoes={getEnvelopeTransactions(selectedEnvelope)}
           mesReferencia={orcamentoAtual.mes_referencia}
           valorOrcado={selectedEnvelope.valor_orcado}
