@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Filter, TrendingDown, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { format, startOfMonth, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -7,17 +6,20 @@ import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Select } from '../components/ui/Select'
 import { EnvelopeCard } from '../components/EnvelopeCard'
+import { CategoryTransactionsModal } from '../components/CategoryTransactionsModal'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
+import { useTransacoesStore } from '../store/useTransacoesStore'
 import { formatCurrency } from '../utils/currency'
+import type { EnvelopeDigital } from '../types'
 
 type FiltroCategoria = 'todas' | 'essencial' | 'importante' | 'desejavel' | 'estouradas' | 'em_risco'
 type OrdenacaoCategoria = 'nome' | 'percentual_desc' | 'percentual_asc' | 'valor_desc'
 
 export function Envelopes() {
-  const navigate = useNavigate()
   const [mesAtual, setMesAtual] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   const [filtro, setFiltro] = useState<FiltroCategoria>('todas')
   const [ordenacao, setOrdenacao] = useState<OrdenacaoCategoria>('percentual_desc')
+  const [selectedEnvelope, setSelectedEnvelope] = useState<EnvelopeDigital | null>(null)
   const isMounted = useRef(true) // Track if component is mounted
 
   // Use selectors for each store value/function to keep identities stable
@@ -28,6 +30,7 @@ export function Envelopes() {
   const getEnvelopesDigitais = useOrcamentosStore((state) => state.getEnvelopesDigitais)
   const getOrcamentoDoMes = useOrcamentosStore((state) => state.getOrcamentoDoMes)
   const setOrcamentoAtual = useOrcamentosStore((state) => state.setOrcamentoAtual)
+  const lancamentos = useTransacoesStore((state) => state.lancamentos)
 
   useEffect(() => {
     isMounted.current = true
@@ -70,9 +73,26 @@ export function Envelopes() {
     setMesAtual(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   }
 
-  const handleEnvelopeClick = (categoriaId: string) => {
-    // Navegar para página de transações com filtro de categoria
-    navigate(`/transactions?categoria=${categoriaId}`)
+  const handleEnvelopeClick = (envelope: EnvelopeDigital) => {
+    setSelectedEnvelope(envelope)
+  }
+
+  const handleCloseModal = () => {
+    setSelectedEnvelope(null)
+  }
+
+  // Filtrar transações do envelope selecionado
+  const getEnvelopeTransactions = (envelope: EnvelopeDigital | null) => {
+    if (!envelope || !orcamentoAtual) return []
+
+    const anoMes = orcamentoAtual.mes_referencia.substring(0, 7)
+    return lancamentos.filter(
+      (l) =>
+        l.categoria_id === envelope.categoria.id &&
+        l.tipo === 'despesa' &&
+        l.data.substring(0, 7) === anoMes &&
+        l.status === 'pago'
+    ).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
   }
 
   if (isLoading || !initialized) {
@@ -381,11 +401,24 @@ export function Envelopes() {
               <EnvelopeCard
                 key={envelope.categoria.id}
                 envelope={envelope}
-                onClick={() => handleEnvelopeClick(envelope.categoria.id)}
+                onClick={() => handleEnvelopeClick(envelope)}
               />
             ))}
           </div>
         </>
+      )}
+
+      {/* Modal de Transações */}
+      {selectedEnvelope && orcamentoAtual && (
+        <CategoryTransactionsModal
+          isOpen={!!selectedEnvelope}
+          onClose={handleCloseModal}
+          categoria={selectedEnvelope.categoria}
+          transacoes={getEnvelopeTransactions(selectedEnvelope)}
+          mesReferencia={orcamentoAtual.mes_referencia}
+          valorOrcado={selectedEnvelope.valor_orcado}
+          valorGasto={selectedEnvelope.valor_gasto}
+        />
       )}
     </div>
   )
