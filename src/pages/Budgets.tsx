@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Copy, Calendar, Edit2, ChevronLeft, ChevronRight } from 'lucide-react'
-import { format, startOfMonth, addMonths, subMonths } from 'date-fns'
+import { Plus, Copy, Calendar, Edit2 } from 'lucide-react'
+import { format, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -10,6 +10,7 @@ import { BudgetPlanningModal } from '../components/BudgetPlanningModal'
 import { BudgetAlertsCard } from '../components/BudgetAlertsCard'
 import { BudgetComparativeReport } from '../components/BudgetComparativeReport'
 import { CategoryTransactionsModal } from '../components/CategoryTransactionsModal'
+import { MonthYearSelector } from '../components/MonthYearSelector'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useTransacoesStore } from '../store/useTransacoesStore'
 import { useCategoriasStore } from '../store/useCategoriasStore'
@@ -18,11 +19,19 @@ import { cn } from '../lib/cn'
 import type { EnvelopeDigital } from '../types'
 
 export function Budgets() {
-  const [mesAtual, setMesAtual] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
+  // Garantir que sempre inicia no mês atual real
+  const mesRealAtual = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+  const [mesAtual, setMesAtual] = useState(mesRealAtual)
   const [isCreating, setIsCreating] = useState(false)
   const [isPlanningModalOpen, setIsPlanningModalOpen] = useState(false)
   const [selectedEnvelope, setSelectedEnvelope] = useState<EnvelopeDigital | null>(null)
   const isMounted = useRef(true) // Track if component is mounted
+
+  // Debug: Log do mês atual no console
+  useEffect(() => {
+    console.log('🔍 DEBUG - Mês Real Atual:', mesRealAtual)
+    console.log('🔍 DEBUG - Mês Selecionado:', mesAtual)
+  }, [mesAtual, mesRealAtual])
 
   // Use selectors for each store value/function to keep identities stable
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
@@ -65,16 +74,6 @@ export function Budgets() {
       isMounted.current = false
     }
   }, [initialized, mesAtual, getOrcamentoDoMes, setOrcamentoAtual])
-
-  const handlePreviousMonth = () => {
-    const newDate = subMonths(new Date(mesAtual), 1)
-    setMesAtual(format(startOfMonth(newDate), 'yyyy-MM-dd'))
-  }
-
-  const handleNextMonth = () => {
-    const newDate = addMonths(new Date(mesAtual), 1)
-    setMesAtual(format(startOfMonth(newDate), 'yyyy-MM-dd'))
-  }
 
   const handleCurrentMonth = () => {
     setMesAtual(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
@@ -205,46 +204,23 @@ export function Budgets() {
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-gray-100 mb-2">Orçamentos</h1>
 
-          {/* Seletor de Mês com Badge */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handlePreviousMonth}
-              className="p-2"
-            >
-              <ChevronLeft size={20} />
-            </Button>
-
-            <div className="flex items-center gap-2 min-w-[200px] justify-center">
-              <p className="text-lg font-medium text-gray-300 capitalize">
-                {format(new Date(mesAtual), 'MMMM yyyy', { locale: ptBR })}
-              </p>
-              {orcamentoAtual && (
-                <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs font-medium border border-green-500/30">
-                  ✓
-                </span>
-              )}
-              {mesAtual !== format(startOfMonth(new Date()), 'yyyy-MM-dd') && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCurrentMonth}
-                  className="text-xs"
-                >
-                  Hoje
-                </Button>
-              )}
-            </div>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleNextMonth}
-              className="p-2"
-            >
-              <ChevronRight size={20} />
-            </Button>
+          {/* Seletor de Mês e Ano */}
+          <div className="flex items-center gap-3">
+            <MonthYearSelector
+              value={mesAtual}
+              onChange={setMesAtual}
+              hasData={!!orcamentoAtual}
+            />
+            {mesAtual !== mesRealAtual && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCurrentMonth}
+                className="text-xs"
+              >
+                Hoje
+              </Button>
+            )}
           </div>
         </div>
 
