@@ -9,6 +9,7 @@ import { EnvelopeCard } from '../components/EnvelopeCard'
 import { CategoryTransactionsModal } from '../components/CategoryTransactionsModal'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useTransacoesStore } from '../store/useTransacoesStore'
+import { useCategoriasStore } from '../store/useCategoriasStore'
 import { formatCurrency } from '../utils/currency'
 import type { EnvelopeDigital } from '../types'
 
@@ -31,6 +32,7 @@ export function Envelopes() {
   const getOrcamentoDoMes = useOrcamentosStore((state) => state.getOrcamentoDoMes)
   const setOrcamentoAtual = useOrcamentosStore((state) => state.setOrcamentoAtual)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
+  const categorias = useCategoriasStore((state) => state.categorias)
 
   useEffect(() => {
     isMounted.current = true
@@ -414,6 +416,7 @@ export function Envelopes() {
           isOpen={!!selectedEnvelope}
           onClose={handleCloseModal}
           categoria={selectedEnvelope.categoria}
+          subcategorias={categorias.filter(c => c.categoria_pai_id === selectedEnvelope.categoria.id)}
           transacoes={getEnvelopeTransactions(selectedEnvelope)}
           mesReferencia={orcamentoAtual.mes_referencia}
           valorOrcado={selectedEnvelope.valor_orcado}

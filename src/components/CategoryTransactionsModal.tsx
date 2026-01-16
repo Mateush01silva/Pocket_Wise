@@ -10,6 +10,7 @@ interface CategoryTransactionsModalProps {
   isOpen: boolean
   onClose: () => void
   categoria: Categoria
+  subcategorias: Categoria[]
   transacoes: Lancamento[]
   mesReferencia: string
   valorOrcado: number
@@ -20,6 +21,7 @@ export function CategoryTransactionsModal({
   isOpen,
   onClose,
   categoria,
+  subcategorias,
   transacoes,
   mesReferencia,
   valorOrcado,
@@ -28,12 +30,23 @@ export function CategoryTransactionsModal({
   const percentualUsado = valorOrcado > 0 ? (valorGasto / valorOrcado) * 100 : 0
   const valorDisponivel = valorOrcado - valorGasto
 
+  // Determinar o mês real das transações (pode ser diferente do orçamento)
+  const mesTransacoes = transacoes.length > 0
+    ? transacoes[0].data.substring(0, 7) + '-01'
+    : mesReferencia
+
+  const getSubcategoriaNome = (subcategoriaId: string | null | undefined) => {
+    if (!subcategoriaId) return null
+    const subcat = subcategorias.find(s => s.id === subcategoriaId)
+    return subcat?.nome
+  }
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={categoria.nome}
-      description={`Transações de ${format(new Date(mesReferencia), 'MMMM yyyy', { locale: ptBR })}`}
+      description={`Transações de ${format(new Date(mesTransacoes), 'MMMM yyyy', { locale: ptBR })}`}
       maxWidth="2xl"
     >
       <div className="space-y-6">
@@ -105,10 +118,17 @@ export function CategoryTransactionsModal({
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex-1">
-                      <p className="text-gray-100 font-medium">
-                        {transacao.observacao || 'Sem descrição'}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-gray-100 font-medium">
+                          {transacao.observacao || `Despesa em ${categoria.nome}`}
+                        </p>
+                        {getSubcategoriaNome(transacao.subcategoria_id) && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-primary-500/20 text-primary-400 border border-primary-500/30">
+                            {getSubcategoriaNome(transacao.subcategoria_id)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <Calendar size={12} className="text-gray-500" />
                         <span className="text-xs text-gray-500">
                           {format(new Date(transacao.data), "dd 'de' MMMM", { locale: ptBR })}
@@ -125,23 +145,22 @@ export function CategoryTransactionsModal({
                           {transacao.status === 'pendente' && 'Pendente'}
                           {transacao.status === 'projetado' && 'Projetado'}
                         </span>
+                        {transacao.forma_pagamento && (
+                          <span className="text-xs text-gray-500">
+                            • {transacao.forma_pagamento === 'dinheiro' && 'Dinheiro'}
+                            {transacao.forma_pagamento === 'debito' && 'Débito'}
+                            {transacao.forma_pagamento === 'credito' && 'Crédito'}
+                            {transacao.forma_pagamento === 'pix' && 'PIX'}
+                            {transacao.forma_pagamento === 'transferencia' && 'Transferência'}
+                            {transacao.forma_pagamento === 'boleto' && 'Boleto'}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <span className="text-lg font-semibold text-red-400 ml-4">
                       {formatCurrency(transacao.valor)}
                     </span>
                   </div>
-
-                  {transacao.forma_pagamento && (
-                    <div className="text-xs text-gray-500">
-                      {transacao.forma_pagamento === 'dinheiro' && 'Dinheiro'}
-                      {transacao.forma_pagamento === 'debito' && 'Débito'}
-                      {transacao.forma_pagamento === 'credito' && 'Crédito'}
-                      {transacao.forma_pagamento === 'pix' && 'PIX'}
-                      {transacao.forma_pagamento === 'transferencia' && 'Transferência'}
-                      {transacao.forma_pagamento === 'boleto' && 'Boleto'}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
