@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   Users,
   UserPlus,
@@ -6,30 +6,66 @@ import {
   TrendingDown,
   DollarSign,
   CreditCard,
-  AlertCircle,
   Shield,
-  Share2,
+  Mail,
+  Trash2,
+  Crown,
+  Eye,
+  Edit3,
+  Clock,
+  X,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
-import { useTransacoesStore, useCartoesStore, useOrcamentosStore, useCategoriasStore } from '../store'
+import {
+  useTransacoesStore,
+  useCartoesStore,
+  useOrcamentosStore,
+  useCategoriasStore,
+} from '../store'
+import { useFamilyStore } from '../store/useFamilyStore'
+import { useAuth } from '../contexts/AuthContext'
 import { formatCurrency } from '../utils/currency'
 import { format, startOfMonth } from 'date-fns'
+import { FamilyInviteModal } from '../components/FamilyInviteModal'
+import { toast } from 'sonner'
 import type { OrcamentoMensal } from '../types'
 
 export function Family() {
+  const { user } = useAuth()
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const cartoes = useCartoesStore((state) => state.cartoes)
   const orcamentos = useOrcamentosStore((state) => state.orcamentos) as OrcamentoMensal[]
   const categorias = useCategoriasStore((state) => state.categorias)
+
+  // Family store
+  const {
+    family,
+    members,
+    invites,
+    isLoadingMembers,
+    initialize,
+    deleteInvite,
+    removeMember,
+    isAdmin,
+  } = useFamilyStore()
+
+  // Modal states
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+
+  // Inicializar ao montar
+  useEffect(() => {
+    initialize()
+  }, [initialize])
+
+  // Verificar se o usuário é admin
+  const currentUserIsAdmin = user ? isAdmin(user.id) : false
 
   // Estatísticas da família
   const estatisticas = useMemo(() => {
     const mesAtual = format(startOfMonth(new Date()), 'yyyy-MM')
 
     // Lançamentos do mês
-    const lancamentosMes = lancamentos.filter((l) =>
-      l.data.startsWith(mesAtual)
-    )
+    const lancamentosMes = lancamentos.filter((l) => l.data.startsWith(mesAtual))
 
     const receitas = lancamentosMes
       .filter((l) => l.tipo === 'receita' && l.status === 'pago')
@@ -58,43 +94,86 @@ export function Family() {
     }
   }, [lancamentos, cartoes, orcamentos, categorias])
 
-  return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-100 mb-2">Família</h1>
-        <p className="text-gray-400">
-          Gerencie membros e compartilhamento financeiro
-        </p>
-      </div>
+  const handleDeleteInvite = async (inviteId: string) => {
+    if (!confirm('Deseja realmente cancelar este convite?')) return
 
-      {/* Informação sobre Autenticação */}
-      <Card className="border border-blue-500/20 bg-blue-500/5">
-        <CardContent className="py-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="text-blue-500 flex-shrink-0 mt-0.5" size={20} />
-            <div>
-              <h4 className="font-semibold text-blue-400 mb-1">
-                Funcionalidade em Desenvolvimento
-              </h4>
-              <p className="text-sm text-gray-400 mb-3">
-                O gerenciamento completo de membros da família estará disponível após a
-                implementação do sistema de autenticação. Por enquanto, todos os dados são
-                compartilhados localmente neste dispositivo.
-              </p>
-              <div className="flex gap-2">
-                <span className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-blue-500/10 text-blue-400 rounded">
-                  <Shield size={12} />
-                  Autenticação pendente
-                </span>
-                <span className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-blue-500/10 text-blue-400 rounded">
-                  <Share2 size={12} />
-                  Compartilhamento pendente
-                </span>
-              </div>
+    const success = await deleteInvite(inviteId)
+    if (success) {
+      toast.success('Convite cancelado')
+    } else {
+      toast.error('Erro ao cancelar convite')
+    }
+  }
+
+  const handleRemoveMember = async (memberId: string, memberName: string) => {
+    if (!confirm(`Deseja realmente remover ${memberName} da família?`)) return
+
+    const success = await removeMember(memberId)
+    if (success) {
+      toast.success(`${memberName} foi removido da família`)
+    } else {
+      toast.error('Erro ao remover membro')
+    }
+  }
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return <Crown className="w-4 h-4" />
+      case 'editor':
+        return <Edit3 className="w-4 h-4" />
+      case 'viewer':
+        return <Eye className="w-4 h-4" />
+      default:
+        return null
+    }
+  }
+
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'Admin'
+      case 'editor':
+        return 'Editor'
+      case 'viewer':
+        return 'Visualizador'
+      default:
+        return role
+    }
+  }
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'text-yellow-400 bg-yellow-500/10'
+      case 'editor':
+        return 'text-blue-400 bg-blue-500/10'
+      case 'viewer':
+        return 'text-gray-400 bg-gray-500/10'
+      default:
+        return 'text-gray-400 bg-gray-500/10'
+    }
+  }
+
+  return (
+    <>
+      <FamilyInviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        familyId={family?.id || ''}
+      />
+
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-100 mb-2">Família</h1>
+          <p className="text-gray-400">Gerencie membros e compartilhamento financeiro</p>
+          {family && (
+            <div className="mt-2 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-primary-400" />
+              <span className="text-sm text-gray-300">Família: {family.nome}</span>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          )}
+        </div>
 
       {/* Estatísticas da Família */}
       <div>
@@ -222,109 +301,143 @@ export function Family() {
         </div>
       </div>
 
-      {/* Membros da Família (Preview) */}
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Membros da Família</CardTitle>
-            <Button disabled>
-              <UserPlus size={16} className="mr-2" />
-              Adicionar Membro
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {/* Usuário atual (simulado) */}
-            <div className="flex items-center justify-between p-4 bg-dark-700/30 rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-primary-500/20 rounded-full flex items-center justify-center">
-                  <Users className="text-primary-500" size={24} />
-                </div>
-                <div>
-                  <h4 className="font-medium text-gray-200">Você</h4>
-                  <p className="text-sm text-gray-500">Administrador</p>
-                </div>
+        {/* Convites Pendentes */}
+        {currentUserIsAdmin && invites.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Convites Pendentes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {invites
+                  .filter((invite) => invite.status === 'pending')
+                  .map((invite) => (
+                    <div
+                      key={invite.id}
+                      className="flex items-center justify-between p-4 bg-dark-700/30 rounded-lg border border-dark-600"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center">
+                          <Mail className="text-blue-400" size={20} />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-200">{invite.invited_email}</h4>
+                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <Clock size={12} />
+                            <span>
+                              Expira em{' '}
+                              {new Date(invite.expires_at).toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${getRoleColor(
+                            invite.role
+                          )}`}
+                        >
+                          {getRoleIcon(invite.role)}
+                          {getRoleLabel(invite.role)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteInvite(invite.id)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs px-2 py-1 bg-green-500/10 text-green-400 rounded">
-                  Ativo
-                </span>
-                <span className="text-xs px-2 py-1 bg-primary-500/10 text-primary-400 rounded">
-                  Admin
-                </span>
-              </div>
-            </div>
+            </CardContent>
+          </Card>
+        )}
 
-            <div className="text-center py-8 text-gray-500 border-2 border-dashed border-dark-700 rounded-lg">
-              <Users className="mx-auto mb-3 text-gray-600" size={32} />
-              <p className="mb-2">Nenhum membro adicional</p>
-              <p className="text-sm text-gray-600">
-                Adicione membros da família para compartilhar o controle financeiro
-              </p>
+        {/* Membros da Família */}
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle>Membros da Família</CardTitle>
+              {currentUserIsAdmin && (
+                <Button onClick={() => setIsInviteModalOpen(true)}>
+                  <UserPlus size={16} className="mr-2" />
+                  Convidar Membro
+                </Button>
+              )}
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Funcionalidades Futuras */}
-      <Card className="border border-dark-700">
-        <CardHeader>
-          <CardTitle>Funcionalidades Planejadas</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <div className="flex items-start gap-3 p-3 bg-dark-700/20 rounded">
-              <div className="w-8 h-8 bg-blue-500/10 rounded flex items-center justify-center flex-shrink-0">
-                <Shield size={16} className="text-blue-400" />
+          </CardHeader>
+          <CardContent>
+            {isLoadingMembers ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
+                <p className="text-gray-400 mt-2">Carregando membros...</p>
               </div>
-              <div>
-                <h5 className="font-medium text-gray-200 mb-1">Autenticação</h5>
-                <p className="text-sm text-gray-500">
-                  Sistema de login e registro de usuários com segurança
+            ) : members.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 border-2 border-dashed border-dark-700 rounded-lg">
+                <Users className="mx-auto mb-3 text-gray-600" size={32} />
+                <p className="mb-2">Nenhum membro na família</p>
+                <p className="text-sm text-gray-600">
+                  Convide membros para compartilhar o controle financeiro
                 </p>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                {members.map((member) => {
+                  const isCurrentUser = member.user_id === user?.id
+                  const canRemove = currentUserIsAdmin && !isCurrentUser
 
-            <div className="flex items-start gap-3 p-3 bg-dark-700/20 rounded">
-              <div className="w-8 h-8 bg-green-500/10 rounded flex items-center justify-center flex-shrink-0">
-                <UserPlus size={16} className="text-green-400" />
+                  return (
+                    <div
+                      key={member.id}
+                      className="flex items-center justify-between p-4 bg-dark-700/30 rounded-lg border border-dark-600"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-primary-500/20 rounded-full flex items-center justify-center">
+                          <Users className="text-primary-500" size={24} />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-200">
+                            {member.user_name}
+                            {isCurrentUser && (
+                              <span className="text-sm text-gray-400 ml-2">(Você)</span>
+                            )}
+                          </h4>
+                          <p className="text-sm text-gray-500">{member.user_email}</p>
+                          <p className="text-xs text-gray-600">
+                            Membro desde{' '}
+                            {new Date(member.joined_at).toLocaleDateString('pt-BR')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${getRoleColor(
+                            member.role
+                          )}`}
+                        >
+                          {getRoleIcon(member.role)}
+                          {getRoleLabel(member.role)}
+                        </span>
+                        {canRemove && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveMember(member.id, member.user_name)}
+                          >
+                            <X size={16} />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
-              <div>
-                <h5 className="font-medium text-gray-200 mb-1">Convites</h5>
-                <p className="text-sm text-gray-500">
-                  Convide membros da família por email ou link
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-3 bg-dark-700/20 rounded">
-              <div className="w-8 h-8 bg-yellow-500/10 rounded flex items-center justify-center flex-shrink-0">
-                <Share2 size={16} className="text-yellow-400" />
-              </div>
-              <div>
-                <h5 className="font-medium text-gray-200 mb-1">Compartilhamento</h5>
-                <p className="text-sm text-gray-500">
-                  Compartilhe categorias, cartões e orçamentos entre membros
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-3 bg-dark-700/20 rounded">
-              <div className="w-8 h-8 bg-purple-500/10 rounded flex items-center justify-center flex-shrink-0">
-                <Users size={16} className="text-purple-400" />
-              </div>
-              <div>
-                <h5 className="font-medium text-gray-200 mb-1">Permissões</h5>
-                <p className="text-sm text-gray-500">
-                  Defina permissões diferentes para cada membro (admin, editor,
-                  visualizador)
-                </p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </>
   )
 }

@@ -23,6 +23,7 @@ import {
   Family,
   Settings,
 } from './pages'
+import { AcceptInvite } from './pages/AcceptInvite'
 import { useCategoriasStore, useTransacoesStore, useCartoesStore } from './store'
 import { isSupabaseConfigured } from './lib/supabase'
 
@@ -171,6 +172,7 @@ function AppRoutes() {
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<SignUp />} />
           <Route path="/recuperar-senha" element={<ForgotPassword />} />
+          <Route path="/convite/:token" element={<AcceptInvite />} />
           <Route path="/app/assinar" element={<Paywall />} />
 
           {/* Private routes */}

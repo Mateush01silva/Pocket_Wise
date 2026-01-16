@@ -542,6 +542,77 @@ export interface ConfiguracaoOrcamento {
 }
 
 // =====================================================
+// FAMILY INVITES & MEMBERS
+// =====================================================
+
+export type FamilyRole = 'admin' | 'editor' | 'viewer'
+export type InviteStatus = 'pending' | 'accepted' | 'rejected' | 'expired'
+
+// Membro da família com role
+export interface FamilyMember {
+  id: string
+  family_id: string
+  user_id: string
+  role: FamilyRole
+  joined_at: string
+  created_at: string
+  updated_at: string
+}
+
+// Membro com informações do usuário
+export interface FamilyMemberWithUser extends FamilyMember {
+  user_name: string
+  user_email: string
+  patrimonio_base: number
+  user_created_at: string
+}
+
+// Convite para família
+export interface FamilyInvite {
+  id: string
+  family_id: string
+  invited_by: string
+  invited_email: string
+  token: string
+  role: FamilyRole
+  status: InviteStatus
+  message?: string | null
+  expires_at: string
+  accepted_at?: string | null
+  accepted_by?: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Convite com detalhes completos
+export interface FamilyInviteWithDetails extends FamilyInvite {
+  family_name: string
+  invited_by_name: string
+  invited_by_email: string
+}
+
+// =====================================================
+// FORM TYPES (Family)
+// =====================================================
+
+export interface CreateFamilyInviteInput {
+  family_id: string
+  invited_email: string
+  role?: FamilyRole
+  message?: string
+}
+
+export interface AcceptFamilyInviteInput {
+  token: string
+  user_id: string
+}
+
+export interface UpdateFamilyMemberInput {
+  id: string
+  role: FamilyRole
+}
+
+// =====================================================
 // UTILITY TYPES
 // =====================================================
 
