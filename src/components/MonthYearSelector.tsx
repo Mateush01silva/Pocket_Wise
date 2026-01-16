@@ -33,13 +33,25 @@ export function MonthYearSelector({ value, onChange, hasData }: MonthYearSelecto
   const handleMonthChange = (newMonth: number) => {
     let date = new Date(value)
     date = setMonth(date, newMonth)
-    onChange(format(startOfMonth(date), 'yyyy-MM-dd'))
+    const newValue = format(startOfMonth(date), 'yyyy-MM-dd')
+    console.log('📅 MonthYearSelector - Mudança de MÊS:', {
+      valorAntigo: value,
+      mesNovo: newMonth,
+      valorNovo: newValue
+    })
+    onChange(newValue)
   }
 
   const handleYearChange = (newYear: number) => {
     let date = new Date(value)
     date = setYear(date, newYear)
-    onChange(format(startOfMonth(date), 'yyyy-MM-dd'))
+    const newValue = format(startOfMonth(date), 'yyyy-MM-dd')
+    console.log('📅 MonthYearSelector - Mudança de ANO:', {
+      valorAntigo: value,
+      anoNovo: newYear,
+      valorNovo: newValue
+    })
+    onChange(newValue)
   }
 
   return (

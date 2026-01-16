@@ -21,7 +21,18 @@ import type { EnvelopeDigital } from '../types'
 export function Budgets() {
   // Garantir que sempre inicia no mês atual real
   const mesRealAtual = format(startOfMonth(new Date()), 'yyyy-MM-dd')
-  const [mesAtual, setMesAtual] = useState(mesRealAtual)
+  const [mesAtual, setMesAtualInterno] = useState(mesRealAtual)
+
+  // Wrapper para logar mudanças
+  const setMesAtual = (novoMes: string) => {
+    console.log('🎯 setMesAtual CHAMADO:', {
+      mesAnterior: mesAtual,
+      mesNovo: novoMes,
+      stack: new Error().stack?.split('\n')[2] // Mostra quem chamou
+    })
+    setMesAtualInterno(novoMes)
+  }
+
   const [isCreating, setIsCreating] = useState(false)
   const [isPlanningModalOpen, setIsPlanningModalOpen] = useState(false)
   const [selectedEnvelope, setSelectedEnvelope] = useState<EnvelopeDigital | null>(null)
@@ -39,6 +50,7 @@ export function Budgets() {
   const isLoading = useOrcamentosStore((state) => state.isLoading)
   const initialize = useOrcamentosStore((state) => state.initialize)
   const initialized = useOrcamentosStore((state) => state.initialized)
+  const orcamentos = useOrcamentosStore((state) => state.orcamentos)
   const getOrcamentoDoMes = useOrcamentosStore((state) => state.getOrcamentoDoMes)
   const getProjecaoMensal = useOrcamentosStore((state) => state.getProjecaoMensal)
   const getEnvelopesDigitais = useOrcamentosStore((state) => state.getEnvelopesDigitais)
@@ -64,7 +76,18 @@ export function Budgets() {
     isMounted.current = true
 
     if (initialized) {
+      console.log('🔄 useEffect DISPARADO - Buscando orçamento para:', mesAtual)
+      console.log('📋 Orçamentos disponíveis no store:', orcamentos.map(o => ({
+        id: o.id,
+        mes_referencia: o.mes_referencia
+      })))
+
       const orcamento = getOrcamentoDoMes(mesAtual)
+      console.log('🔍 Resultado da busca:', orcamento ? {
+        id: orcamento.id,
+        mes_referencia: orcamento.mes_referencia
+      } : 'NENHUM ORÇAMENTO ENCONTRADO')
+
       if (isMounted.current) {
         setOrcamentoAtual(orcamento || null)
       }
@@ -73,7 +96,7 @@ export function Budgets() {
     return () => {
       isMounted.current = false
     }
-  }, [initialized, mesAtual, getOrcamentoDoMes, setOrcamentoAtual])
+  }, [initialized, mesAtual, orcamentos, getOrcamentoDoMes, setOrcamentoAtual])
 
   const handleCurrentMonth = () => {
     setMesAtual(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
