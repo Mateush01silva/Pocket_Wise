@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
-import { Filter, TrendingDown, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
-import { format, startOfMonth, addMonths, subMonths } from 'date-fns'
+import { Filter, TrendingDown, AlertCircle } from 'lucide-react'
+import { format, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -62,16 +62,6 @@ export function Envelopes() {
       isMounted.current = false
     }
   }, [initialized, mesAtual, getOrcamentoDoMes, setOrcamentoAtual])
-
-  const handlePreviousMonth = () => {
-    const newDate = subMonths(new Date(mesAtual), 1)
-    setMesAtual(format(startOfMonth(newDate), 'yyyy-MM-dd'))
-  }
-
-  const handleNextMonth = () => {
-    const newDate = addMonths(new Date(mesAtual), 1)
-    setMesAtual(format(startOfMonth(newDate), 'yyyy-MM-dd'))
-  }
 
   const handleCurrentMonth = () => {
     setMesAtual(format(startOfMonth(new Date()), 'yyyy-MM-dd'))

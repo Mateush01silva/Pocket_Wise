@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Copy, Calendar, Edit2, ChevronLeft, ChevronRight } from 'lucide-react'
-import { format, startOfMonth, addMonths, subMonths } from 'date-fns'
+import { Plus, Copy, Calendar, Edit2 } from 'lucide-react'
+import { format, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -74,16 +74,6 @@ export function Budgets() {
       isMounted.current = false
     }
   }, [initialized, mesAtual, getOrcamentoDoMes, setOrcamentoAtual])
-
-  const handlePreviousMonth = () => {
-    const newDate = subMonths(new Date(mesAtual), 1)
-    setMesAtual(format(startOfMonth(newDate), 'yyyy-MM-dd'))
-  }
-
-  const handleNextMonth = () => {
-    const newDate = addMonths(new Date(mesAtual), 1)
-    setMesAtual(format(startOfMonth(newDate), 'yyyy-MM-dd'))
-  }
 
   const handleCurrentMonth = () => {
     setMesAtual(format(startOfMonth(new Date()), 'yyyy-MM-dd'))

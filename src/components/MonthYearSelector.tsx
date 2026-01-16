@@ -1,6 +1,4 @@
-import { Select } from './ui/Select'
 import { format, setMonth, setYear, startOfMonth } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
 
 interface MonthYearSelectorProps {
   value: string // formato: 'yyyy-MM-dd'
