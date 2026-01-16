@@ -31,24 +31,26 @@ export function MonthYearSelector({ value, onChange, hasData }: MonthYearSelecto
   const currentYearValue = currentDate.getFullYear()
 
   const handleMonthChange = (newMonth: number) => {
-    let date = new Date(value)
-    date = setMonth(date, newMonth)
-    const newValue = format(startOfMonth(date), 'yyyy-MM-dd')
+    // Construir data explicitamente para evitar problemas de timezone
+    const newDate = new Date(currentYearValue, newMonth, 1)
+    const newValue = format(startOfMonth(newDate), 'yyyy-MM-dd')
     console.log('📅 MonthYearSelector - Mudança de MÊS:', {
       valorAntigo: value,
       mesNovo: newMonth,
+      anoAtual: currentYearValue,
       valorNovo: newValue
     })
     onChange(newValue)
   }
 
   const handleYearChange = (newYear: number) => {
-    let date = new Date(value)
-    date = setYear(date, newYear)
-    const newValue = format(startOfMonth(date), 'yyyy-MM-dd')
+    // Construir data explicitamente para evitar problemas de timezone
+    const newDate = new Date(newYear, currentMonth, 1)
+    const newValue = format(startOfMonth(newDate), 'yyyy-MM-dd')
     console.log('📅 MonthYearSelector - Mudança de ANO:', {
       valorAntigo: value,
       anoNovo: newYear,
+      mesAtual: currentMonth,
       valorNovo: newValue
     })
     onChange(newValue)
