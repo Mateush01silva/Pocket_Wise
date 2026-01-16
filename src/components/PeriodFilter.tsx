@@ -1,9 +1,20 @@
 import { useState } from 'react'
-import { Calendar } from 'lucide-react'
-import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths } from 'date-fns'
+import { Calendar, ChevronDown } from 'lucide-react'
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  startOfYear,
+  endOfYear,
+  subMonths,
+  subDays,
+  startOfDay,
+  endOfDay,
+} from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Button } from './ui/Button'
-import { Select } from './ui/Select'
 import { Input } from './ui/Input'
 import { cn } from '../lib/cn'
 
@@ -19,64 +30,140 @@ interface PeriodFilterProps {
   className?: string
 }
 
+// Definir os filtros rápidos disponíveis
+type QuickFilter =
+  | 'hoje'
+  | 'esta-semana'
+  | 'este-mes'
+  | 'mes-passado'
+  | 'ultimos-30'
+  | 'ultimos-90'
+  | 'este-ano'
+  | 'personalizado'
+
+interface QuickFilterOption {
+  id: QuickFilter
+  label: string
+  getDateRange: () => { dataInicio: Date; dataFim: Date }
+}
+
+const quickFilters: QuickFilterOption[] = [
+  {
+    id: 'hoje',
+    label: 'Hoje',
+    getDateRange: () => ({
+      dataInicio: startOfDay(new Date()),
+      dataFim: endOfDay(new Date()),
+    }),
+  },
+  {
+    id: 'esta-semana',
+    label: 'Esta semana',
+    getDateRange: () => ({
+      dataInicio: startOfWeek(new Date(), { locale: ptBR }),
+      dataFim: endOfWeek(new Date(), { locale: ptBR }),
+    }),
+  },
+  {
+    id: 'este-mes',
+    label: 'Este mês',
+    getDateRange: () => ({
+      dataInicio: startOfMonth(new Date()),
+      dataFim: endOfMonth(new Date()),
+    }),
+  },
+  {
+    id: 'mes-passado',
+    label: 'Mês passado',
+    getDateRange: () => ({
+      dataInicio: startOfMonth(subMonths(new Date(), 1)),
+      dataFim: endOfMonth(subMonths(new Date(), 1)),
+    }),
+  },
+  {
+    id: 'ultimos-30',
+    label: 'Últimos 30 dias',
+    getDateRange: () => ({
+      dataInicio: subDays(new Date(), 30),
+      dataFim: new Date(),
+    }),
+  },
+  {
+    id: 'ultimos-90',
+    label: 'Últimos 90 dias',
+    getDateRange: () => ({
+      dataInicio: subDays(new Date(), 90),
+      dataFim: new Date(),
+    }),
+  },
+  {
+    id: 'este-ano',
+    label: 'Este ano',
+    getDateRange: () => ({
+      dataInicio: startOfYear(new Date()),
+      dataFim: endOfYear(new Date()),
+    }),
+  },
+  {
+    id: 'personalizado',
+    label: 'Personalizado',
+    getDateRange: () => ({
+      dataInicio: startOfMonth(new Date()),
+      dataFim: endOfMonth(new Date()),
+    }),
+  },
+]
+
 export function PeriodFilter({ value, onChange, className }: PeriodFilterProps) {
   const [showCustom, setShowCustom] = useState(false)
   const [tempDataInicio, setTempDataInicio] = useState(format(value.dataInicio, 'yyyy-MM-dd'))
   const [tempDataFim, setTempDataFim] = useState(format(value.dataFim, 'yyyy-MM-dd'))
 
-  const handleTipoChange = (tipo: PeriodFilterValue['tipo']) => {
-    const hoje = new Date()
-
-    switch (tipo) {
-      case 'mes-atual':
-        onChange({
-          tipo,
-          dataInicio: startOfMonth(hoje),
-          dataFim: endOfMonth(hoje),
-        })
-        setShowCustom(false)
-        break
-
-      case 'mes-custom':
-        setShowCustom(true)
-        break
-
-      case 'ano':
-        onChange({
-          tipo,
-          dataInicio: startOfYear(hoje),
-          dataFim: endOfYear(hoje),
-        })
-        setShowCustom(false)
-        break
-
-      case 'range-custom':
-        setShowCustom(true)
-        break
+  // Determinar qual filtro rápido está ativo baseado nas datas
+  const getActiveFilter = (): QuickFilter => {
+    // Verificar se é personalizado (não corresponde a nenhum filtro rápido)
+    if (value.tipo === 'range-custom') {
+      return 'personalizado'
     }
+
+    // Verificar cada filtro rápido
+    for (const filter of quickFilters) {
+      if (filter.id === 'personalizado') continue
+
+      const range = filter.getDateRange()
+      const inicioMatch =
+        format(value.dataInicio, 'yyyy-MM-dd') === format(range.dataInicio, 'yyyy-MM-dd')
+      const fimMatch = format(value.dataFim, 'yyyy-MM-dd') === format(range.dataFim, 'yyyy-MM-dd')
+
+      if (inicioMatch && fimMatch) {
+        return filter.id
+      }
+    }
+
+    // Se não encontrou, é este-mes por padrão
+    return 'este-mes'
   }
 
-  const handleMesCustomChange = (mesAno: string) => {
-    // mesAno format: "YYYY-MM"
-    const [ano, mes] = mesAno.split('-').map(Number)
-    const data = new Date(ano, mes - 1, 1)
+  const activeFilter = getActiveFilter()
+
+  const handleQuickFilterClick = (filterId: QuickFilter) => {
+    if (filterId === 'personalizado') {
+      setShowCustom(!showCustom)
+      return
+    }
+
+    const filter = quickFilters.find((f) => f.id === filterId)
+    if (!filter) return
+
+    const range = filter.getDateRange()
 
     onChange({
-      tipo: 'mes-custom',
-      dataInicio: startOfMonth(data),
-      dataFim: endOfMonth(data),
+      tipo: 'mes-atual', // Não importa muito, mas mantenho compatibilidade
+      dataInicio: range.dataInicio,
+      dataFim: range.dataFim,
     })
-  }
 
-  const handleAnoChange = (ano: string) => {
-    const anoNum = parseInt(ano)
-    const data = new Date(anoNum, 0, 1)
-
-    onChange({
-      tipo: 'ano',
-      dataInicio: startOfYear(data),
-      dataFim: endOfYear(data),
-    })
+    setShowCustom(false)
   }
 
   const handleCustomRangeApply = () => {
@@ -88,174 +175,112 @@ export function PeriodFilter({ value, onChange, className }: PeriodFilterProps) 
     setShowCustom(false)
   }
 
-  const getDisplayLabel = () => {
-    switch (value.tipo) {
-      case 'mes-atual':
-        return format(value.dataInicio, 'MMMM yyyy', { locale: ptBR })
-      case 'mes-custom':
-        return format(value.dataInicio, 'MMMM yyyy', { locale: ptBR })
-      case 'ano':
-        return format(value.dataInicio, 'yyyy')
-      case 'range-custom':
-        return `${format(value.dataInicio, 'dd/MM/yy')} - ${format(value.dataFim, 'dd/MM/yy')}`
-    }
-  }
-
-  // Gerar últimos 12 meses para o select
-  const mesesOptions = []
-  for (let i = 0; i < 12; i++) {
-    const mes = subMonths(new Date(), i)
-    mesesOptions.push({
-      value: format(mes, 'yyyy-MM'),
-      label: format(mes, 'MMMM yyyy', { locale: ptBR }),
-    })
-  }
-
-  // Gerar últimos 5 anos para o select
-  const anosOptions = []
-  const anoAtual = new Date().getFullYear()
-  for (let i = 0; i < 5; i++) {
-    const ano = anoAtual - i
-    anosOptions.push({
-      value: ano.toString(),
-      label: ano.toString(),
-    })
+  const getDisplayPeriod = () => {
+    const inicio = format(value.dataInicio, 'dd MMM', { locale: ptBR })
+    const fim = format(value.dataFim, 'dd MMM yyyy', { locale: ptBR })
+    return `${inicio} - ${fim}`
   }
 
   return (
-    <div className={cn('flex flex-col gap-3', className)}>
-      {/* Tipo de filtro */}
-      <div className="flex items-center gap-2">
-        <Calendar className="w-5 h-5 text-gray-400" />
-        <Select
-          value={value.tipo}
-          onChange={(e) => handleTipoChange(e.target.value as PeriodFilterValue['tipo'])}
-          className="flex-1"
-        >
-          <option value="mes-atual">Mês Atual</option>
-          <option value="mes-custom">Escolher Mês</option>
-          <option value="ano">Ano Inteiro</option>
-          <option value="range-custom">Período Customizado</option>
-        </Select>
-
-        <div className="px-3 py-2 bg-dark-700 rounded-lg border border-dark-600 text-sm text-gray-300">
-          {getDisplayLabel()}
+    <div className={cn('space-y-4', className)}>
+      {/* Header com período atual */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-primary-400" />
+          <span className="text-sm font-medium text-gray-300">Período</span>
+        </div>
+        <div className="px-3 py-1.5 bg-dark-700 rounded-lg border border-dark-600 text-sm text-gray-300">
+          {getDisplayPeriod()}
         </div>
       </div>
 
-      {/* Inputs customizados */}
+      {/* Filtros rápidos em chips */}
+      <div className="flex flex-wrap gap-2">
+        {quickFilters.map((filter) => {
+          const isActive = activeFilter === filter.id
+          const isPersonalizado = filter.id === 'personalizado'
+
+          return (
+            <button
+              key={filter.id}
+              onClick={() => handleQuickFilterClick(filter.id)}
+              className={cn(
+                'px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200',
+                'border border-dark-600 hover:border-primary-500/50',
+                'focus:outline-none focus:ring-2 focus:ring-primary-500/50',
+                isActive
+                  ? 'bg-primary-500 text-white border-primary-500'
+                  : 'bg-dark-700 text-gray-300 hover:bg-dark-600',
+                isPersonalizado && showCustom && 'bg-primary-500/20 border-primary-500'
+              )}
+            >
+              <span className="flex items-center gap-1.5">
+                {filter.label}
+                {isPersonalizado && (
+                  <ChevronDown
+                    className={cn(
+                      'w-3.5 h-3.5 transition-transform',
+                      showCustom && 'rotate-180'
+                    )}
+                  />
+                )}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Período customizado */}
       {showCustom && (
-        <div className="p-3 bg-dark-700/50 rounded-lg border border-dark-600 space-y-3 animate-in fade-in slide-in-from-top-2">
-          {value.tipo === 'mes-custom' && (
+        <div className="p-4 bg-dark-700/50 rounded-lg border border-primary-500/30 space-y-4 animate-in fade-in slide-in-from-top-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Selecione o Mês</label>
-              <Select
-                value={format(value.dataInicio, 'yyyy-MM')}
-                onChange={(e) => handleMesCustomChange(e.target.value)}
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Data de Início
+              </label>
+              <Input
+                type="date"
+                value={tempDataInicio}
+                onChange={(e) => setTempDataInicio(e.target.value)}
                 className="w-full"
-              >
-                {mesesOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </Select>
+              />
             </div>
-          )}
-
-          {value.tipo === 'ano' && (
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Selecione o Ano</label>
-              <Select
-                value={format(value.dataInicio, 'yyyy')}
-                onChange={(e) => handleAnoChange(e.target.value)}
+              <label className="block text-sm font-medium text-gray-300 mb-2">Data de Fim</label>
+              <Input
+                type="date"
+                value={tempDataFim}
+                onChange={(e) => setTempDataFim(e.target.value)}
                 className="w-full"
-              >
-                {anosOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </Select>
+              />
             </div>
-          )}
+          </div>
 
-          {value.tipo === 'range-custom' && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Data Início</label>
-                <Input
-                  type="date"
-                  value={tempDataInicio}
-                  onChange={(e) => setTempDataInicio(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Data Fim</label>
-                <Input
-                  type="date"
-                  value={tempDataFim}
-                  onChange={(e) => setTempDataFim(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-            </div>
-          )}
-
-          {value.tipo === 'range-custom' && (
-            <Button onClick={handleCustomRangeApply} size="sm" className="w-full">
+          <div className="flex gap-2">
+            <Button onClick={handleCustomRangeApply} size="sm" className="flex-1">
               Aplicar Período
             </Button>
-          )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowCustom(false)}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Atalhos rápidos */}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            onChange({
-              tipo: 'mes-custom',
-              dataInicio: startOfMonth(subMonths(new Date(), 1)),
-              dataFim: endOfMonth(subMonths(new Date(), 1)),
-            })
-          }
-          className="text-xs"
-        >
-          Mês Passado
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            onChange({
-              tipo: 'mes-custom',
-              dataInicio: startOfMonth(subMonths(new Date(), 2)),
-              dataFim: endOfMonth(subMonths(new Date(), 2)),
-            })
-          }
-          className="text-xs"
-        >
-          2 Meses Atrás
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            onChange({
-              tipo: 'ano',
-              dataInicio: startOfYear(new Date()),
-              dataFim: endOfYear(new Date()),
-            })
-          }
-          className="text-xs"
-        >
-          Ano Completo
-        </Button>
-      </div>
+      {/* Info do filtro ativo */}
+      {activeFilter !== 'personalizado' && (
+        <div className="text-xs text-gray-400">
+          Mostrando:{' '}
+          <span className="text-primary-400 font-medium">
+            {quickFilters.find((f) => f.id === activeFilter)?.label}
+          </span>
+        </div>
+      )}
     </div>
   )
 }
