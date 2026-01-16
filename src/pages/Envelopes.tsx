@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
-import { Filter, TrendingDown, AlertCircle } from 'lucide-react'
-import { format } from 'date-fns'
+import { Filter, TrendingDown, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { format, startOfMonth, addMonths, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -13,6 +13,7 @@ type FiltroCategoria = 'todas' | 'essencial' | 'importante' | 'desejavel' | 'est
 type OrdenacaoCategoria = 'nome' | 'percentual_desc' | 'percentual_asc' | 'valor_desc'
 
 export function Envelopes() {
+  const [mesAtual, setMesAtual] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   const [filtro, setFiltro] = useState<FiltroCategoria>('todas')
   const [ordenacao, setOrdenacao] = useState<OrdenacaoCategoria>('percentual_desc')
   const isMounted = useRef(true) // Track if component is mounted
@@ -23,6 +24,8 @@ export function Envelopes() {
   const initialize = useOrcamentosStore((state) => state.initialize)
   const initialized = useOrcamentosStore((state) => state.initialized)
   const getEnvelopesDigitais = useOrcamentosStore((state) => state.getEnvelopesDigitais)
+  const getOrcamentoDoMes = useOrcamentosStore((state) => state.getOrcamentoDoMes)
+  const setOrcamentoAtual = useOrcamentosStore((state) => state.setOrcamentoAtual)
 
   useEffect(() => {
     isMounted.current = true
@@ -35,6 +38,35 @@ export function Envelopes() {
       isMounted.current = false
     }
   }, [initialized, initialize])
+
+  useEffect(() => {
+    isMounted.current = true
+
+    if (initialized) {
+      const orcamento = getOrcamentoDoMes(mesAtual)
+      if (isMounted.current) {
+        setOrcamentoAtual(orcamento || null)
+      }
+    }
+
+    return () => {
+      isMounted.current = false
+    }
+  }, [initialized, mesAtual, getOrcamentoDoMes, setOrcamentoAtual])
+
+  const handlePreviousMonth = () => {
+    const newDate = subMonths(new Date(mesAtual), 1)
+    setMesAtual(format(startOfMonth(newDate), 'yyyy-MM-dd'))
+  }
+
+  const handleNextMonth = () => {
+    const newDate = addMonths(new Date(mesAtual), 1)
+    setMesAtual(format(startOfMonth(newDate), 'yyyy-MM-dd'))
+  }
+
+  const handleCurrentMonth = () => {
+    setMesAtual(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
+  }
 
   if (isLoading || !initialized) {
     return (
@@ -49,14 +81,50 @@ export function Envelopes() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-100 mb-2">Envelopes Digitais</h1>
-          <p className="text-gray-400">Visualize seus gastos por categoria</p>
+
+          {/* Seletor de Mês */}
+          <div className="flex items-center gap-2 mt-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handlePreviousMonth}
+              className="p-2"
+            >
+              <ChevronLeft size={20} />
+            </Button>
+
+            <div className="flex items-center gap-2 min-w-[200px] justify-center">
+              <p className="text-lg font-medium text-gray-300 capitalize">
+                {format(new Date(mesAtual), 'MMMM yyyy', { locale: ptBR })}
+              </p>
+              {mesAtual !== format(startOfMonth(new Date()), 'yyyy-MM-dd') && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCurrentMonth}
+                  className="text-xs"
+                >
+                  Hoje
+                </Button>
+              )}
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleNextMonth}
+              className="p-2"
+            >
+              <ChevronRight size={20} />
+            </Button>
+          </div>
         </div>
 
         <Card className="max-w-2xl mx-auto">
           <CardContent className="py-12 text-center">
             <AlertCircle className="mx-auto mb-4 text-gray-500" size={48} />
             <h2 className="text-xl font-semibold text-gray-100 mb-2">
-              Nenhum orçamento ativo
+              Nenhum orçamento para {format(new Date(mesAtual), 'MMMM yyyy', { locale: ptBR })}
             </h2>
             <p className="text-gray-400 mb-6">
               Crie um orçamento para ver seus envelopes digitais
@@ -111,9 +179,43 @@ export function Envelopes() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-100 mb-2">Envelopes Digitais</h1>
-        <p className="text-gray-400">
-          {format(new Date(orcamentoAtual.mes_referencia), 'MMMM yyyy', { locale: ptBR })}
-        </p>
+
+        {/* Seletor de Mês */}
+        <div className="flex items-center gap-2 mt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handlePreviousMonth}
+            className="p-2"
+          >
+            <ChevronLeft size={20} />
+          </Button>
+
+          <div className="flex items-center gap-2 min-w-[200px] justify-center">
+            <p className="text-lg font-medium text-gray-300 capitalize">
+              {format(new Date(mesAtual), 'MMMM yyyy', { locale: ptBR })}
+            </p>
+            {mesAtual !== format(startOfMonth(new Date()), 'yyyy-MM-dd') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCurrentMonth}
+                className="text-xs"
+              >
+                Hoje
+              </Button>
+            )}
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleNextMonth}
+            className="p-2"
+          >
+            <ChevronRight size={20} />
+          </Button>
+        </div>
       </div>
 
       {/* Cards de resumo */}
