@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
 import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2 } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
@@ -9,6 +10,7 @@ import { ptBR } from 'date-fns/locale'
 import type { Lancamento } from '../types'
 
 export function Transactions() {
+  const [searchParams] = useSearchParams()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingLancamento, setEditingLancamento] = useState<Lancamento | undefined>(undefined)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -17,9 +19,19 @@ export function Transactions() {
   const [filterCategoria, setFilterCategoria] = useState<string>('all')
   const [filterFormaPagamento, setFilterFormaPagamento] = useState<string>('all')
   const [filterCartao, setFilterCartao] = useState<string>('all')
+  const [filterDataInicio, setFilterDataInicio] = useState<string>('')
+  const [filterDataFim, setFilterDataFim] = useState<string>('')
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
+
+  // Aplicar filtros de query params na inicialização
+  useEffect(() => {
+    const categoriaParam = searchParams.get('categoria')
+    if (categoriaParam) {
+      setFilterCategoria(categoriaParam)
+    }
+  }, [searchParams])
 
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
@@ -86,6 +98,10 @@ export function Transactions() {
 
     // Filter by card
     if (filterCartao !== 'all' && lancamento.cartao_id !== filterCartao) return false
+
+    // Filter by date range
+    if (filterDataInicio && lancamento.data < filterDataInicio) return false
+    if (filterDataFim && lancamento.data > filterDataFim) return false
 
     // Search term (category name or observacao)
     if (searchTerm) {
@@ -179,7 +195,7 @@ export function Transactions() {
           />
 
           {/* Filters */}
-          <div className="pt-2">
+          <div className="pt-2 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               {/* Search */}
               <div className="relative">
@@ -239,6 +255,24 @@ export function Transactions() {
                   { value: 'all', label: 'Todos os cartões' },
                   ...cartoes.map(cartao => ({ value: cartao.id, label: cartao.nome })),
                 ]}
+              />
+            </div>
+
+            {/* Date Filters */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                type="date"
+                label="Data Início"
+                value={filterDataInicio}
+                onChange={(e) => setFilterDataInicio(e.target.value)}
+                placeholder="Data inicial"
+              />
+              <Input
+                type="date"
+                label="Data Fim"
+                value={filterDataFim}
+                onChange={(e) => setFilterDataFim(e.target.value)}
+                placeholder="Data final"
               />
             </div>
           </div>
