@@ -260,6 +260,8 @@ export function gerarEnvelopesDigitais(
   categorias: Categoria[],
   mesReferencia: string
 ): EnvelopeDigital[] {
+  const anoMes = mesReferencia.substring(0, 7) // YYYY-MM
+
   return categoriasBudget.map((catBudget) => {
     const categoria = categorias.find((c) => c.id === catBudget.categoria_id)!
     const valorGasto = calcularGastoPorCategoria(lancamentos, catBudget.categoria_id, mesReferencia)
@@ -270,8 +272,13 @@ export function gerarEnvelopesDigitais(
     if (percentualUsado > 100) status = 'critico'
     else if (percentualUsado >= 80) status = 'atencao'
 
+    // Filtrar últimas transações do mês de referência
     const ultimasTransacoes = lancamentos
-      .filter((l) => l.categoria_id === catBudget.categoria_id && l.tipo === 'despesa')
+      .filter((l) =>
+        l.categoria_id === catBudget.categoria_id &&
+        l.tipo === 'despesa' &&
+        l.data.substring(0, 7) === anoMes
+      )
       .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
       .slice(0, 3)
 

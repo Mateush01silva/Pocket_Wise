@@ -26,6 +26,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
     data: format(new Date(), 'yyyy-MM-dd'),
     forma_pagamento: 'dinheiro',
     valor: 0,
+    status: 'pago',
   })
   const [parcelas, setParcelas] = useState<number>(1)
   const [isLoading, setIsLoading] = useState(false)
@@ -73,6 +74,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         forma_pagamento: editingLancamento.forma_pagamento,
         cartao_id: editingLancamento.cartao_id || undefined,
         observacao: editingLancamento.observacao || undefined,
+        status: editingLancamento.status || 'pago',
       })
       setParcelas(editingLancamento.parcela_total || 1)
     } else if (!isOpen) {
@@ -82,6 +84,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         data: format(new Date(), 'yyyy-MM-dd'),
         forma_pagamento: 'dinheiro',
         valor: 0,
+        status: 'pago',
       })
       setParcelas(1)
     }
@@ -116,6 +119,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
           forma_pagamento: formData.forma_pagamento as any,
           cartao_id: formData.cartao_id,
           observacao: formData.observacao,
+          status: formData.status,
         })
       } else {
         // Criando novo
@@ -129,7 +133,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
           forma_pagamento: formData.forma_pagamento as any,
           cartao_id: formData.cartao_id,
           observacao: formData.observacao,
-          status: 'pendente',
+          status: formData.status || 'pago',
         }
 
         // Se é cartão de crédito com parcelamento
@@ -150,6 +154,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         data: format(new Date(), 'yyyy-MM-dd'),
         forma_pagamento: 'dinheiro',
         valor: 0,
+        status: 'pago',
       })
       setParcelas(1)
       onClose()
@@ -168,6 +173,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         data: format(new Date(), 'yyyy-MM-dd'),
         forma_pagamento: 'dinheiro',
         valor: 0,
+        status: 'pago',
       })
       setParcelas(1)
       onClose()
@@ -272,6 +278,21 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
             required
           />
         </div>
+
+        {/* Status */}
+        <Select
+          label="Status *"
+          value={formData.status || 'pago'}
+          onChange={(e) =>
+            setFormData({ ...formData, status: e.target.value as any })
+          }
+          options={[
+            { value: 'pago', label: 'Pago' },
+            { value: 'pendente', label: 'Pendente' },
+            { value: 'projetado', label: 'Projetado' },
+          ]}
+          required
+        />
 
         {/* Forma de Pagamento */}
         <Select
