@@ -162,7 +162,25 @@ export function Budgets() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-100 mb-2">Orçamentos</h1>
-          <p className="text-gray-400">Planeje e acompanhe seus gastos mensais</p>
+
+          {/* Seletor de Mês e Ano */}
+          <div className="flex items-center gap-3 mt-2">
+            <MonthYearSelector
+              value={mesAtual}
+              onChange={setMesAtual}
+              hasData={false}
+            />
+            {mesAtual !== mesRealAtual && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCurrentMonth}
+                className="text-xs"
+              >
+                Hoje
+              </Button>
+            )}
+          </div>
         </div>
 
         <Card className="max-w-2xl mx-auto">
