@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button'
 import { Select } from '../components/ui/Select'
 import { EnvelopeCard } from '../components/EnvelopeCard'
 import { CategoryTransactionsModal } from '../components/CategoryTransactionsModal'
+import { MonthYearSelector } from '../components/MonthYearSelector'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useTransacoesStore } from '../store/useTransacoesStore'
 import { useCategoriasStore } from '../store/useCategoriasStore'
@@ -17,7 +18,8 @@ type FiltroCategoria = 'todas' | 'essencial' | 'importante' | 'desejavel' | 'est
 type OrdenacaoCategoria = 'nome' | 'percentual_desc' | 'percentual_asc' | 'valor_desc'
 
 export function Envelopes() {
-  const [mesAtual, setMesAtual] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
+  const mesRealAtual = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+  const [mesAtual, setMesAtual] = useState(mesRealAtual)
   const [filtro, setFiltro] = useState<FiltroCategoria>('todas')
   const [ordenacao, setOrdenacao] = useState<OrdenacaoCategoria>('percentual_desc')
   const [selectedEnvelope, setSelectedEnvelope] = useState<EnvelopeDigital | null>(null)
@@ -111,41 +113,23 @@ export function Envelopes() {
         <div>
           <h1 className="text-3xl font-bold text-gray-100 mb-2">Envelopes Digitais</h1>
 
-          {/* Seletor de Mês */}
-          <div className="flex items-center gap-2 mt-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handlePreviousMonth}
-              className="p-2"
-            >
-              <ChevronLeft size={20} />
-            </Button>
-
-            <div className="flex items-center gap-2 min-w-[200px] justify-center">
-              <p className="text-lg font-medium text-gray-300 capitalize">
-                {format(new Date(mesAtual), 'MMMM yyyy', { locale: ptBR })}
-              </p>
-              {mesAtual !== format(startOfMonth(new Date()), 'yyyy-MM-dd') && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCurrentMonth}
-                  className="text-xs"
-                >
-                  Hoje
-                </Button>
-              )}
-            </div>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleNextMonth}
-              className="p-2"
-            >
-              <ChevronRight size={20} />
-            </Button>
+          {/* Seletor de Mês e Ano */}
+          <div className="flex items-center gap-3 mt-2">
+            <MonthYearSelector
+              value={mesAtual}
+              onChange={setMesAtual}
+              hasData={false}
+            />
+            {mesAtual !== mesRealAtual && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCurrentMonth}
+                className="text-xs"
+              >
+                Hoje
+              </Button>
+            )}
           </div>
         </div>
 
@@ -209,41 +193,23 @@ export function Envelopes() {
       <div>
         <h1 className="text-3xl font-bold text-gray-100 mb-2">Envelopes Digitais</h1>
 
-        {/* Seletor de Mês */}
-        <div className="flex items-center gap-2 mt-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handlePreviousMonth}
-            className="p-2"
-          >
-            <ChevronLeft size={20} />
-          </Button>
-
-          <div className="flex items-center gap-2 min-w-[200px] justify-center">
-            <p className="text-lg font-medium text-gray-300 capitalize">
-              {format(new Date(mesAtual), 'MMMM yyyy', { locale: ptBR })}
-            </p>
-            {mesAtual !== format(startOfMonth(new Date()), 'yyyy-MM-dd') && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCurrentMonth}
-                className="text-xs"
-              >
-                Hoje
-              </Button>
-            )}
-          </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleNextMonth}
-            className="p-2"
-          >
-            <ChevronRight size={20} />
-          </Button>
+        {/* Seletor de Mês e Ano */}
+        <div className="flex items-center gap-3 mt-2">
+          <MonthYearSelector
+            value={mesAtual}
+            onChange={setMesAtual}
+            hasData={!!orcamentoAtual}
+          />
+          {mesAtual !== mesRealAtual && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCurrentMonth}
+              className="text-xs"
+            >
+              Hoje
+            </Button>
+          )}
         </div>
       </div>
 
