@@ -1,4 +1,4 @@
-import { format, setMonth, setYear, startOfMonth } from 'date-fns'
+import { format, startOfMonth } from 'date-fns'
 
 interface MonthYearSelectorProps {
   value: string // formato: 'yyyy-MM-dd'
