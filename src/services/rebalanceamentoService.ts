@@ -1,0 +1,380 @@
+// @ts-nocheck
+/**
+ * Rebalanceamento Service - Sistema inteligente de rebalanceamento de orçamento
+ *
+ * Este serviço implementa o algoritmo de sugestões inteligentes para
+ * rebalanceamento automático quando uma categoria estoura o orçamento.
+ *
+ * ALGORITMO DE PRIORIZAÇÃO:
+ * 1. Categorias DESEJÁVEIS com saldo sobrando (primeira escolha)
+ * 2. Categorias IMPORTANTES com muito saldo disponível (>50%)
+ * 3. Caixinhas de emergência (com autorização do usuário)
+ * 4. Categorias ESSENCIAIS (última opção, apenas se crítico)
+ *
+ * NOTA: Este arquivo usa @ts-nocheck porque a nova tabela
+ * historico_rebalanceamentos ainda não foi adicionada ao tipo Database.
+ */
+
+import { supabase, getCurrentUser, getUserFamilyId } from '../lib/supabase'
+import type {
+  Categoria,
+  CategoriaBudgetComRelacoes,
+  SugestaoRebalanceamento,
+  AnaliseEstouro,
+  CreateRebalanceamentoInput,
+  HistoricoRebalanceamento,
+  HistoricoRebalanceamentoComDetalhes,
+  DbResult,
+  DbListResult,
+  CategoriaPrioridade,
+} from '../types'
+
+// =====================================================
+// ALGORITMO DE SUGESTÕES INTELIGENTES
+// =====================================================
+
+/**
+ * Gera sugestões inteligentes de rebalanceamento para cobrir um déficit
+ */
+export async function gerarSugestoesRebalanceamento(
+  categoriaEstourada: CategoriaBudgetComRelacoes,
+  valorNecessario: number,
+  todasCategoriasBudget: CategoriaBudgetComRelacoes[]
+): Promise<SugestaoRebalanceamento[]> {
+  const sugestoes: SugestaoRebalanceamento[] = []
+
+  // Filtrar apenas categorias com saldo disponível
+  const categoriasComSaldo = todasCategoriasBudget.filter(
+    (cat) =>
+      cat.id !== categoriaEstourada.id && // Não sugerir a própria categoria
+      cat.valor_disponivel &&
+      cat.valor_disponivel > 0 &&
+      cat.categoria // Tem categoria vinculada
+  )
+
+  if (categoriasComSaldo.length === 0) {
+    return []
+  }
+
+  // =====================================================
+  // NÍVEL 1: Categorias DESEJÁVEIS com saldo
+  // =====================================================
+  const desejaveisComSaldo = categoriasComSaldo
+    .filter((cat) => cat.categoria?.prioridade === 'desejavel')
+    .sort((a, b) => (b.valor_disponivel || 0) - (a.valor_disponivel || 0))
+
+  for (const catBudget of desejaveisComSaldo) {
+    if (!catBudget.categoria) continue
+
+    const valorDisponivel = catBudget.valor_disponivel || 0
+    const valorSugerido = Math.min(valorDisponivel, valorNecessario)
+
+    sugestoes.push({
+      categoria_origem: catBudget.categoria,
+      categoria_destino: categoriaEstourada.categoria!,
+      valor_disponivel: valorDisponivel,
+      valor_sugerido: valorSugerido,
+      motivo: `${catBudget.categoria.nome} é categoria desejável com R$ ${valorDisponivel.toFixed(2)} disponíveis`,
+      nivel_prioridade: 1, // Melhor opção
+    })
+  }
+
+  // =====================================================
+  // NÍVEL 2: Categorias IMPORTANTES com muito saldo (>50%)
+  // =====================================================
+  const importantesComMuitoSaldo = categoriasComSaldo
+    .filter((cat) => {
+      if (cat.categoria?.prioridade !== 'importante') return false
+      if (!cat.valor_orcado || cat.valor_orcado === 0) return false
+
+      const percentualDisponivel = (cat.valor_disponivel || 0) / cat.valor_orcado
+      return percentualDisponivel > 0.5 // Mais de 50% disponível
+    })
+    .sort((a, b) => (b.valor_disponivel || 0) - (a.valor_disponivel || 0))
+
+  for (const catBudget of importantesComMuitoSaldo) {
+    if (!catBudget.categoria) continue
+
+    const valorDisponivel = catBudget.valor_disponivel || 0
+    const valorSugerido = Math.min(valorDisponivel * 0.7, valorNecessario) // Sugerir até 70% do disponível
+    const percentualDisponivel = ((valorDisponivel / (catBudget.valor_orcado || 1)) * 100).toFixed(0)
+
+    sugestoes.push({
+      categoria_origem: catBudget.categoria,
+      categoria_destino: categoriaEstourada.categoria!,
+      valor_disponivel: valorDisponivel,
+      valor_sugerido: valorSugerido,
+      motivo: `${catBudget.categoria.nome} tem ${percentualDisponivel}% do orçamento disponível`,
+      nivel_prioridade: 2,
+    })
+  }
+
+  // =====================================================
+  // NÍVEL 3: Categorias ESSENCIAIS (último recurso)
+  // =====================================================
+  // Só sugerir essenciais se não houver outras opções E for muito crítico
+  if (sugestoes.length === 0) {
+    const essenciaisComSaldo = categoriasComSaldo
+      .filter((cat) => cat.categoria?.prioridade === 'essencial')
+      .sort((a, b) => (b.valor_disponivel || 0) - (a.valor_disponivel || 0))
+
+    for (const catBudget of essenciaisComSaldo) {
+      if (!catBudget.categoria) continue
+
+      const valorDisponivel = catBudget.valor_disponivel || 0
+      const valorSugerido = Math.min(valorDisponivel * 0.3, valorNecessario) // Apenas 30% do disponível
+
+      sugestoes.push({
+        categoria_origem: catBudget.categoria,
+        categoria_destino: categoriaEstourada.categoria!,
+        valor_disponivel: valorDisponivel,
+        valor_sugerido: valorSugerido,
+        motivo: `⚠️ ${catBudget.categoria.nome} é essencial. Use apenas se extremamente necessário`,
+        nivel_prioridade: 3, // Última opção
+      })
+    }
+  }
+
+  return sugestoes
+}
+
+/**
+ * Analisa estouro de categoria e gera relatório com sugestões
+ */
+export async function analisarEstouroCategoria(
+  categoriaId: string,
+  orcamentoId: string
+): Promise<DbResult<AnaliseEstouro>> {
+  if (!supabase) {
+    return { data: null, error: new Error('Supabase not configured') }
+  }
+
+  try {
+    // Buscar categoria budget específica
+    const { data: catBudget, error: catError } = await supabase
+      // @ts-ignore
+      .from('categorias_budget')
+      .select(`
+        *,
+        categoria:categorias(*)
+      `)
+      .eq('id', categoriaId)
+      .eq('orcamento_id', orcamentoId)
+      .single()
+
+    if (catError || !catBudget) {
+      return { data: null, error: catError || new Error('Categoria não encontrada') }
+    }
+
+    // Calcular valor gasto (buscar lançamentos)
+    const { data: lancamentos } = await supabase
+      // @ts-ignore
+      .from('lancamentos')
+      .select('valor')
+      .eq('categoria_id', catBudget.categoria.id)
+      .eq('tipo', 'despesa')
+      .eq('status', 'pago')
+
+    const valorGasto = lancamentos?.reduce((sum, l) => sum + l.valor, 0) || 0
+    const valorOrcado = catBudget.valor_orcado || 0
+    const valorDisponivel = valorOrcado - valorGasto
+
+    // Se não há estouro, retornar sem sugestões
+    if (valorDisponivel >= 0) {
+      return {
+        data: {
+          categoria: catBudget.categoria,
+          valor_orcado: valorOrcado,
+          valor_gasto: valorGasto,
+          valor_estouro: 0,
+          percentual_estouro: 0,
+          sugestoes: [],
+        },
+        error: null,
+      }
+    }
+
+    const valorEstouro = Math.abs(valorDisponivel)
+    const percentualEstouro = (valorEstouro / valorOrcado) * 100
+
+    // Buscar todas as outras categorias do orçamento
+    const { data: todasCategorias } = await supabase
+      // @ts-ignore
+      .from('categorias_budget')
+      .select(`
+        *,
+        categoria:categorias(*)
+      `)
+      .eq('orcamento_id', orcamentoId)
+
+    // Calcular saldo disponível para cada categoria
+    const categoriasComSaldo: CategoriaBudgetComRelacoes[] = []
+    for (const cat of todasCategorias || []) {
+      const { data: catLancamentos } = await supabase
+        // @ts-ignore
+        .from('lancamentos')
+        .select('valor')
+        .eq('categoria_id', cat.categoria.id)
+        .eq('tipo', 'despesa')
+        .eq('status', 'pago')
+
+      const gasto = catLancamentos?.reduce((sum, l) => sum + l.valor, 0) || 0
+      const disponivel = (cat.valor_orcado || 0) - gasto
+
+      categoriasComSaldo.push({
+        ...cat,
+        valor_gasto: gasto,
+        valor_disponivel: disponivel,
+        percentual_usado: cat.valor_orcado > 0 ? (gasto / cat.valor_orcado) * 100 : 0,
+      })
+    }
+
+    // Gerar sugestões inteligentes
+    const sugestoes = await gerarSugestoesRebalanceamento(
+      { ...catBudget, valor_gasto: valorGasto, valor_disponivel: valorDisponivel },
+      valorEstouro,
+      categoriasComSaldo
+    )
+
+    return {
+      data: {
+        categoria: catBudget.categoria,
+        valor_orcado: valorOrcado,
+        valor_gasto: valorGasto,
+        valor_estouro: valorEstouro,
+        percentual_estouro: percentualEstouro,
+        sugestoes,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error('Erro ao analisar estouro:', error)
+    return { data: null, error: error as Error }
+  }
+}
+
+// =====================================================
+// EXECUÇÃO DE REBALANCEAMENTO
+// =====================================================
+
+export const rebalanceamentoService = {
+  /**
+   * Executar rebalanceamento (transferir valor entre categorias)
+   */
+  async executarRebalanceamento(
+    input: CreateRebalanceamentoInput
+  ): Promise<DbResult<HistoricoRebalanceamento>> {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const currentUser = await getCurrentUser()
+    if (!currentUser) {
+      return { data: null, error: new Error('User not authenticated') }
+    }
+
+    const familyId = await getUserFamilyId()
+    if (!familyId) {
+      return { data: null, error: new Error('User has no family') }
+    }
+
+    // Validar que family_id corresponde
+    if (input.family_id !== familyId) {
+      return { data: null, error: new Error('Invalid family_id') }
+    }
+
+    // Validar que categorias são diferentes
+    if (input.categoria_origem_id === input.categoria_destino_id) {
+      return { data: null, error: new Error('Origem e destino devem ser diferentes') }
+    }
+
+    // TODO: Validar que origem tem saldo disponível suficiente
+    // (precisa buscar orçamento da categoria origem e calcular disponível)
+
+    const { data, error } = await supabase
+      // @ts-ignore
+      .from('historico_rebalanceamentos')
+      .insert({
+        family_id: input.family_id,
+        realizado_por: currentUser.id,
+        orcamento_id: input.orcamento_id || null,
+        categoria_origem_id: input.categoria_origem_id,
+        categoria_destino_id: input.categoria_destino_id,
+        valor_transferido: input.valor_transferido,
+        motivo: input.motivo || null,
+        foi_sugestao_automatica: input.foi_sugestao_automatica || false,
+      })
+      .select()
+      .single()
+
+    return { data, error }
+  },
+
+  /**
+   * Buscar histórico de rebalanceamentos
+   */
+  async getHistorico(
+    orcamentoId?: string
+  ): Promise<DbListResult<HistoricoRebalanceamentoComDetalhes>> {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured'), count: null }
+    }
+
+    const familyId = await getUserFamilyId()
+    if (!familyId) {
+      return { data: null, error: new Error('User has no family'), count: null }
+    }
+
+    let query = supabase
+      // @ts-ignore
+      .from('rebalanceamentos_com_detalhes')
+      .select('*', { count: 'exact' })
+      .eq('family_id', familyId)
+
+    if (orcamentoId) {
+      query = query.eq('orcamento_id', orcamentoId)
+    }
+
+    const { data, error, count } = await query.order('created_at', { ascending: false })
+
+    return { data, error, count }
+  },
+
+  /**
+   * Desfazer rebalanceamento (deletar registro)
+   */
+  async desfazerRebalanceamento(id: string): Promise<DbResult<boolean>> {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const familyId = await getUserFamilyId()
+    if (!familyId) {
+      return { data: null, error: new Error('User has no family') }
+    }
+
+    // Verificar que o rebalanceamento pertence à família
+    const { data: rebalanceamento } = await supabase
+      // @ts-ignore
+      .from('historico_rebalanceamentos')
+      .select('family_id')
+      .eq('id', id)
+      .single()
+
+    if (!rebalanceamento || rebalanceamento.family_id !== familyId) {
+      return { data: null, error: new Error('Rebalanceamento not found or access denied') }
+    }
+
+    const { error } = await supabase
+      // @ts-ignore
+      .from('historico_rebalanceamentos')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      return { data: null, error }
+    }
+
+    return { data: true, error: null }
+  },
+}
