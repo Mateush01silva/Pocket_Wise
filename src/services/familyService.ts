@@ -110,6 +110,29 @@ export const familyService = {
 
     return { data, error }
   },
+
+  /**
+   * Atualizar nome da família
+   */
+  async updateFamily(nome: string): Promise<DbResult<Family>> {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const familyId = await getUserFamilyId()
+    if (!familyId) {
+      return { data: null, error: new Error('User has no family') }
+    }
+
+    const { data, error } = await supabase
+      .from('families')
+      .update({ nome })
+      .eq('id', familyId)
+      .select()
+      .single()
+
+    return { data, error }
+  },
 }
 
 // =====================================================

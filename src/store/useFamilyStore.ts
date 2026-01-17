@@ -43,6 +43,7 @@ interface FamilyActions {
   // Family
   createFamily: (nome: string) => Promise<Family | null>
   fetchFamily: () => Promise<void>
+  updateFamily: (nome: string) => Promise<Family | null>
 
   // Members
   fetchMembers: () => Promise<void>
@@ -165,6 +166,30 @@ export const useFamilyStore = create<FamilyStore>()(
       } catch (error) {
         console.error('Erro ao buscar família:', error)
         set({ error: (error as Error).message, isLoadingFamily: false })
+      }
+    },
+
+    updateFamily: async (nome: string) => {
+      set({ isLoadingFamily: true, error: null })
+
+      try {
+        const { data, error } = await familyService.updateFamily(nome)
+
+        if (error) {
+          set({ error: error.message, isLoadingFamily: false })
+          return null
+        }
+
+        if (data) {
+          set({ family: data, isLoadingFamily: false })
+          return data
+        }
+
+        return null
+      } catch (error) {
+        console.error('Erro ao atualizar família:', error)
+        set({ error: (error as Error).message, isLoadingFamily: false })
+        return null
       }
     },
 
