@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select } from './ui'
 import { useCategoriasStore } from '../store'
-import type { CreateCategoriaInput, Categoria, TransactionType } from '../types'
+import type { CreateCategoriaInput, Categoria, TransactionType, CategoriaPrioridade } from '../types'
 
 interface CategoryModalProps {
   isOpen: boolean
@@ -68,6 +68,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
     cor: CORES_DISPONIVEIS[0],
     icone: EMOJI_DEFAULT,
     categoria_pai_id: null,
+    prioridade: 'importante',
   })
   const [isLoading, setIsLoading] = useState(false)
 
@@ -82,6 +83,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
         cor: categoria.cor || CORES_DISPONIVEIS[0],
         icone: categoria.icone || EMOJI_DEFAULT,
         categoria_pai_id: categoria.categoria_pai_id || null,
+        prioridade: categoria.prioridade || 'importante',
       })
     } else {
       setFormData({
@@ -90,6 +92,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
         cor: CORES_DISPONIVEIS[0],
         icone: EMOJI_DEFAULT,
         categoria_pai_id: categoriaPaiIdInicial || null, // Pré-selecionar se fornecido
+        prioridade: 'importante',
       })
     }
   }, [categoria, categoriaPaiIdInicial])
@@ -148,6 +151,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
           cor: formData.cor || CORES_DISPONIVEIS[0],
           icone: formData.icone || EMOJI_DEFAULT,
           categoria_pai_id: formData.categoria_pai_id || null,
+          prioridade: formData.prioridade as CategoriaPrioridade,
         })
       } else {
         // Criar nova categoria
@@ -159,6 +163,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
           cor: formData.cor || CORES_DISPONIVEIS[0],
           icone: formData.icone || EMOJI_DEFAULT,
           categoria_pai_id: formData.categoria_pai_id || null,
+          prioridade: formData.prioridade as CategoriaPrioridade,
         }
 
         await createCategoria(categoriaData)
@@ -171,6 +176,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
         cor: CORES_DISPONIVEIS[0],
         icone: EMOJI_DEFAULT,
         categoria_pai_id: null,
+        prioridade: 'importante',
       })
       onClose()
     } catch (error) {
@@ -189,6 +195,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
         cor: CORES_DISPONIVEIS[0],
         icone: EMOJI_DEFAULT,
         categoria_pai_id: null,
+        prioridade: 'importante',
       })
       onClose()
     }
@@ -227,6 +234,29 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
             ]}
           />
         </div>
+
+        {/* Prioridade (para rebalanceamento) */}
+        {formData.tipo === 'despesa' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Prioridade <span className="text-red-500">*</span>
+            </label>
+            <Select
+              value={formData.prioridade || 'importante'}
+              onChange={(e) =>
+                setFormData({ ...formData, prioridade: e.target.value as CategoriaPrioridade })
+              }
+              options={[
+                { value: 'essencial', label: '🔴 Essencial (Moradia, Saúde, Alimentação)' },
+                { value: 'importante', label: '🟡 Importante (Educação, Transporte)' },
+                { value: 'desejavel', label: '🟢 Desejável (Lazer, Vestuário)' },
+              ]}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Usado no rebalanceamento: categorias desejáveis são as primeiras a ceder saldo
+            </p>
+          </div>
+        )}
 
         {/* Categoria Pai (para criar subcategorias) */}
         <div>
