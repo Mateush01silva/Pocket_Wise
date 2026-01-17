@@ -6,19 +6,30 @@
 -- 1. ENUM TYPES
 -- =====================================================
 
--- Prioridade de categoria para rebalanceamento
-CREATE TYPE categoria_prioridade AS ENUM ('essencial', 'importante', 'desejavel');
+-- Prioridade de categoria para rebalanceamento (criar apenas se não existir)
+DO $$ BEGIN
+    CREATE TYPE categoria_prioridade AS ENUM ('essencial', 'importante', 'desejavel');
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 -- =====================================================
 -- 2. ADICIONAR CAMPO PRIORIDADE EM CATEGORIAS
 -- =====================================================
 
--- Adicionar campo prioridade (padrão: importante)
-ALTER TABLE categorias
-ADD COLUMN prioridade categoria_prioridade DEFAULT 'importante';
+-- Adicionar campo prioridade (apenas se não existir)
+DO $$ BEGIN
+    ALTER TABLE categorias ADD COLUMN prioridade categoria_prioridade DEFAULT 'importante';
+EXCEPTION
+    WHEN duplicate_column THEN null;
+END $$;
 
--- Criar índice para prioridade
-CREATE INDEX idx_categorias_prioridade ON categorias(prioridade);
+-- Criar índice para prioridade (apenas se não existir)
+DO $$ BEGIN
+    CREATE INDEX idx_categorias_prioridade ON categorias(prioridade);
+EXCEPTION
+    WHEN duplicate_table THEN null;
+END $$;
 
 -- =====================================================
 -- 3. TABELA DE HISTÓRICO DE REBALANCEAMENTOS
