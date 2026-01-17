@@ -23,6 +23,7 @@ import {
   Family,
   Settings,
 } from './pages'
+import { Caixinhas } from './pages/Caixinhas'
 import { AcceptInvite } from './pages/AcceptInvite'
 import { useCategoriasStore, useTransacoesStore, useCartoesStore } from './store'
 import { isSupabaseConfigured } from './lib/supabase'
@@ -152,6 +153,7 @@ function AppRoutes() {
               <Route path="/budgets" element={<Budgets />} />
               <Route path="/envelopes" element={<Envelopes />} />
               <Route path="/projections" element={<Projections />} />
+              <Route path="/caixinhas" element={<Caixinhas />} />
               <Route path="/family" element={<Family />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
@@ -247,6 +249,16 @@ function AppRoutes() {
             }
           />
           <Route
+            path="/app/caixinhas"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Caixinhas />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
             path="/app/familia"
             element={
               <PrivateRoute>
@@ -274,6 +286,7 @@ function AppRoutes() {
           <Route path="/budgets" element={<Navigate to="/app/orcamento" replace />} />
           <Route path="/envelopes" element={<Navigate to="/app/envelopes" replace />} />
           <Route path="/projections" element={<Navigate to="/app/projecoes" replace />} />
+          <Route path="/caixinhas" element={<Navigate to="/app/caixinhas" replace />} />
           <Route path="/family" element={<Navigate to="/app/familia" replace />} />
           <Route path="/settings" element={<Navigate to="/app/configuracoes" replace />} />
         </Routes>
