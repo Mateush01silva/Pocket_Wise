@@ -7,10 +7,11 @@
 -- =====================================================
 
 -- Prioridade de categoria para rebalanceamento (criar apenas se não existir)
-DO $$ BEGIN
-    CREATE TYPE categoria_prioridade AS ENUM ('essencial', 'importante', 'desejavel');
-EXCEPTION
-    WHEN duplicate_object THEN null;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'categoria_prioridade') THEN
+        CREATE TYPE categoria_prioridade AS ENUM ('essencial', 'importante', 'desejavel');
+    END IF;
 END $$;
 
 -- =====================================================
@@ -18,17 +19,25 @@ END $$;
 -- =====================================================
 
 -- Adicionar campo prioridade (apenas se não existir)
-DO $$ BEGIN
-    ALTER TABLE categorias ADD COLUMN prioridade categoria_prioridade DEFAULT 'importante';
-EXCEPTION
-    WHEN duplicate_column THEN null;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'categorias' AND column_name = 'prioridade'
+    ) THEN
+        ALTER TABLE categorias ADD COLUMN prioridade categoria_prioridade DEFAULT 'importante';
+    END IF;
 END $$;
 
 -- Criar índice para prioridade (apenas se não existir)
-DO $$ BEGIN
-    CREATE INDEX idx_categorias_prioridade ON categorias(prioridade);
-EXCEPTION
-    WHEN duplicate_table THEN null;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_indexes
+        WHERE indexname = 'idx_categorias_prioridade'
+    ) THEN
+        CREATE INDEX idx_categorias_prioridade ON categorias(prioridade);
+    END IF;
 END $$;
 
 -- =====================================================
