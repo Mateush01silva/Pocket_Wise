@@ -14,6 +14,8 @@ import {
   Edit3,
   Clock,
   X,
+  Check,
+  Pencil,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import {
@@ -46,11 +48,16 @@ export function Family() {
     initialize,
     deleteInvite,
     removeMember,
+    updateFamily,
     isAdmin,
   } = useFamilyStore()
 
   // Modal states
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+
+  // Edit family name states
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editedName, setEditedName] = useState('')
 
   // Inicializar ao montar
   useEffect(() => {
@@ -116,6 +123,33 @@ export function Family() {
     }
   }
 
+  const handleStartEditName = () => {
+    if (family) {
+      setEditedName(family.nome)
+      setIsEditingName(true)
+    }
+  }
+
+  const handleCancelEditName = () => {
+    setIsEditingName(false)
+    setEditedName('')
+  }
+
+  const handleSaveEditName = async () => {
+    if (!editedName.trim()) {
+      toast.error('O nome da família não pode estar vazio')
+      return
+    }
+
+    const result = await updateFamily(editedName.trim())
+    if (result) {
+      toast.success('Nome da família atualizado com sucesso')
+      setIsEditingName(false)
+    } else {
+      toast.error('Erro ao atualizar nome da família')
+    }
+  }
+
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'admin':
@@ -170,7 +204,49 @@ export function Family() {
           {family && (
             <div className="mt-2 flex items-center gap-2">
               <Shield className="w-4 h-4 text-primary-400" />
-              <span className="text-sm text-gray-300">Família: {family.nome}</span>
+              {isEditingName ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveEditName()
+                      if (e.key === 'Escape') handleCancelEditName()
+                    }}
+                    className="text-sm bg-dark-700 border border-primary-500 rounded px-2 py-1 text-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="Nome da família"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSaveEditName}
+                    className="text-green-400 hover:text-green-300 transition-colors"
+                    title="Salvar"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={handleCancelEditName}
+                    className="text-red-400 hover:text-red-300 transition-colors"
+                    title="Cancelar"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <span className="text-sm text-gray-300">Família: {family.nome}</span>
+                  {currentUserIsAdmin && (
+                    <button
+                      onClick={handleStartEditName}
+                      className="text-gray-400 hover:text-primary-400 transition-colors"
+                      title="Editar nome da família"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>
