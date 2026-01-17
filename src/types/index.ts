@@ -258,6 +258,7 @@ export interface CreateCategoriaInput {
   tipo: TransactionType
   categoria_pai_id: string | null
   cor?: string | null
+  prioridade?: CategoriaPrioridade
 }
 
 export interface UpdateCategoriaInput extends Partial<CreateCategoriaInput> {
