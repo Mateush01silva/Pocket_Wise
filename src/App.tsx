@@ -26,6 +26,7 @@ import {
 import { Caixinhas } from './pages/Caixinhas'
 import { AcceptInvite } from './pages/AcceptInvite'
 import { useCategoriasStore, useTransacoesStore, useCartoesStore } from './store'
+import { useFamilyStore } from './store/useFamilyStore'
 import { isSupabaseConfigured } from './lib/supabase'
 
 function AppRoutes() {
@@ -34,6 +35,7 @@ function AppRoutes() {
   const initializeCategorias = useCategoriasStore((state) => state.initialize)
   const fetchLancamentos = useTransacoesStore((state) => state.fetchLancamentos)
   const fetchCartoes = useCartoesStore((state) => state.fetchCartoes)
+  const initializeFamily = useFamilyStore((state) => state.initialize)
 
   // Inicializar stores na montagem do app
   useEffect(() => {
@@ -46,7 +48,7 @@ function AppRoutes() {
 
       try {
         // Validar se stores estão funcionando antes de continuar
-        if (!initializeCategorias || !fetchLancamentos || !fetchCartoes) {
+        if (!initializeCategorias || !fetchLancamentos || !fetchCartoes || !initializeFamily) {
           throw new Error('Stores não foram inicializados corretamente')
         }
 
@@ -57,6 +59,14 @@ function AppRoutes() {
         if (!isMounted.current) return
 
         console.log('✅ Categorias inicializadas')
+
+        console.log('👨‍👩‍👧‍👦 Inicializando família...')
+        await initializeFamily()
+
+        // Check if still mounted before continuing
+        if (!isMounted.current) return
+
+        console.log('✅ Família inicializada')
 
         console.log('💰 Carregando transações...')
         await fetchLancamentos()
@@ -125,7 +135,7 @@ function AppRoutes() {
     return () => {
       isMounted.current = false
     }
-  }, [initializeCategorias, fetchLancamentos, fetchCartoes])
+  }, [initializeCategorias, fetchLancamentos, fetchCartoes, initializeFamily])
 
   // Mostrar loading enquanto inicializa
   if (!isInitialized) {
