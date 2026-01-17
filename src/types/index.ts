@@ -628,3 +628,105 @@ export type DbListResult<T> = {
   error: Error | null
   count: number | null
 }
+
+// =====================================================
+// CAIXINHAS (POTES DE OBJETIVOS)
+// =====================================================
+
+export type CaixinhaTipo = 'objetivo' | 'emergencia' | 'investimento'
+export type TransacaoCaixinhaTipo = 'deposito' | 'retirada'
+
+// Caixinha/Pote de objetivo
+export interface Caixinha {
+  id: string
+  family_id: string
+  criado_por: string
+  nome: string
+  tipo: CaixinhaTipo
+  meta_valor: number | null // Valor da meta (opcional para investimentos)
+  prazo_data: string | null // Date in YYYY-MM-DD format (opcional)
+  icone: string | null // Emoji ou ícone
+  saldo_atual: number
+  ativa: boolean
+  cor: string
+  descricao: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Caixinha com informações do criador e estatísticas
+export interface CaixinhaComDetalhes extends Caixinha {
+  criador_nome: string
+  progresso_percentual: number | null // % de progresso em relação à meta
+  valor_faltante: number | null // Quanto falta para atingir a meta
+  total_transacoes: number // Total de transações (depósitos + retiradas)
+}
+
+// Transação de caixinha (depósito ou retirada)
+export interface TransacaoCaixinha {
+  id: string
+  caixinha_id: string
+  realizado_por: string
+  valor: number
+  tipo: TransacaoCaixinhaTipo
+  descricao: string | null
+  origem_mes_referencia: string | null // YYYY-MM-DD se veio de saldo mensal
+  created_at: string
+}
+
+// Transação com relações
+export interface TransacaoCaixinhaComRelacoes extends TransacaoCaixinha {
+  caixinha?: Caixinha
+  realizado_por_nome?: string
+}
+
+// =====================================================
+// FORM TYPES (Caixinhas)
+// =====================================================
+
+export interface CreateCaixinhaInput {
+  family_id: string
+  nome: string
+  tipo: CaixinhaTipo
+  meta_valor?: number | null
+  prazo_data?: string | null
+  icone?: string | null
+  cor?: string
+  descricao?: string | null
+}
+
+export interface UpdateCaixinhaInput extends Partial<CreateCaixinhaInput> {
+  id: string
+  ativa?: boolean
+}
+
+export interface CreateTransacaoCaixinhaInput {
+  caixinha_id: string
+  valor: number
+  tipo: TransacaoCaixinhaTipo
+  descricao?: string | null
+  origem_mes_referencia?: string | null
+}
+
+// Input para alocar saldo mensal em múltiplas caixinhas
+export interface AlocarSaldoMensalInput {
+  mes_referencia: string // YYYY-MM
+  alocacoes: Array<{
+    caixinha_id: string
+    valor: number
+    descricao?: string
+  }>
+}
+
+// =====================================================
+// DASHBOARD CAIXINHAS
+// =====================================================
+
+export interface CaixinhasSummary {
+  total_caixinhas: number
+  total_guardado: number // Soma de todos os saldos
+  total_metas: number // Soma de todas as metas
+  progresso_geral: number // % médio de progresso
+  caixinhas_ativas: number
+  caixinhas_concluidas: number // Caixinhas que atingiram a meta
+}
