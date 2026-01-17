@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select, CurrencyInput } from './ui'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
-import { useAuth } from '../contexts/AuthContext'
+import { useFamilyStore } from '../store/useFamilyStore'
 import type { Caixinha, CaixinhaTipo } from '../types'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
@@ -36,7 +36,7 @@ const COR_OPTIONS = [
 ]
 
 export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModalProps) {
-  const { user } = useAuth()
+  const family = useFamilyStore((state) => state.family)
   const createCaixinha = useCaixinhasStore((state) => state.createCaixinha)
   const updateCaixinha = useCaixinhasStore((state) => state.updateCaixinha)
 
@@ -83,7 +83,7 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
 
     try {
       // Validações básicas
-      if (!formData.nome || !user?.family_id) {
+      if (!formData.nome || !family?.id) {
         toast.error('Por favor, preencha todos os campos obrigatórios')
         setIsLoading(false)
         return
@@ -107,7 +107,7 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
       } else {
         // Criar nova caixinha
         const result = await createCaixinha({
-          family_id: user.family_id,
+          family_id: family.id,
           nome: formData.nome,
           tipo: formData.tipo,
           meta_valor: formData.meta_valor > 0 ? formData.meta_valor : null,
