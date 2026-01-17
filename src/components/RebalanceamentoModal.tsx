@@ -132,7 +132,6 @@ export function RebalanceamentoModal({
       isOpen={isOpen}
       onClose={onClose}
       title="Rebalanceamento de Orçamento"
-      size="large"
     >
       <div className="space-y-6">
         {/* Alerta de Estouro */}

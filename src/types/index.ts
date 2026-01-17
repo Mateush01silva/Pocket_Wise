@@ -58,7 +58,7 @@ export interface Categoria {
   tipo: TransactionType
   categoria_pai_id: string | null
   cor: string | null
-  prioridade: CategoriaPrioridade
+  prioridade?: CategoriaPrioridade
   created_at: string
   updated_at: string
 }
