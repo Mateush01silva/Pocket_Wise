@@ -58,6 +58,7 @@ export interface Categoria {
   tipo: TransactionType
   categoria_pai_id: string | null
   cor: string | null
+  prioridade?: CategoriaPrioridade
   created_at: string
   updated_at: string
 }
@@ -729,4 +730,66 @@ export interface CaixinhasSummary {
   progresso_geral: number // % médio de progresso
   caixinhas_ativas: number
   caixinhas_concluidas: number // Caixinhas que atingiram a meta
+}
+
+// =====================================================
+// REBALANCEAMENTO INTELIGENTE
+// =====================================================
+
+// Histórico de rebalanceamento (transferência entre categorias)
+export interface HistoricoRebalanceamento {
+  id: string
+  family_id: string
+  realizado_por: string
+  orcamento_id: string | null
+  categoria_origem_id: string
+  valor_transferido: number
+  categoria_destino_id: string
+  motivo: string | null
+  foi_sugestao_automatica: boolean
+  created_at: string
+}
+
+// Histórico com detalhes das categorias
+export interface HistoricoRebalanceamentoComDetalhes extends HistoricoRebalanceamento {
+  categoria_origem_nome: string
+  categoria_origem_icone: string | null
+  categoria_origem_cor: string | null
+  categoria_origem_prioridade: CategoriaPrioridade
+  categoria_destino_nome: string
+  categoria_destino_icone: string | null
+  categoria_destino_cor: string | null
+  categoria_destino_prioridade: CategoriaPrioridade
+  realizado_por_nome: string
+}
+
+// Sugestão de rebalanceamento gerada pelo algoritmo
+export interface SugestaoRebalanceamento {
+  categoria_origem: Categoria
+  categoria_destino: Categoria
+  valor_disponivel: number
+  valor_sugerido: number
+  motivo: string
+  nivel_prioridade: 1 | 2 | 3 // 1 = melhor opção, 3 = última opção
+}
+
+// Input para criar rebalanceamento
+export interface CreateRebalanceamentoInput {
+  family_id: string
+  orcamento_id?: string | null
+  categoria_origem_id: string
+  categoria_destino_id: string
+  valor_transferido: number
+  motivo?: string
+  foi_sugestao_automatica?: boolean
+}
+
+// Resultado da análise de estouro
+export interface AnaliseEstouro {
+  categoria: Categoria
+  valor_orcado: number
+  valor_gasto: number
+  valor_estouro: number
+  percentual_estouro: number
+  sugestoes: SugestaoRebalanceamento[]
 }
