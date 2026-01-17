@@ -8,6 +8,7 @@ import { Select } from '../components/ui/Select'
 import { EnvelopeCard } from '../components/EnvelopeCard'
 import { CategoryTransactionsModal } from '../components/CategoryTransactionsModal'
 import { MonthYearSelector } from '../components/MonthYearSelector'
+import { DetectorEstouro } from '../components/DetectorEstouro'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useTransacoesStore } from '../store/useTransacoesStore'
 import { useCategoriasStore } from '../store/useCategoriasStore'
@@ -27,6 +28,7 @@ export function Envelopes() {
 
   // Use selectors for each store value/function to keep identities stable
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
+  const categoriasBudget = useOrcamentosStore((state) => state.categoriasBudget)
   const isLoading = useOrcamentosStore((state) => state.isLoading)
   const initialize = useOrcamentosStore((state) => state.initialize)
   const initialized = useOrcamentosStore((state) => state.initialized)
@@ -334,6 +336,18 @@ export function Envelopes() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Detector de Estouro */}
+      {categoriasBudget && categoriasBudget.length > 0 && (
+        <DetectorEstouro
+          categoriasBudget={categoriasBudget}
+          orcamentoId={orcamentoAtual.id}
+          onRebalanceado={() => {
+            // Recarregar dados após rebalanceamento
+            initialize()
+          }}
+        />
+      )}
 
       {/* Grid de envelopes */}
       {envelopesFiltrados.length === 0 ? (

@@ -10,6 +10,7 @@ import { BudgetPlanningModal } from '../components/BudgetPlanningModal'
 import { BudgetAlertsCard } from '../components/BudgetAlertsCard'
 import { BudgetComparativeReport } from '../components/BudgetComparativeReport'
 import { CategoryTransactionsModal } from '../components/CategoryTransactionsModal'
+import { DetectorEstouro } from '../components/DetectorEstouro'
 import { MonthYearSelector } from '../components/MonthYearSelector'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useTransacoesStore } from '../store/useTransacoesStore'
@@ -291,6 +292,18 @@ export function Budgets() {
             <BudgetAlertsCard orcamentoId={orcamentoAtual.id} />
           </div>
         </div>
+
+        {/* Detector de Estouro */}
+        {categoriasBudget && categoriasBudget.length > 0 && (
+          <DetectorEstouro
+            categoriasBudget={categoriasBudget}
+            orcamentoId={orcamentoAtual.id}
+            onRebalanceado={() => {
+              // Recarregar dados após rebalanceamento
+              initialize()
+            }}
+          />
+        )}
 
         {/* Linha 2: Envelopes + Widget */}
         <div className="grid lg:grid-cols-3 gap-6">
