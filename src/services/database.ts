@@ -924,6 +924,7 @@ export const assinaturasService = {
         frequencia: input.frequencia,
         dia_cobranca: input.dia_cobranca,
         categoria_id: input.categoria_id,
+        subcategoria_id: input.subcategoria_id || null,
         primeira_cobranca: input.primeira_cobranca,
         ultima_cobranca: null,
         ativa: true,
