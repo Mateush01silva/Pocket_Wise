@@ -17,6 +17,7 @@
 
 import { supabase, getCurrentUser, getUserFamilyId } from '../lib/supabase'
 import { formatCurrency } from '../utils/currency'
+import { format } from 'date-fns'
 import type {
   Categoria,
   CategoriaBudgetComRelacoes,
@@ -242,6 +243,11 @@ export async function analisarEstouroCategoria(
     console.log('💰 Lançamentos PAGOS de janeiro:', lancamentosPagosJan)
 
     // Calcular valor gasto (buscar lançamentos DO MÊS)
+    // Calcular data de início do próximo mês
+    const [ano, mes] = anoMes.split('-').map(Number)
+    const proximoMes = new Date(ano, mes, 1) // mes já está 0-indexed aqui
+    const dataFim = format(proximoMes, 'yyyy-MM-dd')
+
     const { data: lancamentos, error: lancError } = await supabase
       // @ts-ignore
       .from('lancamentos')
@@ -250,7 +256,7 @@ export async function analisarEstouroCategoria(
       .eq('tipo', 'despesa')
       .eq('status', 'pago')
       .gte('data', `${anoMes}-01`)
-      .lt('data', `${anoMes}-32`) // Pega todo o mês
+      .lt('data', dataFim) // Primeiro dia do próximo mês
 
     console.log(`✅ Lançamentos encontrados (${anoMes}):`, lancamentos?.length || 0, lancamentos)
 
@@ -327,7 +333,7 @@ export async function analisarEstouroCategoria(
         .eq('tipo', 'despesa')
         .eq('status', 'pago')
         .gte('data', `${anoMes}-01`)
-        .lt('data', `${anoMes}-32`) // Pega todo o mês
+        .lt('data', dataFim) // Primeiro dia do próximo mês
 
       const gasto = catLancamentos?.reduce((sum, l) => sum + l.valor, 0) || 0
       const disponivel = (cat.valor_orcado || 0) - gasto

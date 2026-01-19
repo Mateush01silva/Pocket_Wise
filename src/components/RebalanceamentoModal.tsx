@@ -25,8 +25,7 @@ export function RebalanceamentoModal({
 }: RebalanceamentoModalProps) {
   const family = useFamilyStore((state) => state.family)
   const [analise, setAnalise] = useState<AnaliseEstouro | null>(null)
-  const [selectedSugestao, setSelectedSugestao] = useState<SugestaoRebalanceamento | null>(null)
-  const [valorCustomizado, setValorCustomizado] = useState<number>(0)
+  const [sugestoesSelecionadas, setSugestoesSelecionadas] = useState<Map<number, number>>(new Map())
   const [isLoading, setIsLoading] = useState(false)
   const [isAnalisando, setIsAnalisando] = useState(false)
 
@@ -60,12 +59,7 @@ export function RebalanceamentoModal({
       if (data) {
         console.log('✅ Análise obtida:', data)
         setAnalise(data)
-        // Selecionar automaticamente a primeira sugestão (melhor opção)
-        if (data.sugestoes.length > 0) {
-          const melhorSugestao = data.sugestoes[0]
-          setSelectedSugestao(melhorSugestao)
-          setValorCustomizado(melhorSugestao.valor_sugerido)
-        }
+        setSugestoesSelecionadas(new Map())
       }
     } catch (error) {
       console.error('💥 Erro ao buscar análise:', error)
@@ -75,35 +69,60 @@ export function RebalanceamentoModal({
     }
   }
 
+  const toggleSugestao = (index: number, sugestao: SugestaoRebalanceamento) => {
+    setSugestoesSelecionadas(prev => {
+      const newMap = new Map(prev)
+      if (newMap.has(index)) {
+        newMap.delete(index)
+      } else {
+        newMap.set(index, sugestao.valor_sugerido)
+      }
+      return newMap
+    })
+  }
+
+  const updateValorSugestao = (index: number, valor: number) => {
+    setSugestoesSelecionadas(prev => {
+      const newMap = new Map(prev)
+      newMap.set(index, valor)
+      return newMap
+    })
+  }
+
+  const totalSelecionado = Array.from(sugestoesSelecionadas.values()).reduce((sum, val) => sum + val, 0)
+
   const handleExecutarRebalanceamento = async () => {
-    if (!selectedSugestao || !family?.id || valorCustomizado <= 0) {
-      toast.error('Selecione uma categoria e um valor válido')
+    if (!family?.id || sugestoesSelecionadas.size === 0) {
+      toast.error('Selecione ao menos uma categoria para rebalancear')
       return
     }
 
     setIsLoading(true)
     try {
-      const { data, error } = await rebalanceamentoService.executarRebalanceamento({
-        family_id: family.id,
-        orcamento_id: orcamentoId,
-        categoria_origem_id: selectedSugestao.categoria_origem.id,
-        categoria_destino_id: categoriaEstourada.categoria_id!,
-        valor_transferido: valorCustomizado,
-        motivo: `Rebalanceamento automático: ${categoriaEstourada.categoria?.nome} estourou em ${formatCurrency(analise?.valor_estouro || 0)}`,
-        foi_sugestao_automatica: true,
-      })
+      // Executar rebalanceamentos em sequência
+      for (const [index, valor] of sugestoesSelecionadas.entries()) {
+        const sugestao = analise!.sugestoes[index]
 
-      if (error) {
-        toast.error('Erro ao executar rebalanceamento')
-        console.error(error)
-        return
+        const { error } = await rebalanceamentoService.executarRebalanceamento({
+          family_id: family.id,
+          orcamento_id: orcamentoId,
+          categoria_origem_id: sugestao.categoria_origem.id,
+          categoria_destino_id: categoriaEstourada.categoria_id!,
+          valor_transferido: valor,
+          motivo: `Rebalanceamento: ${sugestao.categoria_origem.nome} → ${categoriaEstourada.categoria?.nome}`,
+          foi_sugestao_automatica: true,
+        })
+
+        if (error) {
+          toast.error(`Erro ao transferir de ${sugestao.categoria_origem.nome}`)
+          console.error(error)
+          return
+        }
       }
 
-      if (data) {
-        toast.success('Rebalanceamento realizado com sucesso!')
-        onRebalanceado?.()
-        onClose()
-      }
+      toast.success(`Rebalanceamento realizado! ${sugestoesSelecionadas.size} transferência(s)`)
+      onRebalanceado?.()
+      onClose()
     } catch (error) {
       console.error('Erro ao executar rebalanceamento:', error)
       toast.error('Erro ao executar rebalanceamento')
@@ -193,33 +212,52 @@ export function RebalanceamentoModal({
                     <TrendingUp className="inline mr-2" size={16} />
                     Sugestões Inteligentes
                   </h4>
-                  <div className="space-y-2">
-                    {analise.sugestoes.map((sugestao, index) => (
-                      <button
+                  <div className="space-y-3">
+                    {analise.sugestoes.map((sugestao, index) => {
+                      const isSelected = sugestoesSelecionadas.has(index)
+                      const valorSelecionado = sugestoesSelecionadas.get(index) || sugestao.valor_sugerido
+
+                      return (
+                      <div
                         key={index}
-                        onClick={() => {
-                          setSelectedSugestao(sugestao)
-                          setValorCustomizado(sugestao.valor_sugerido)
-                        }}
-                        className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                          selectedSugestao === sugestao
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          isSelected
                             ? 'border-primary-500 bg-primary-500/10'
-                            : 'border-dark-600 hover:border-dark-500 bg-dark-800'
+                            : 'border-dark-600 bg-dark-800'
                         }`}
                       >
-                        <div className="flex items-start justify-between">
+                        {/* Checkbox e conteúdo */}
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSugestao(index, sugestao)}
+                            className="mt-1 w-4 h-4 text-primary-600 bg-dark-700 border-dark-600 rounded focus:ring-primary-500"
+                          />
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-gray-200">
-                                {sugestao.categoria_origem.nome}
-                              </span>
-                              <ArrowRight size={14} className="text-gray-600" />
-                              <span className="font-medium text-gray-200">
-                                {sugestao.categoria_destino.nome}
-                              </span>
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-medium text-gray-200">
+                                    {sugestao.categoria_origem.nome}
+                                  </span>
+                                  <ArrowRight size={14} className="text-gray-600" />
+                                  <span className="font-medium text-gray-200">
+                                    {sugestao.categoria_destino.nome}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-400">{sugestao.motivo}</p>
+                              </div>
+                              <div
+                                className={`px-2 py-1 rounded text-xs font-medium border ${getPrioridadeColor(
+                                  sugestao.nivel_prioridade
+                                )}`}
+                              >
+                                {getPrioridadeLabel(sugestao.nivel_prioridade)}
+                              </div>
                             </div>
-                            <p className="text-xs text-gray-400 mb-2">{sugestao.motivo}</p>
-                            <div className="flex items-center gap-4 text-xs">
+
+                            <div className="flex items-center gap-4 text-xs mb-2">
                               <span className="text-gray-500">
                                 Disponível: {formatCurrency(sugestao.valor_disponivel)}
                               </span>
@@ -227,61 +265,51 @@ export function RebalanceamentoModal({
                                 Sugerido: {formatCurrency(sugestao.valor_sugerido)}
                               </span>
                             </div>
-                          </div>
-                          <div
-                            className={`px-2 py-1 rounded text-xs font-medium border ${getPrioridadeColor(
-                              sugestao.nivel_prioridade
-                            )}`}
-                          >
-                            {getPrioridadeLabel(sugestao.nivel_prioridade)}
+
+                            {/* Input de valor quando selecionado */}
+                            {isSelected && (
+                              <div className="mt-3">
+                                <CurrencyInput
+                                  value={valorSelecionado}
+                                  onChange={(val) => updateValorSugestao(index, val)}
+                                  placeholder="R$ 0,00"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Máximo: {formatCurrency(sugestao.valor_disponivel)}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </button>
-                    ))}
+                      </div>
+                    )}
+                    )}
                   </div>
                 </div>
 
-                {/* Valor Customizado */}
-                {selectedSugestao && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Valor a transferir
-                    </label>
-                    <CurrencyInput
-                      value={valorCustomizado}
-                      onChange={setValorCustomizado}
-                      placeholder="R$ 0,00"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Máximo disponível: {formatCurrency(selectedSugestao.valor_disponivel)}
-                    </p>
-                  </div>
-                )}
-
-                {/* Resumo da Ação */}
-                {selectedSugestao && valorCustomizado > 0 && (
+                {/* Resumo Total */}
+                {sugestoesSelecionadas.size > 0 && (
                   <div className="bg-primary-500/10 border border-primary-500/50 rounded-lg p-4">
                     <div className="flex items-start gap-3">
                       <CheckCircle className="text-primary-400 mt-1" size={20} />
                       <div className="flex-1 text-sm">
-                        <p className="text-gray-300">
-                          Transferir{' '}
-                          <span className="font-bold text-primary-400">
-                            {formatCurrency(valorCustomizado)}
-                          </span>
-                        </p>
-                        <p className="text-gray-400 mt-1">
-                          De:{' '}
-                          <span className="font-medium">
-                            {selectedSugestao.categoria_origem.nome}
+                        <p className="text-gray-300 mb-2">
+                          Total a transferir:{' '}
+                          <span className="font-bold text-primary-400 text-lg">
+                            {formatCurrency(totalSelecionado)}
                           </span>
                         </p>
                         <p className="text-gray-400">
-                          Para:{' '}
-                          <span className="font-medium">
-                            {selectedSugestao.categoria_destino.nome}
-                          </span>
+                          {sugestoesSelecionadas.size} categoria(s) selecionada(s)
                         </p>
+                        <p className="text-gray-400">
+                          Para: <span className="font-medium">{categoriaEstourada.categoria?.nome}</span>
+                        </p>
+                        {analise && totalSelecionado < analise.valor_estouro && (
+                          <p className="text-yellow-400 mt-2">
+                            ⚠️ Ainda faltam {formatCurrency(analise.valor_estouro - totalSelecionado)} para cobrir o estouro
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -297,8 +325,11 @@ export function RebalanceamentoModal({
             Cancelar
           </Button>
           {analise && analise.sugestoes.length > 0 && (
-            <Button onClick={handleExecutarRebalanceamento} disabled={isLoading || !selectedSugestao}>
-              {isLoading ? 'Rebalanceando...' : 'Confirmar Rebalanceamento'}
+            <Button
+              onClick={handleExecutarRebalanceamento}
+              disabled={isLoading || sugestoesSelecionadas.size === 0}
+            >
+              {isLoading ? 'Rebalanceando...' : `Confirmar ${sugestoesSelecionadas.size > 0 ? `(${sugestoesSelecionadas.size})` : 'Rebalanceamento'}`}
             </Button>
           )}
         </div>

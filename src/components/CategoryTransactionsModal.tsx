@@ -30,11 +30,6 @@ export function CategoryTransactionsModal({
   const percentualUsado = valorOrcado > 0 ? (valorGasto / valorOrcado) * 100 : 0
   const valorDisponivel = valorOrcado - valorGasto
 
-  // Determinar o mês real das transações (pode ser diferente do orçamento)
-  const mesTransacoes = transacoes.length > 0
-    ? transacoes[0].data.substring(0, 7) + '-01'
-    : mesReferencia
-
   const getSubcategoriaNome = (subcategoriaId: string | null | undefined) => {
     if (!subcategoriaId) return null
     const subcat = subcategorias.find(s => s.id === subcategoriaId)
