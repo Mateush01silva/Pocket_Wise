@@ -45,6 +45,21 @@ export async function gerarSugestoesRebalanceamento(
   const sugestoes: SugestaoRebalanceamento[] = []
   let valorRestante = valorNecessario
 
+  console.log('🔍 Gerando sugestões:', {
+    categoriaEstourada: categoriaEstourada.categoria?.nome,
+    valorNecessario,
+    totalCategorias: todasCategoriasBudget.length,
+  })
+
+  // Log de todas as categorias para debug
+  console.log('📊 Todas as categorias:', todasCategoriasBudget.map(cat => ({
+    nome: cat.categoria?.nome,
+    prioridade: cat.categoria?.prioridade,
+    valor_orcado: cat.valor_orcado,
+    valor_disponivel: cat.valor_disponivel,
+    tem_categoria: !!cat.categoria,
+  })))
+
   // Filtrar apenas categorias com saldo disponível
   const categoriasComSaldo = todasCategoriasBudget.filter(
     (cat) =>
@@ -54,7 +69,10 @@ export async function gerarSugestoesRebalanceamento(
       cat.categoria // Tem categoria vinculada
   )
 
+  console.log('✅ Categorias com saldo disponível:', categoriasComSaldo.length)
+
   if (categoriasComSaldo.length === 0) {
+    console.warn('⚠️ Nenhuma categoria com saldo encontrada!')
     return []
   }
 
@@ -64,6 +82,11 @@ export async function gerarSugestoesRebalanceamento(
   const desejaveisComSaldo = categoriasComSaldo
     .filter((cat) => cat.categoria?.prioridade === 'desejavel')
     .sort((a, b) => (b.valor_disponivel || 0) - (a.valor_disponivel || 0))
+
+  console.log(`🟢 Desejáveis encontradas: ${desejaveisComSaldo.length}`, desejaveisComSaldo.map(cat => ({
+    nome: cat.categoria?.nome,
+    disponivel: cat.valor_disponivel,
+  })))
 
   for (const catBudget of desejaveisComSaldo) {
     if (!catBudget.categoria || valorRestante <= 0) break
