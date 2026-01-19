@@ -6,9 +6,7 @@ import type {
   Assinatura,
   AssinaturaComDetalhes,
   CreateAssinaturaInput,
-  UpdateAssinatura
-
-Input,
+  UpdateAssinaturaInput,
   HistoricoValorAssinatura,
   AssinaturasSummary,
   CreateLancamentoInput,
