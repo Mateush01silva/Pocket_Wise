@@ -235,11 +235,17 @@ export async function analisarEstouroCategoria(
 
     console.log('📋 TODOS os lançamentos da categoria (qualquer mês):', todosLancamentos)
 
+    // Verificar se há lançamentos pagos de janeiro
+    const lancamentosPagosJan = todosLancamentos?.filter(l =>
+      l.status === 'pago' && l.data.startsWith('2026-01')
+    )
+    console.log('💰 Lançamentos PAGOS de janeiro:', lancamentosPagosJan)
+
     // Calcular valor gasto (buscar lançamentos DO MÊS)
-    const { data: lancamentos } = await supabase
+    const { data: lancamentos, error: lancError } = await supabase
       // @ts-ignore
       .from('lancamentos')
-      .select('valor, data')
+      .select('valor, data, status')
       .eq('categoria_id', catBudget.categoria.id)
       .eq('tipo', 'despesa')
       .eq('status', 'pago')
@@ -248,9 +254,39 @@ export async function analisarEstouroCategoria(
 
     console.log(`✅ Lançamentos encontrados (${anoMes}):`, lancamentos?.length || 0, lancamentos)
 
-    const valorGasto = lancamentos?.reduce((sum, l) => sum + l.valor, 0) || 0
+    if (lancError) {
+      console.error('❌ Erro ao buscar lançamentos filtrados:', lancError)
+    }
+
+    // Tentar busca alternativa sem filtros complexos
+    const { data: lancamentosAlternativos } = await supabase
+      // @ts-ignore
+      .from('lancamentos')
+      .select('valor, data, status')
+      .eq('categoria_id', catBudget.categoria.id)
+      .eq('tipo', 'despesa')
+      .eq('status', 'pago')
+
+    const lancamentosDoMes = lancamentosAlternativos?.filter(l => {
+      const dataLanc = l.data.substring(0, 7) // YYYY-MM
+      return dataLanc === anoMes
+    })
+
+    console.log('🔄 Busca alternativa (filtro manual):', lancamentosDoMes?.length || 0, lancamentosDoMes)
+
+    // Usar filtro manual se o do Supabase falhar
+    const lancamentosParaCalculo = (lancamentos && lancamentos.length > 0) ? lancamentos : lancamentosDoMes
+    const valorGasto = lancamentosParaCalculo?.reduce((sum, l) => sum + l.valor, 0) || 0
     const valorOrcado = catBudget.valor_orcado || 0
     const valorDisponivel = valorOrcado - valorGasto
+
+    console.log('💵 Cálculo final:', {
+      lancamentosUsados: lancamentosParaCalculo?.length || 0,
+      valorGasto,
+      valorOrcado,
+      valorDisponivel,
+      temEstouro: valorDisponivel < 0,
+    })
 
     // Se não há estouro, retornar sem sugestões
     if (valorDisponivel >= 0) {
