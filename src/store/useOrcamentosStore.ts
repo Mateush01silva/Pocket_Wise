@@ -323,7 +323,7 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
 
           return {
             ...catBudget,
-            categoria: categoria || null,
+            categoria,
             valor_gasto: valorGasto,
             valor_disponivel: valorDisponivel,
             percentual_usado: percentualUsado,

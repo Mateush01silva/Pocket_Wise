@@ -105,7 +105,8 @@ export function Budgets() {
 
   const projecao = orcamentoAtual ? getProjecaoMensal(orcamentoAtual.id) : null
   const envelopes = orcamentoAtual ? getEnvelopesDigitais(orcamentoAtual.id) : []
-  const totalOrcado = categoriasBudget?.reduce((sum, cb) => sum + cb.valor_orcado, 0) || 0
+  const categoriasBudgetComDados = orcamentoAtual ? getCategoriasBudgetComDados(orcamentoAtual.id) : []
+  const totalOrcado = categoriasBudgetComDados.reduce((sum, cb) => sum + cb.valor_orcado, 0)
 
   const handleCopiarMesAnterior = async () => {
     if (isMounted.current) {
@@ -295,7 +296,7 @@ export function Budgets() {
 
         {/* Detector de Estouro */}
         <DetectorEstouro
-          categoriasBudget={getCategoriasBudgetComDados(orcamentoAtual.id)}
+          categoriasBudget={categoriasBudgetComDados}
           orcamentoId={orcamentoAtual.id}
           onRebalanceado={() => {
             // Recarregar dados após rebalanceamento
