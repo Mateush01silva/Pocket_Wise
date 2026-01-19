@@ -66,12 +66,16 @@ export function Dashboard() {
   useEffect(() => {
     isMounted.current = true
 
-    if (orcamentosInitialized && !orcamentoAtual) {
+    if (orcamentosInitialized) {
       try {
         const mesReferencia = format(startOfMonth(new Date()), 'yyyy-MM-dd')
         const orcamento = getOrcamentoDoMes(mesReferencia)
+
+        // Só atualizar se o mês mudou ou se não tem orçamento atual
         if (orcamento && isMounted.current) {
-          setOrcamentoAtual(orcamento)
+          if (!orcamentoAtual || orcamentoAtual.mes_referencia !== mesReferencia) {
+            setOrcamentoAtual(orcamento)
+          }
         }
       } catch (err) {
         if (isMounted.current) {
