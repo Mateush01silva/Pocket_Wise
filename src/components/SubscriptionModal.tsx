@@ -31,7 +31,7 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
   const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
-  // Filtrar categorias de despesa
+  // Filtrar categorias de despesa (somente categorias principais)
   const categoriasDespesa = useMemo(() => {
     return categorias.filter((c) => !c.categoria_pai_id && c.tipo === 'despesa')
   }, [categorias])
@@ -39,6 +39,19 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
   const categoriaOptions = useMemo(
     () => categoriasDespesa.map((cat) => ({ value: cat.id, label: cat.nome })),
     [categoriasDespesa]
+  )
+
+  // Filtrar subcategorias baseado na categoria selecionada
+  const subcategorias = useMemo(() => {
+    if (!formData.categoria_id) return []
+    return categorias.filter(
+      (c) => c.categoria_pai_id === formData.categoria_id && c.tipo === 'despesa'
+    )
+  }, [categorias, formData.categoria_id])
+
+  const subcategoriaOptions = useMemo(
+    () => subcategorias.map((cat) => ({ value: cat.id, label: cat.nome })),
+    [subcategorias]
   )
 
   // Filtrar logos por busca
@@ -58,6 +71,7 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
         frequencia: editingAssinatura.frequencia,
         dia_cobranca: editingAssinatura.dia_cobranca,
         categoria_id: editingAssinatura.categoria_id,
+        subcategoria_id: editingAssinatura.subcategoria_id,
         primeira_cobranca: editingAssinatura.primeira_cobranca,
         logo_url: editingAssinatura.logo_url,
       })
@@ -112,6 +126,7 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
           frequencia: formData.frequencia,
           dia_cobranca: formData.dia_cobranca,
           categoria_id: formData.categoria_id,
+          subcategoria_id: formData.subcategoria_id,
           logo_url: logoSelecionado,
         })
       } else {
@@ -122,6 +137,7 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
           frequencia: formData.frequencia!,
           dia_cobranca: formData.dia_cobranca!,
           categoria_id: formData.categoria_id!,
+          subcategoria_id: formData.subcategoria_id,
           primeira_cobranca: formData.primeira_cobranca!,
           logo_url: logoSelecionado,
         }
@@ -238,10 +254,23 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
             label="Categoria"
             required
             value={formData.categoria_id}
-            onChange={(e) => setFormData({ ...formData, categoria_id: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, categoria_id: e.target.value, subcategoria_id: null })
+            }
             options={categoriaOptions}
           />
         </div>
+
+        {/* Subcategoria (se houver) */}
+        {subcategorias.length > 0 && (
+          <Select
+            label="Subcategoria"
+            value={formData.subcategoria_id || ''}
+            onChange={(e) => setFormData({ ...formData, subcategoria_id: e.target.value || null })}
+            options={subcategoriaOptions}
+            helperText="Opcional"
+          />
+        )}
 
         {/* Primeira Cobrança (apenas ao criar) */}
         {!editingAssinatura && (

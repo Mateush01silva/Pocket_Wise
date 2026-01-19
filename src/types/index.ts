@@ -814,6 +814,7 @@ export interface Assinatura {
   frequencia: FrequenciaAssinatura
   dia_cobranca: number // 1-31
   categoria_id: string
+  subcategoria_id: string | null
   primeira_cobranca: string // YYYY-MM-DD
   ultima_cobranca: string | null // YYYY-MM-DD quando cancelada
   ativa: boolean
@@ -852,6 +853,7 @@ export interface CreateAssinaturaInput {
   frequencia: FrequenciaAssinatura
   dia_cobranca: number
   categoria_id: string
+  subcategoria_id?: string | null
   primeira_cobranca: string
 }
 

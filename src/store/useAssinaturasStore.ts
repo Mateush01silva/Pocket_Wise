@@ -374,6 +374,7 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
             data: format(dataCobranca, 'yyyy-MM-dd'),
             valor: assinatura.valor,
             categoria_id: assinatura.categoria_id,
+            subcategoria_id: assinatura.subcategoria_id,
             observacao: assinatura.nome,
             forma_pagamento: 'debito',
             status: 'projetado',
