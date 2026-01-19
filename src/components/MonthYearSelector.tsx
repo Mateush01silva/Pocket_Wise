@@ -26,9 +26,11 @@ const currentYear = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => currentYear - 3 + i)
 
 export function MonthYearSelector({ value, onChange, hasData }: MonthYearSelectorProps) {
-  const currentDate = new Date(value)
-  const currentMonth = currentDate.getMonth()
-  const currentYearValue = currentDate.getFullYear()
+  // Parse direto da string para evitar problemas de timezone
+  // value tem formato 'yyyy-MM-dd', ex: '2026-01-01'
+  const [year, month] = value.split('-').map(Number)
+  const currentMonth = month - 1 // JS usa mês 0-indexed (0 = Janeiro)
+  const currentYearValue = year
 
   const handleMonthChange = (newMonth: number) => {
     // Construir data explicitamente para evitar problemas de timezone

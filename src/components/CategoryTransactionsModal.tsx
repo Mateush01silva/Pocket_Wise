@@ -41,7 +41,7 @@ export function CategoryTransactionsModal({
       isOpen={isOpen}
       onClose={onClose}
       title={categoria.nome}
-      description={`Transações de ${format(new Date(mesTransacoes), 'MMMM yyyy', { locale: ptBR })}`}
+      description={`Transações de ${format(new Date(mesReferencia), 'MMMM yyyy', { locale: ptBR })}`}
       maxWidth="2xl"
     >
       <div className="space-y-6">

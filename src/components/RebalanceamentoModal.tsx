@@ -13,7 +13,7 @@ interface RebalanceamentoModalProps {
   onClose: () => void
   categoriaEstourada: CategoriaBudgetComRelacoes
   orcamentoId: string
-  onRebalanceado?: () => void
+  onRebalanceado?: () => void | Promise<void>
 }
 
 export function RebalanceamentoModal({
@@ -121,7 +121,10 @@ export function RebalanceamentoModal({
       }
 
       toast.success(`Rebalanceamento realizado! ${sugestoesSelecionadas.size} transferência(s)`)
-      onRebalanceado?.()
+
+      // Aguardar atualização do store antes de fechar o modal
+      await onRebalanceado?.()
+
       onClose()
     } catch (error) {
       console.error('Erro ao executar rebalanceamento:', error)
