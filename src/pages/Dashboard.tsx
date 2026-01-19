@@ -7,6 +7,7 @@ import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { TransactionModal } from '../components/TransactionModal'
 import { PatrimonioModal } from '../components/PatrimonioModal'
 import { HealthIndicator } from '../components/HealthIndicator'
+import { DetectorEstouro } from '../components/DetectorEstouro'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
 import { calcularSaldoReal, calcularSaldoProjetado, calcularFaturasCartao, filtrarPorPeriodo } from '../lib/financialCalculations'
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
@@ -30,6 +31,7 @@ export function Dashboard() {
   // Budget store
   // Use selectors for each value/function to keep identities stable
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
+  const categoriasBudget = useOrcamentosStore((state) => state.categoriasBudget)
   const initializeOrcamentos = useOrcamentosStore((state) => state.initialize)
   const orcamentosInitialized = useOrcamentosStore((state) => state.initialized)
   const getOrcamentoDoMes = useOrcamentosStore((state) => state.getOrcamentoDoMes)
@@ -568,6 +570,18 @@ export function Dashboard() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Detector de Estouro */}
+      {orcamentoAtual && categoriasBudget && categoriasBudget.length > 0 && (
+        <DetectorEstouro
+          categoriasBudget={categoriasBudget}
+          orcamentoId={orcamentoAtual.id}
+          onRebalanceado={() => {
+            // Recarregar dados após rebalanceamento
+            initializeOrcamentos()
+          }}
+        />
       )}
 
       {/* Budget Empty State */}
