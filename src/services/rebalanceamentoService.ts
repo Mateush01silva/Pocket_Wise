@@ -199,6 +199,8 @@ export async function analisarEstouroCategoria(
 
     const anoMes = orcamento.mes_referencia.substring(0, 7) // YYYY-MM
 
+    console.log('📅 Mês de referência do orçamento:', orcamento.mes_referencia, '→ Buscando lançamentos de:', anoMes)
+
     // Buscar categoria budget específica
     const { data: catBudget, error: catError } = await supabase
       // @ts-ignore
@@ -223,6 +225,16 @@ export async function analisarEstouroCategoria(
 
     console.log('✅ Categoria budget encontrada:', catBudget)
 
+    // Debug: buscar TODOS os lançamentos da categoria para ver se existem
+    const { data: todosLancamentos } = await supabase
+      // @ts-ignore
+      .from('lancamentos')
+      .select('valor, data, status')
+      .eq('categoria_id', catBudget.categoria.id)
+      .eq('tipo', 'despesa')
+
+    console.log('📋 TODOS os lançamentos da categoria (qualquer mês):', todosLancamentos)
+
     // Calcular valor gasto (buscar lançamentos DO MÊS)
     const { data: lancamentos } = await supabase
       // @ts-ignore
@@ -234,7 +246,7 @@ export async function analisarEstouroCategoria(
       .gte('data', `${anoMes}-01`)
       .lt('data', `${anoMes}-32`) // Pega todo o mês
 
-    console.log(`✅ Lançamentos encontrados (${anoMes}):`, lancamentos?.length || 0)
+    console.log(`✅ Lançamentos encontrados (${anoMes}):`, lancamentos?.length || 0, lancamentos)
 
     const valorGasto = lancamentos?.reduce((sum, l) => sum + l.valor, 0) || 0
     const valorOrcado = catBudget.valor_orcado || 0
