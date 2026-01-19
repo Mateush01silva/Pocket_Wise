@@ -31,7 +31,7 @@ export function Dashboard() {
   // Budget store
   // Use selectors for each value/function to keep identities stable
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
-  const categoriasBudget = useOrcamentosStore((state) => state.categoriasBudget)
+  const getCategoriasBudgetComDados = useOrcamentosStore((state) => state.getCategoriasBudgetComDados)
   const initializeOrcamentos = useOrcamentosStore((state) => state.initialize)
   const orcamentosInitialized = useOrcamentosStore((state) => state.initialized)
   const getOrcamentoDoMes = useOrcamentosStore((state) => state.getOrcamentoDoMes)
@@ -563,7 +563,7 @@ export function Dashboard() {
                 variant="ghost"
                 size="sm"
                 className="w-full mt-4"
-                onClick={() => navigate('/budgets')}
+                onClick={() => navigate('/app/envelopes')}
               >
                 Ver Todos os Envelopes
               </Button>
@@ -573,9 +573,9 @@ export function Dashboard() {
       )}
 
       {/* Detector de Estouro */}
-      {orcamentoAtual && categoriasBudget && categoriasBudget.length > 0 && (
+      {orcamentoAtual && (
         <DetectorEstouro
-          categoriasBudget={categoriasBudget}
+          categoriasBudget={getCategoriasBudgetComDados(orcamentoAtual.id)}
           orcamentoId={orcamentoAtual.id}
           onRebalanceado={() => {
             // Recarregar dados após rebalanceamento

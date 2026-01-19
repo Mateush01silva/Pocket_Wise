@@ -47,7 +47,7 @@ export function Budgets() {
 
   // Use selectors for each store value/function to keep identities stable
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
-  const categoriasBudget = useOrcamentosStore((state) => state.categoriasBudget)
+  const getCategoriasBudgetComDados = useOrcamentosStore((state) => state.getCategoriasBudgetComDados)
   const isLoading = useOrcamentosStore((state) => state.isLoading)
   const initialize = useOrcamentosStore((state) => state.initialize)
   const initialized = useOrcamentosStore((state) => state.initialized)
@@ -294,16 +294,14 @@ export function Budgets() {
         </div>
 
         {/* Detector de Estouro */}
-        {categoriasBudget && categoriasBudget.length > 0 && (
-          <DetectorEstouro
-            categoriasBudget={categoriasBudget}
-            orcamentoId={orcamentoAtual.id}
-            onRebalanceado={() => {
-              // Recarregar dados após rebalanceamento
-              initialize()
-            }}
-          />
-        )}
+        <DetectorEstouro
+          categoriasBudget={getCategoriasBudgetComDados(orcamentoAtual.id)}
+          orcamentoId={orcamentoAtual.id}
+          onRebalanceado={() => {
+            // Recarregar dados após rebalanceamento
+            initialize()
+          }}
+        />
 
         {/* Linha 2: Envelopes + Widget */}
         <div className="grid lg:grid-cols-3 gap-6">
