@@ -189,8 +189,16 @@ export async function analisarEstouroCategoria(
       .single()
 
     if (catError || !catBudget) {
+      console.error('❌ Erro ao buscar categoria budget:', catError)
       return { data: null, error: catError || new Error('Categoria não encontrada') }
     }
+
+    if (!catBudget.categoria) {
+      console.error('❌ Categoria não tem relação com categorias:', catBudget)
+      return { data: null, error: new Error('Categoria sem relação') }
+    }
+
+    console.log('✅ Categoria budget encontrada:', catBudget)
 
     // Calcular valor gasto (buscar lançamentos DO MÊS)
     const { data: lancamentos } = await supabase
@@ -202,6 +210,8 @@ export async function analisarEstouroCategoria(
       .eq('status', 'pago')
       .gte('data', `${anoMes}-01`)
       .lt('data', `${anoMes}-32`) // Pega todo o mês
+
+    console.log(`✅ Lançamentos encontrados (${anoMes}):`, lancamentos?.length || 0)
 
     const valorGasto = lancamentos?.reduce((sum, l) => sum + l.valor, 0) || 0
     const valorOrcado = catBudget.valor_orcado || 0
@@ -318,26 +328,86 @@ export const rebalanceamentoService = {
       return { data: null, error: new Error('Origem e destino devem ser diferentes') }
     }
 
-    // TODO: Validar que origem tem saldo disponível suficiente
-    // (precisa buscar orçamento da categoria origem e calcular disponível)
+    try {
+      // Buscar categorias_budget de origem e destino
+      const { data: catOrigem } = await supabase
+        // @ts-ignore
+        .from('categorias_budget')
+        .select('id, valor_orcado')
+        .eq('orcamento_id', input.orcamento_id)
+        .eq('categoria_id', input.categoria_origem_id)
+        .single()
 
-    const { data, error } = await supabase
-      // @ts-ignore
-      .from('historico_rebalanceamentos')
-      .insert({
-        family_id: input.family_id,
-        realizado_por: currentUser.id,
-        orcamento_id: input.orcamento_id || null,
-        categoria_origem_id: input.categoria_origem_id,
-        categoria_destino_id: input.categoria_destino_id,
-        valor_transferido: input.valor_transferido,
-        motivo: input.motivo || null,
-        foi_sugestao_automatica: input.foi_sugestao_automatica || false,
-      })
-      .select()
-      .single()
+      const { data: catDestino } = await supabase
+        // @ts-ignore
+        .from('categorias_budget')
+        .select('id, valor_orcado')
+        .eq('orcamento_id', input.orcamento_id)
+        .eq('categoria_id', input.categoria_destino_id)
+        .single()
 
-    return { data, error }
+      if (!catOrigem || !catDestino) {
+        return { data: null, error: new Error('Categorias não encontradas no orçamento') }
+      }
+
+      // Atualizar valor_orcado da categoria origem (diminuir)
+      const { error: errorOrigem } = await supabase
+        // @ts-ignore
+        .from('categorias_budget')
+        .update({
+          valor_orcado: catOrigem.valor_orcado - input.valor_transferido,
+        })
+        .eq('id', catOrigem.id)
+
+      if (errorOrigem) {
+        console.error('Erro ao atualizar categoria origem:', errorOrigem)
+        return { data: null, error: errorOrigem }
+      }
+
+      // Atualizar valor_orcado da categoria destino (aumentar)
+      const { error: errorDestino } = await supabase
+        // @ts-ignore
+        .from('categorias_budget')
+        .update({
+          valor_orcado: catDestino.valor_orcado + input.valor_transferido,
+        })
+        .eq('id', catDestino.id)
+
+      if (errorDestino) {
+        console.error('Erro ao atualizar categoria destino:', errorDestino)
+        // Reverter a origem
+        await supabase
+          // @ts-ignore
+          .from('categorias_budget')
+          .update({
+            valor_orcado: catOrigem.valor_orcado,
+          })
+          .eq('id', catOrigem.id)
+        return { data: null, error: errorDestino }
+      }
+
+      // Registrar no histórico
+      const { data, error } = await supabase
+        // @ts-ignore
+        .from('historico_rebalanceamentos')
+        .insert({
+          family_id: input.family_id,
+          realizado_por: currentUser.id,
+          orcamento_id: input.orcamento_id || null,
+          categoria_origem_id: input.categoria_origem_id,
+          categoria_destino_id: input.categoria_destino_id,
+          valor_transferido: input.valor_transferido,
+          motivo: input.motivo || null,
+          foi_sugestao_automatica: input.foi_sugestao_automatica || false,
+        })
+        .select()
+        .single()
+
+      return { data, error }
+    } catch (error) {
+      console.error('Erro ao executar rebalanceamento:', error)
+      return { data: null, error: error as Error }
+    }
   },
 
   /**

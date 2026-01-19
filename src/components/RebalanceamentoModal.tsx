@@ -40,18 +40,25 @@ export function RebalanceamentoModal({
   const buscarAnalise = async () => {
     setIsAnalisando(true)
     try {
+      console.log('🔍 Buscando análise:', {
+        categoriaEstouradaId: categoriaEstourada.id,
+        categoriaId: categoriaEstourada.categoria_id,
+        orcamentoId,
+      })
+
       const { data, error } = await analisarEstouroCategoria(
         categoriaEstourada.id,
         orcamentoId
       )
 
       if (error) {
+        console.error('❌ Erro na análise:', error)
         toast.error('Erro ao analisar estouro')
-        console.error(error)
         return
       }
 
       if (data) {
+        console.log('✅ Análise obtida:', data)
         setAnalise(data)
         // Selecionar automaticamente a primeira sugestão (melhor opção)
         if (data.sugestoes.length > 0) {
@@ -61,7 +68,7 @@ export function RebalanceamentoModal({
         }
       }
     } catch (error) {
-      console.error('Erro ao buscar análise:', error)
+      console.error('💥 Erro ao buscar análise:', error)
       toast.error('Erro ao analisar estouro')
     } finally {
       setIsAnalisando(false)
