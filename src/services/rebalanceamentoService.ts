@@ -165,7 +165,7 @@ export async function analisarEstouroCategoria(
     // Buscar orçamento para obter mes_referencia
     const { data: orcamento } = await supabase
       // @ts-ignore
-      .from('orcamentos')
+      .from('orcamentos_mensais')
       .select('mes_referencia')
       .eq('id', orcamentoId)
       .single()
