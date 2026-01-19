@@ -341,9 +341,9 @@ export function Envelopes() {
       <DetectorEstouro
         categoriasBudget={getCategoriasBudgetComDados(orcamentoAtual.id)}
         orcamentoId={orcamentoAtual.id}
-        onRebalanceado={() => {
+        onRebalanceado={async () => {
           // Recarregar dados após rebalanceamento
-          initialize()
+          await initialize()
         }}
       />
 
