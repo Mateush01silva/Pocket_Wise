@@ -137,6 +137,7 @@ export const lancamentosService = {
         parcela_total: input.parcela_total || null,
         grupo_parcelas_id: input.grupo_parcelas_id || null,
         data_vencimento_fatura: input.data_vencimento_fatura || null,
+        assinatura_id: input.assinatura_id || null,
         criado_por: null,
         status: input.status || 'pendente',
         created_at: new Date().toISOString(),
@@ -975,7 +976,7 @@ export const assinaturasService = {
 
     const { data, error } = await supabase
       .from('assinaturas')
-      .update(updateData as any)
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()
