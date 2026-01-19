@@ -16,6 +16,7 @@
  */
 
 import { supabase, getCurrentUser, getUserFamilyId } from '../lib/supabase'
+import { formatCurrency } from '../utils/currency'
 import type {
   Categoria,
   CategoriaBudgetComRelacoes,
@@ -42,6 +43,7 @@ export async function gerarSugestoesRebalanceamento(
   todasCategoriasBudget: CategoriaBudgetComRelacoes[]
 ): Promise<SugestaoRebalanceamento[]> {
   const sugestoes: SugestaoRebalanceamento[] = []
+  let valorRestante = valorNecessario
 
   // Filtrar apenas categorias com saldo disponível
   const categoriasComSaldo = todasCategoriasBudget.filter(
@@ -64,65 +66,73 @@ export async function gerarSugestoesRebalanceamento(
     .sort((a, b) => (b.valor_disponivel || 0) - (a.valor_disponivel || 0))
 
   for (const catBudget of desejaveisComSaldo) {
-    if (!catBudget.categoria) continue
+    if (!catBudget.categoria || valorRestante <= 0) break
 
     const valorDisponivel = catBudget.valor_disponivel || 0
-    const valorSugerido = Math.min(valorDisponivel, valorNecessario)
+    const valorSugerido = Math.min(valorDisponivel, valorRestante)
 
     sugestoes.push({
       categoria_origem: catBudget.categoria,
       categoria_destino: categoriaEstourada.categoria!,
       valor_disponivel: valorDisponivel,
       valor_sugerido: valorSugerido,
-      motivo: `${catBudget.categoria.nome} é categoria desejável com R$ ${valorDisponivel.toFixed(2)} disponíveis`,
+      motivo: `${catBudget.categoria.nome} é categoria desejável com ${formatCurrency(valorDisponivel)} disponíveis`,
       nivel_prioridade: 1, // Melhor opção
     })
+
+    valorRestante -= valorSugerido
   }
 
   // =====================================================
   // NÍVEL 2: Categorias IMPORTANTES com muito saldo (>50%)
   // =====================================================
-  const importantesComMuitoSaldo = categoriasComSaldo
-    .filter((cat) => {
-      if (cat.categoria?.prioridade !== 'importante') return false
-      if (!cat.valor_orcado || cat.valor_orcado === 0) return false
+  if (valorRestante > 0) {
+    const importantesComMuitoSaldo = categoriasComSaldo
+      .filter((cat) => {
+        if (cat.categoria?.prioridade !== 'importante') return false
+        if (!cat.valor_orcado || cat.valor_orcado === 0) return false
 
-      const percentualDisponivel = (cat.valor_disponivel || 0) / cat.valor_orcado
-      return percentualDisponivel > 0.5 // Mais de 50% disponível
-    })
-    .sort((a, b) => (b.valor_disponivel || 0) - (a.valor_disponivel || 0))
+        const percentualDisponivel = (cat.valor_disponivel || 0) / cat.valor_orcado
+        return percentualDisponivel > 0.5 // Mais de 50% disponível
+      })
+      .sort((a, b) => (b.valor_disponivel || 0) - (a.valor_disponivel || 0))
 
-  for (const catBudget of importantesComMuitoSaldo) {
-    if (!catBudget.categoria) continue
+    for (const catBudget of importantesComMuitoSaldo) {
+      if (!catBudget.categoria || valorRestante <= 0) break
 
-    const valorDisponivel = catBudget.valor_disponivel || 0
-    const valorSugerido = Math.min(valorDisponivel * 0.7, valorNecessario) // Sugerir até 70% do disponível
-    const percentualDisponivel = ((valorDisponivel / (catBudget.valor_orcado || 1)) * 100).toFixed(0)
+      const valorDisponivel = catBudget.valor_disponivel || 0
+      const maxSugerido = valorDisponivel * 0.7 // Sugerir até 70% do disponível
+      const valorSugerido = Math.min(maxSugerido, valorRestante)
+      const percentualDisponivel = ((valorDisponivel / (catBudget.valor_orcado || 1)) * 100).toFixed(0)
 
-    sugestoes.push({
-      categoria_origem: catBudget.categoria,
-      categoria_destino: categoriaEstourada.categoria!,
-      valor_disponivel: valorDisponivel,
-      valor_sugerido: valorSugerido,
-      motivo: `${catBudget.categoria.nome} tem ${percentualDisponivel}% do orçamento disponível`,
-      nivel_prioridade: 2,
-    })
+      sugestoes.push({
+        categoria_origem: catBudget.categoria,
+        categoria_destino: categoriaEstourada.categoria!,
+        valor_disponivel: valorDisponivel,
+        valor_sugerido: valorSugerido,
+        motivo: `${catBudget.categoria.nome} tem ${percentualDisponivel}% do orçamento disponível`,
+        nivel_prioridade: 2,
+      })
+
+      valorRestante -= valorSugerido
+    }
   }
 
   // =====================================================
   // NÍVEL 3: Categorias ESSENCIAIS (último recurso)
   // =====================================================
-  // Só sugerir essenciais se não houver outras opções E for muito crítico
-  if (sugestoes.length === 0) {
+  // Só sugerir essenciais se ainda faltar valor para cobrir
+  if (valorRestante > 0) {
     const essenciaisComSaldo = categoriasComSaldo
       .filter((cat) => cat.categoria?.prioridade === 'essencial')
       .sort((a, b) => (b.valor_disponivel || 0) - (a.valor_disponivel || 0))
 
     for (const catBudget of essenciaisComSaldo) {
-      if (!catBudget.categoria) continue
+      if (!catBudget.categoria || valorRestante <= 0) break
 
       const valorDisponivel = catBudget.valor_disponivel || 0
-      const valorSugerido = Math.min(valorDisponivel * 0.3, valorNecessario) // Apenas 30% do disponível
+      const maxSugerido = valorDisponivel * 0.3 // Apenas 30% do disponível
+      const valorSugerido = Math.min(maxSugerido, valorRestante)
 
       sugestoes.push({
         categoria_origem: catBudget.categoria,
@@ -132,6 +142,8 @@ export async function gerarSugestoesRebalanceamento(
         motivo: `⚠️ ${catBudget.categoria.nome} é essencial. Use apenas se extremamente necessário`,
         nivel_prioridade: 3, // Última opção
       })
+
+      valorRestante -= valorSugerido
     }
   }
 
@@ -150,6 +162,20 @@ export async function analisarEstouroCategoria(
   }
 
   try {
+    // Buscar orçamento para obter mes_referencia
+    const { data: orcamento } = await supabase
+      // @ts-ignore
+      .from('orcamentos')
+      .select('mes_referencia')
+      .eq('id', orcamentoId)
+      .single()
+
+    if (!orcamento) {
+      return { data: null, error: new Error('Orçamento não encontrado') }
+    }
+
+    const anoMes = orcamento.mes_referencia.substring(0, 7) // YYYY-MM
+
     // Buscar categoria budget específica
     const { data: catBudget, error: catError } = await supabase
       // @ts-ignore
@@ -166,14 +192,16 @@ export async function analisarEstouroCategoria(
       return { data: null, error: catError || new Error('Categoria não encontrada') }
     }
 
-    // Calcular valor gasto (buscar lançamentos)
+    // Calcular valor gasto (buscar lançamentos DO MÊS)
     const { data: lancamentos } = await supabase
       // @ts-ignore
       .from('lancamentos')
-      .select('valor')
+      .select('valor, data')
       .eq('categoria_id', catBudget.categoria.id)
       .eq('tipo', 'despesa')
       .eq('status', 'pago')
+      .gte('data', `${anoMes}-01`)
+      .lt('data', `${anoMes}-32`) // Pega todo o mês
 
     const valorGasto = lancamentos?.reduce((sum, l) => sum + l.valor, 0) || 0
     const valorOrcado = catBudget.valor_orcado || 0
@@ -207,16 +235,18 @@ export async function analisarEstouroCategoria(
       `)
       .eq('orcamento_id', orcamentoId)
 
-    // Calcular saldo disponível para cada categoria
+    // Calcular saldo disponível para cada categoria DO MÊS
     const categoriasComSaldo: CategoriaBudgetComRelacoes[] = []
     for (const cat of todasCategorias || []) {
       const { data: catLancamentos } = await supabase
         // @ts-ignore
         .from('lancamentos')
-        .select('valor')
+        .select('valor, data')
         .eq('categoria_id', cat.categoria.id)
         .eq('tipo', 'despesa')
         .eq('status', 'pago')
+        .gte('data', `${anoMes}-01`)
+        .lt('data', `${anoMes}-32`) // Pega todo o mês
 
       const gasto = catLancamentos?.reduce((sum, l) => sum + l.valor, 0) || 0
       const disponivel = (cat.valor_orcado || 0) - gasto

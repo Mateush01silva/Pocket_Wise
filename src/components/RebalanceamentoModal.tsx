@@ -203,12 +203,10 @@ export function RebalanceamentoModal({
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-lg">{sugestao.categoria_origem.icone}</span>
                               <span className="font-medium text-gray-200">
                                 {sugestao.categoria_origem.nome}
                               </span>
                               <ArrowRight size={14} className="text-gray-600" />
-                              <span className="text-lg">{sugestao.categoria_destino.icone}</span>
                               <span className="font-medium text-gray-200">
                                 {sugestao.categoria_destino.nome}
                               </span>

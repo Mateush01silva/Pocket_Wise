@@ -74,7 +74,7 @@ export function DetectorEstouro({
                   <AlertTriangle className="text-red-400 mt-1 flex-shrink-0" size={20} />
                   <div className="flex-1 min-w-0">
                     <h3 className="text-red-400 font-semibold mb-1">
-                      {categoria.categoria?.icone} {categoria.categoria?.nome} Estourada
+                      {categoria.categoria?.nome} Estourada
                     </h3>
                     <div className="text-sm space-y-1">
                       <p className="text-gray-300">
