@@ -877,7 +877,7 @@ export const assinaturasService = {
     }
 
     const familyId = await getUserFamilyId()
-    let query = supabase
+    let query = (supabase as any)
       .from('assinaturas')
       .select('*', { count: 'exact' })
       .eq('family_id', familyId as string)
@@ -902,7 +902,7 @@ export const assinaturasService = {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('assinaturas')
       .select('*')
       .eq('id', id)
@@ -940,7 +940,7 @@ export const assinaturasService = {
     }
 
     const familyId = await getUserFamilyId()
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('assinaturas')
       .insert({
         ...input,
@@ -974,9 +974,9 @@ export const assinaturasService = {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('assinaturas')
-      .update(updateData as any)
+      .update(updateData)
       .eq('id', id)
       .select()
       .single()
@@ -996,7 +996,7 @@ export const assinaturasService = {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
-    const { error } = await supabase.from('assinaturas').delete().eq('id', id)
+    const { error } = await (supabase as any).from('assinaturas').delete().eq('id', id)
     return { data: undefined as void, error }
   },
 }
@@ -1019,7 +1019,7 @@ export const historicoValorAssinaturasService = {
       return { data: null, error: new Error('Supabase not configured'), count: null }
     }
 
-    const { data, error, count } = await supabase
+    const { data, error, count } = await (supabase as any)
       .from('historico_valor_assinaturas')
       .select('*', { count: 'exact' })
       .eq('assinatura_id', assinaturaId)
@@ -1052,7 +1052,7 @@ export const historicoValorAssinaturasService = {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('historico_valor_assinaturas')
       .insert({
         assinatura_id: assinaturaId,
