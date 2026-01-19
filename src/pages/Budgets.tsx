@@ -298,9 +298,9 @@ export function Budgets() {
         <DetectorEstouro
           categoriasBudget={categoriasBudgetComDados}
           orcamentoId={orcamentoAtual.id}
-          onRebalanceado={() => {
+          onRebalanceado={async () => {
             // Recarregar dados após rebalanceamento
-            initialize()
+            await initialize()
           }}
         />
 
