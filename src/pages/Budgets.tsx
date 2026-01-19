@@ -47,7 +47,7 @@ export function Budgets() {
 
   // Use selectors for each store value/function to keep identities stable
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
-  const categoriasBudget = useOrcamentosStore((state) => state.categoriasBudget)
+  const getCategoriasBudgetComDados = useOrcamentosStore((state) => state.getCategoriasBudgetComDados)
   const isLoading = useOrcamentosStore((state) => state.isLoading)
   const initialize = useOrcamentosStore((state) => state.initialize)
   const initialized = useOrcamentosStore((state) => state.initialized)
@@ -105,7 +105,8 @@ export function Budgets() {
 
   const projecao = orcamentoAtual ? getProjecaoMensal(orcamentoAtual.id) : null
   const envelopes = orcamentoAtual ? getEnvelopesDigitais(orcamentoAtual.id) : []
-  const totalOrcado = categoriasBudget?.reduce((sum, cb) => sum + cb.valor_orcado, 0) || 0
+  const categoriasBudgetComDados = orcamentoAtual ? getCategoriasBudgetComDados(orcamentoAtual.id) : []
+  const totalOrcado = categoriasBudgetComDados.reduce((sum, cb) => sum + cb.valor_orcado, 0)
 
   const handleCopiarMesAnterior = async () => {
     if (isMounted.current) {
@@ -294,16 +295,14 @@ export function Budgets() {
         </div>
 
         {/* Detector de Estouro */}
-        {categoriasBudget && categoriasBudget.length > 0 && (
-          <DetectorEstouro
-            categoriasBudget={categoriasBudget}
-            orcamentoId={orcamentoAtual.id}
-            onRebalanceado={() => {
-              // Recarregar dados após rebalanceamento
-              initialize()
-            }}
-          />
-        )}
+        <DetectorEstouro
+          categoriasBudget={categoriasBudgetComDados}
+          orcamentoId={orcamentoAtual.id}
+          onRebalanceado={() => {
+            // Recarregar dados após rebalanceamento
+            initialize()
+          }}
+        />
 
         {/* Linha 2: Envelopes + Widget */}
         <div className="grid lg:grid-cols-3 gap-6">

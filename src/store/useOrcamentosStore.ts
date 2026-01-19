@@ -5,6 +5,7 @@ import { format, startOfMonth } from 'date-fns'
 import type {
   OrcamentoMensal,
   CategoriaBudget,
+  CategoriaBudgetComRelacoes,
   CreateOrcamentoInput,
   UpdateOrcamentoInput,
   CreateCategoriaBudgetInput,
@@ -20,6 +21,7 @@ import {
   gerarEnvelopesDigitais,
   calcularCategoriasEmRisco,
   simularCompra,
+  calcularGastoPorCategoria,
 } from '../lib/budgetCalculations'
 import { useTransacoesStore } from './useTransacoesStore'
 import { useCategoriasStore } from './useCategoriasStore'
@@ -55,6 +57,7 @@ interface OrcamentosActions {
   // Queries computadas
   getProjecaoMensal: (orcamentoId: string) => ProjecaoMensal | null
   getEnvelopesDigitais: (orcamentoId: string) => EnvelopeDigital[]
+  getCategoriasBudgetComDados: (orcamentoId: string) => CategoriaBudgetComRelacoes[]
   getCategoriasEmRisco: (orcamentoId: string) => CategoriaEmRisco[]
   simularCompra: (valor: number, categoriaId: string, orcamentoId: string) => SimulacaoCompra | null
 
@@ -302,6 +305,30 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
         const categorias = useCategoriasStore.getState().categorias
 
         return gerarEnvelopesDigitais(categoriasBudget, lancamentos, categorias, orcamento.mes_referencia)
+      },
+
+      getCategoriasBudgetComDados: (orcamentoId) => {
+        const orcamento = get().orcamentos.find((o) => o.id === orcamentoId)
+        if (!orcamento) return []
+
+        const categoriasBudget = get().categoriasBudget.filter((cb) => cb.orcamento_id === orcamentoId)
+        const lancamentos = useTransacoesStore.getState().lancamentos
+        const categorias = useCategoriasStore.getState().categorias
+
+        return categoriasBudget.map((catBudget) => {
+          const categoria = categorias.find((c) => c.id === catBudget.categoria_id)
+          const valorGasto = calcularGastoPorCategoria(lancamentos, catBudget.categoria_id, orcamento.mes_referencia)
+          const valorDisponivel = catBudget.valor_orcado - valorGasto
+          const percentualUsado = catBudget.valor_orcado > 0 ? (valorGasto / catBudget.valor_orcado) * 100 : 0
+
+          return {
+            ...catBudget,
+            categoria,
+            valor_gasto: valorGasto,
+            valor_disponivel: valorDisponivel,
+            percentual_usado: percentualUsado,
+          }
+        })
       },
 
       getCategoriasEmRisco: (orcamentoId) => {
