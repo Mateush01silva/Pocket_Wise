@@ -137,6 +137,7 @@ export const lancamentosService = {
         parcela_total: input.parcela_total || null,
         grupo_parcelas_id: input.grupo_parcelas_id || null,
         data_vencimento_fatura: input.data_vencimento_fatura || null,
+        assinatura_id: input.assinatura_id || null,
         criado_por: null,
         status: input.status || 'pendente',
         created_at: new Date().toISOString(),
@@ -855,6 +856,217 @@ export const alertasOrcamentoService = {
   },
 }
 
+// =====================================================
+// ASSINATURAS Service
+// =====================================================
+
+export const assinaturasService = {
+  async getAll(filters?: { ativa?: boolean }): Promise<DbListResult<import('../types').Assinatura>> {
+    if (useLocalStorage) {
+      let assinaturas = LocalStorageService.get<import('../types').Assinatura[]>(STORAGE_KEYS.ASSINATURAS) || []
+
+      if (filters?.ativa !== undefined) {
+        assinaturas = assinaturas.filter((a) => a.ativa === filters.ativa)
+      }
+
+      return { data: assinaturas, error: null, count: assinaturas.length }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured'), count: null }
+    }
+
+    const familyId = await getUserFamilyId()
+    let query = (supabase as any)
+      .from('assinaturas')
+      .select('*', { count: 'exact' })
+      .eq('family_id', familyId as string)
+      .order('nome')
+
+    if (filters?.ativa !== undefined) {
+      query = query.eq('ativa', filters.ativa)
+    }
+
+    const { data, error, count } = await query
+    return { data: data as import('../types').Assinatura[] | null, error, count }
+  },
+
+  async getById(id: string): Promise<DbResult<import('../types').Assinatura>> {
+    if (useLocalStorage) {
+      const assinaturas = LocalStorageService.get<import('../types').Assinatura[]>(STORAGE_KEYS.ASSINATURAS) || []
+      const assinatura = assinaturas.find((a) => a.id === id)
+      return { data: assinatura || null, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { data, error } = await (supabase as any)
+      .from('assinaturas')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    return { data: data as import('../types').Assinatura | null, error }
+  },
+
+  async create(input: import('../types').CreateAssinaturaInput): Promise<DbResult<import('../types').Assinatura>> {
+    if (useLocalStorage) {
+      const assinaturas = LocalStorageService.get<import('../types').Assinatura[]>(STORAGE_KEYS.ASSINATURAS) || []
+      const newAssinatura: import('../types').Assinatura = {
+        id: crypto.randomUUID(),
+        user_id: null,
+        family_id: input.family_id,
+        nome: input.nome,
+        logo_url: input.logo_url || null,
+        valor: input.valor,
+        frequencia: input.frequencia,
+        dia_cobranca: input.dia_cobranca,
+        categoria_id: input.categoria_id,
+        primeira_cobranca: input.primeira_cobranca,
+        ultima_cobranca: null,
+        ativa: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      assinaturas.push(newAssinatura)
+      LocalStorageService.set(STORAGE_KEYS.ASSINATURAS, assinaturas)
+      return { data: newAssinatura, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const familyId = await getUserFamilyId()
+    const { data, error } = await (supabase as any)
+      .from('assinaturas')
+      .insert({
+        ...input,
+        family_id: familyId,
+      } as any)
+      .select()
+      .single()
+
+    return { data: data as import('../types').Assinatura | null, error }
+  },
+
+  async update(input: import('../types').UpdateAssinaturaInput): Promise<DbResult<import('../types').Assinatura>> {
+    const { id, ...updateData } = input
+
+    if (useLocalStorage) {
+      const assinaturas = LocalStorageService.get<import('../types').Assinatura[]>(STORAGE_KEYS.ASSINATURAS) || []
+      const index = assinaturas.findIndex((a) => a.id === id)
+      if (index === -1) {
+        return { data: null, error: new Error('Assinatura not found') }
+      }
+      assinaturas[index] = {
+        ...assinaturas[index],
+        ...updateData,
+        updated_at: new Date().toISOString(),
+      }
+      LocalStorageService.set(STORAGE_KEYS.ASSINATURAS, assinaturas)
+      return { data: assinaturas[index], error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { data, error } = await (supabase as any)
+      .from('assinaturas')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single()
+
+    return { data: data as import('../types').Assinatura | null, error }
+  },
+
+  async delete(id: string): Promise<DbResult<void>> {
+    if (useLocalStorage) {
+      const assinaturas = LocalStorageService.get<import('../types').Assinatura[]>(STORAGE_KEYS.ASSINATURAS) || []
+      const filtered = assinaturas.filter((a) => a.id !== id)
+      LocalStorageService.set(STORAGE_KEYS.ASSINATURAS, filtered)
+      return { data: undefined as void, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { error } = await (supabase as any).from('assinaturas').delete().eq('id', id)
+    return { data: undefined as void, error }
+  },
+}
+
+// =====================================================
+// HISTÓRICO VALOR ASSINATURAS Service
+// =====================================================
+
+export const historicoValorAssinaturasService = {
+  async getByAssinaturaId(assinaturaId: string): Promise<DbListResult<import('../types').HistoricoValorAssinatura>> {
+    if (useLocalStorage) {
+      const historico = LocalStorageService.get<import('../types').HistoricoValorAssinatura[]>(
+        STORAGE_KEYS.HISTORICO_VALOR_ASSINATURAS
+      ) || []
+      const filtered = historico.filter((h) => h.assinatura_id === assinaturaId)
+      return { data: filtered, error: null, count: filtered.length }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured'), count: null }
+    }
+
+    const { data, error, count } = await (supabase as any)
+      .from('historico_valor_assinaturas')
+      .select('*', { count: 'exact' })
+      .eq('assinatura_id', assinaturaId)
+      .order('vigencia_inicio', { ascending: false })
+
+    return { data: data as import('../types').HistoricoValorAssinatura[] | null, error, count }
+  },
+
+  async create(assinaturaId: string, valorAntigo: number, valorNovo: number, vigenciaInicio: string): Promise<DbResult<import('../types').HistoricoValorAssinatura>> {
+    if (useLocalStorage) {
+      const historico = LocalStorageService.get<import('../types').HistoricoValorAssinatura[]>(
+        STORAGE_KEYS.HISTORICO_VALOR_ASSINATURAS
+      ) || []
+
+      const newHistorico: import('../types').HistoricoValorAssinatura = {
+        id: crypto.randomUUID(),
+        assinatura_id: assinaturaId,
+        valor_antigo: valorAntigo,
+        valor_novo: valorNovo,
+        vigencia_inicio: vigenciaInicio,
+        created_at: new Date().toISOString(),
+      }
+
+      historico.push(newHistorico)
+      LocalStorageService.set(STORAGE_KEYS.HISTORICO_VALOR_ASSINATURAS, historico)
+      return { data: newHistorico, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { data, error } = await (supabase as any)
+      .from('historico_valor_assinaturas')
+      .insert({
+        assinatura_id: assinaturaId,
+        valor_antigo: valorAntigo,
+        valor_novo: valorNovo,
+        vigencia_inicio: vigenciaInicio,
+      } as any)
+      .select()
+      .single()
+
+    return { data: data as import('../types').HistoricoValorAssinatura | null, error }
+  },
+}
+
 // Export all services
 export const db = {
   lancamentos: lancamentosService,
@@ -863,4 +1075,6 @@ export const db = {
   orcamentos: orcamentosService,
   categoriasBudget: categoriasBudgetService,
   alertas: alertasOrcamentoService,
+  assinaturas: assinaturasService,
+  historicoValorAssinaturas: historicoValorAssinaturasService,
 }

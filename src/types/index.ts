@@ -107,6 +107,7 @@ export interface Lancamento {
   grupo_parcelas_id: string | null
   status: LancamentoStatus
   data_vencimento_fatura: string | null
+  assinatura_id: string | null
   created_at: string
   updated_at: string
 }
@@ -229,6 +230,7 @@ export interface CreateLancamentoInput {
   grupo_parcelas_id?: string | null
   status?: LancamentoStatus
   data_vencimento_fatura?: string | null
+  assinatura_id?: string | null
 }
 
 export interface UpdateLancamentoInput extends Partial<CreateLancamentoInput> {
@@ -793,4 +795,84 @@ export interface AnaliseEstouro {
   valor_estouro: number
   percentual_estouro: number
   sugestoes: SugestaoRebalanceamento[]
+}
+
+// =====================================================
+// ASSINATURAS
+// =====================================================
+
+export type FrequenciaAssinatura = 'mensal' | 'anual'
+
+// Assinatura recorrente (Netflix, Spotify, etc)
+export interface Assinatura {
+  id: string
+  user_id: string | null
+  family_id: string | null
+  nome: string
+  logo_url: string | null // URL do logo ou emoji
+  valor: number
+  frequencia: FrequenciaAssinatura
+  dia_cobranca: number // 1-31
+  categoria_id: string
+  primeira_cobranca: string // YYYY-MM-DD
+  ultima_cobranca: string | null // YYYY-MM-DD quando cancelada
+  ativa: boolean
+  created_at: string
+  updated_at: string
+}
+
+// Histórico de alterações de valor
+export interface HistoricoValorAssinatura {
+  id: string
+  assinatura_id: string
+  valor_antigo: number
+  valor_novo: number
+  vigencia_inicio: string // YYYY-MM-DD
+  created_at: string
+}
+
+// Assinatura com dados computados
+export interface AssinaturaComDetalhes extends Assinatura {
+  categoria_nome: string
+  categoria_cor: string | null
+  proxima_cobranca: string // YYYY-MM-DD
+  total_pago_ano: number // Calculado
+  lancamentos_gerados: number // Contagem
+}
+
+// =====================================================
+// FORM TYPES (Assinaturas)
+// =====================================================
+
+export interface CreateAssinaturaInput {
+  family_id: string
+  nome: string
+  logo_url?: string | null
+  valor: number
+  frequencia: FrequenciaAssinatura
+  dia_cobranca: number
+  categoria_id: string
+  primeira_cobranca: string
+}
+
+export interface UpdateAssinaturaInput extends Partial<CreateAssinaturaInput> {
+  id: string
+  ativa?: boolean
+  ultima_cobranca?: string | null
+}
+
+// =====================================================
+// DASHBOARD ASSINATURAS
+// =====================================================
+
+export interface AssinaturasSummary {
+  total_assinaturas_ativas: number
+  total_mensal: number
+  total_anual: number
+  assinatura_mais_cara: Assinatura | null
+  categoria_com_mais_gastos: {
+    categoria: Categoria
+    total: number
+    quantidade: number
+  } | null
 }

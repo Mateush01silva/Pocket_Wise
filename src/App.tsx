@@ -20,12 +20,13 @@ import {
   Budgets,
   Envelopes,
   Projections,
+  Subscriptions,
   Family,
   Settings,
 } from './pages'
 import { Caixinhas } from './pages/Caixinhas'
 import { AcceptInvite } from './pages/AcceptInvite'
-import { useCategoriasStore, useTransacoesStore, useCartoesStore } from './store'
+import { useCategoriasStore, useTransacoesStore, useCartoesStore, useAssinaturasStore } from './store'
 import { useFamilyStore } from './store/useFamilyStore'
 import { isSupabaseConfigured } from './lib/supabase'
 
@@ -36,6 +37,7 @@ function AppRoutes() {
   const fetchLancamentos = useTransacoesStore((state) => state.fetchLancamentos)
   const fetchCartoes = useCartoesStore((state) => state.fetchCartoes)
   const initializeFamily = useFamilyStore((state) => state.initialize)
+  const initializeAssinaturas = useAssinaturasStore((state) => state.initialize)
 
   // Inicializar stores na montagem do app
   useEffect(() => {
@@ -83,6 +85,14 @@ function AppRoutes() {
         if (!isMounted.current) return
 
         console.log('✅ Cartões carregados')
+
+        console.log('📱 Inicializando assinaturas...')
+        await initializeAssinaturas()
+
+        // Check if still mounted before updating state
+        if (!isMounted.current) return
+
+        console.log('✅ Assinaturas inicializadas')
 
         console.log('🎉 PocketWise inicializado com sucesso!')
 
@@ -163,6 +173,7 @@ function AppRoutes() {
               <Route path="/budgets" element={<Budgets />} />
               <Route path="/envelopes" element={<Envelopes />} />
               <Route path="/projections" element={<Projections />} />
+              <Route path="/subscriptions" element={<Subscriptions />} />
               <Route path="/caixinhas" element={<Caixinhas />} />
               <Route path="/family" element={<Family />} />
               <Route path="/settings" element={<Settings />} />
@@ -259,6 +270,16 @@ function AppRoutes() {
             }
           />
           <Route
+            path="/app/assinaturas"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Subscriptions />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
             path="/app/caixinhas"
             element={
               <PrivateRoute>
@@ -296,6 +317,7 @@ function AppRoutes() {
           <Route path="/budgets" element={<Navigate to="/app/orcamento" replace />} />
           <Route path="/envelopes" element={<Navigate to="/app/envelopes" replace />} />
           <Route path="/projections" element={<Navigate to="/app/projecoes" replace />} />
+          <Route path="/subscriptions" element={<Navigate to="/app/assinaturas" replace />} />
           <Route path="/caixinhas" element={<Navigate to="/app/caixinhas" replace />} />
           <Route path="/family" element={<Navigate to="/app/familia" replace />} />
           <Route path="/settings" element={<Navigate to="/app/configuracoes" replace />} />
