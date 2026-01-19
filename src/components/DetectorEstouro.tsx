@@ -8,7 +8,7 @@ import { formatCurrency } from '../utils/currency'
 interface DetectorEstouroProps {
   categoriasBudget: CategoriaBudgetComRelacoes[]
   orcamentoId: string
-  onRebalanceado?: () => void
+  onRebalanceado?: () => void | Promise<void>
 }
 
 export function DetectorEstouro({
@@ -40,9 +40,10 @@ export function DetectorEstouro({
     setCategoriaEstourada(null)
   }
 
-  const handleRebalanceado = () => {
-    onRebalanceado?.()
-    handleCloseModal()
+  const handleRebalanceado = async () => {
+    // Aguardar a atualização do store completar
+    await onRebalanceado?.()
+    // Não fechar o modal aqui - deixar o RebalanceamentoModal fazer isso
   }
 
   return (

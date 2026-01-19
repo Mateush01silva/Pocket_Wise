@@ -30,11 +30,6 @@ export function CategoryTransactionsModal({
   const percentualUsado = valorOrcado > 0 ? (valorGasto / valorOrcado) * 100 : 0
   const valorDisponivel = valorOrcado - valorGasto
 
-  // Determinar o mês real das transações (pode ser diferente do orçamento)
-  const mesTransacoes = transacoes.length > 0
-    ? transacoes[0].data.substring(0, 7) + '-01'
-    : mesReferencia
-
   const getSubcategoriaNome = (subcategoriaId: string | null | undefined) => {
     if (!subcategoriaId) return null
     const subcat = subcategorias.find(s => s.id === subcategoriaId)
@@ -46,7 +41,7 @@ export function CategoryTransactionsModal({
       isOpen={isOpen}
       onClose={onClose}
       title={categoria.nome}
-      description={`Transações de ${format(new Date(mesTransacoes), 'MMMM yyyy', { locale: ptBR })}`}
+      description={`Transações de ${format(new Date(mesReferencia), 'MMMM yyyy', { locale: ptBR })}`}
       maxWidth="2xl"
     >
       <div className="space-y-6">
