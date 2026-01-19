@@ -976,7 +976,7 @@ export const assinaturasService = {
 
     const { data, error } = await supabase
       .from('assinaturas')
-      .update(updateData)
+      .update(updateData as any)
       .eq('id', id)
       .select()
       .single()
