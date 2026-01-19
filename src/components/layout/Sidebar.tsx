@@ -10,6 +10,7 @@ import {
   FolderTree,
   Package,
   PiggyBank,
+  Repeat,
 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 
@@ -28,6 +29,7 @@ const navItems: NavItem[] = [
   { name: 'Envelopes', path: '/app/envelopes', icon: Package },
   { name: 'Caixinhas', path: '/app/caixinhas', icon: PiggyBank },
   { name: 'Projeções', path: '/app/projecoes', icon: TrendingUp },
+  { name: 'Assinaturas', path: '/app/assinaturas', icon: Repeat },
   { name: 'Família', path: '/app/familia', icon: Users },
   { name: 'Configurações', path: '/app/configuracoes', icon: Settings },
 ]

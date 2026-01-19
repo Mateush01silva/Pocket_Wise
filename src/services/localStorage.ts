@@ -15,6 +15,8 @@ const STORAGE_KEYS = {
   CONFIGURACOES_ORCAMENTO: 'pocketwise_configuracoes_orcamento',
   USER: 'pocketwise_user',
   FAMILY: 'pocketwise_family',
+  ASSINATURAS: 'pocketwise_assinaturas',
+  HISTORICO_VALOR_ASSINATURAS: 'pocketwise_historico_valor_assinaturas',
 } as const
 
 export class LocalStorageService {
