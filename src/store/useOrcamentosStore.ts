@@ -414,11 +414,24 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
     })),
     {
       name: 'pocketwise-orcamentos-store',
+      version: 2, // Incrementar para forçar reset
       partialize: (state) => ({
         orcamentos: state.orcamentos,
         categoriasBudget: state.categoriasBudget,
         // NÃO persistir orcamentoAtual - será calculado ao inicializar
       }),
+      migrate: (persistedState: any, version: number) => {
+        // Migração: se versão for < 2, limpar tudo
+        if (version < 2) {
+          console.log('🔄 Migrando store de orçamentos - limpando orcamentoAtual antigo')
+          return {
+            ...persistedState,
+            orcamentoAtual: null,
+            initialized: false,
+          }
+        }
+        return persistedState
+      },
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error) {
