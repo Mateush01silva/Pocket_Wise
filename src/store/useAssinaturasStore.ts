@@ -126,12 +126,23 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
       },
 
       createAssinatura: async (assinaturaData) => {
+        console.log('🟢 useAssinaturasStore.createAssinatura: Iniciando com dados:', assinaturaData)
         set({ isLoading: true, error: null })
         try {
+          console.log('🟢 useAssinaturasStore.createAssinatura: Chamando db.assinaturas.create')
           const { data, error } = await db.assinaturas.create(assinaturaData)
-          if (error) throw error
-          if (!data) return null
+          console.log('🟢 useAssinaturasStore.createAssinatura: Resposta do DB:', { data, error })
 
+          if (error) {
+            console.error('🔴 useAssinaturasStore.createAssinatura: Erro do DB:', error)
+            throw error
+          }
+          if (!data) {
+            console.error('🔴 useAssinaturasStore.createAssinatura: Data é null')
+            return null
+          }
+
+          console.log('🟢 useAssinaturasStore.createAssinatura: Adicionando à store')
           set((state) => {
             state.assinaturas.push(data)
             state.isLoading = false
@@ -140,15 +151,17 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
           // Gerar lançamentos futuros automaticamente
           // Não falhar se a geração de lançamentos falhar
           try {
+            console.log('🟢 useAssinaturasStore.createAssinatura: Gerando lançamentos futuros')
             await get().gerarLancamentosFuturos(data, 12)
           } catch (lancamentoError) {
-            console.error('Erro ao gerar lançamentos futuros:', lancamentoError)
+            console.error('⚠️ Erro ao gerar lançamentos futuros:', lancamentoError)
             // Assinatura já foi criada, apenas logar o erro
           }
 
+          console.log('✅ useAssinaturasStore.createAssinatura: Sucesso! Retornando data')
           return data
         } catch (error) {
-          console.error('Erro ao criar assinatura:', error)
+          console.error('🔴 useAssinaturasStore.createAssinatura: Erro geral:', error)
           set({ error: (error as Error).message, isLoading: false })
           return null
         }

@@ -417,9 +417,10 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
       partialize: (state) => ({
         orcamentos: state.orcamentos,
         categoriasBudget: state.categoriasBudget,
+        // NÃO persistir orcamentoAtual - será calculado ao inicializar
       }),
       onRehydrateStorage: () => {
-        return (_state, error) => {
+        return (state, error) => {
           if (error) {
             console.error('Erro ao hidratar store de orçamentos:', error)
             try {
@@ -427,6 +428,13 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
             } catch (e) {
               console.error('Erro ao limpar storage:', e)
             }
+          }
+
+          // Após hidratar, garantir que orcamentoAtual esteja null
+          // Será definido corretamente ao chamar initialize()
+          if (state) {
+            state.orcamentoAtual = null
+            state.initialized = false // Forçar reinicialização
           }
         }
       },
