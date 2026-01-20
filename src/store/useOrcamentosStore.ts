@@ -96,6 +96,9 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
           if (orcamentoMesAtual) {
             set({ orcamentoAtual: orcamentoMesAtual })
             await get().fetchCategoriasBudget(orcamentoMesAtual.id)
+          } else {
+            // Se não há orçamento para o mês atual, limpar orcamentoAtual
+            set({ orcamentoAtual: null })
           }
 
           set({ initialized: true, isLoading: false })

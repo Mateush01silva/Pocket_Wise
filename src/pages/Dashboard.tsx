@@ -71,9 +71,15 @@ export function Dashboard() {
         const mesReferencia = format(startOfMonth(new Date()), 'yyyy-MM-dd')
         const orcamento = getOrcamentoDoMes(mesReferencia)
 
-        // Só atualizar se o mês mudou ou se não tem orçamento atual
-        if (orcamento && isMounted.current) {
-          if (!orcamentoAtual || orcamentoAtual.mes_referencia !== mesReferencia) {
+        // Atualizar se encontrou orçamento ou se o mês mudou
+        if (isMounted.current) {
+          // Se não tem orçamento para o mês atual, limpar orcamentoAtual
+          if (!orcamento) {
+            if (orcamentoAtual) {
+              setOrcamentoAtual(null)
+            }
+          } else if (!orcamentoAtual || orcamentoAtual.mes_referencia !== mesReferencia) {
+            // Se tem orçamento e é diferente do atual, atualizar
             setOrcamentoAtual(orcamento)
           }
         }

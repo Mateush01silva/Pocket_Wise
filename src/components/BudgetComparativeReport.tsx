@@ -6,6 +6,7 @@ import { useTransacoesStore } from '../store'
 import { gerarComparativoCategoria, calcularTaxaAderencia } from '../lib/budgetCalculations'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
+import { IconRenderer } from '../lib/iconRenderer'
 
 interface BudgetComparativeReportProps {
   orcamentoId: string
@@ -137,7 +138,7 @@ export function BudgetComparativeReport({ orcamentoId, className }: BudgetCompar
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">{comp.categoria.icone}</span>
+                        <IconRenderer iconName={comp.categoria.icone} size={20} className="text-gray-300" />
                         <span className="font-medium text-gray-200">{comp.categoria.nome}</span>
                       </div>
 
