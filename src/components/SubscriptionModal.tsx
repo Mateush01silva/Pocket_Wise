@@ -142,9 +142,16 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
           logo_url: logoSelecionado,
         }
 
-        await createAssinatura(assinaturaData)
+        console.log('🔵 SubscriptionModal: Criando assinatura com dados:', assinaturaData)
+        const resultado = await createAssinatura(assinaturaData)
+        console.log('🔵 SubscriptionModal: Resultado da criação:', resultado)
+
+        if (!resultado) {
+          throw new Error('Falha ao criar assinatura - retorno null')
+        }
       }
 
+      console.log('✅ Assinatura salva com sucesso')
       onClose()
     } catch (error) {
       console.error('Erro ao salvar assinatura:', error)
