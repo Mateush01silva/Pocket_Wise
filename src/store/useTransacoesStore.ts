@@ -82,9 +82,19 @@ export const useTransacoesStore = create<TransacoesStore>()(
           const hoje = new Date().toISOString().split('T')[0]
           const status = lancamentoData.data <= hoje ? 'pago' : 'pendente'
 
+          // Se for lançamento de cartão de crédito, calcular data de vencimento da fatura
+          let dataVencimentoFatura: string | null = null
+          if (lancamentoData.cartao_id && lancamentoData.forma_pagamento === 'credito') {
+            dataVencimentoFatura = get().calcularDataVencimentoFatura(
+              lancamentoData.cartao_id,
+              lancamentoData.data
+            )
+          }
+
           const { data, error } = await db.lancamentos.create({
             ...lancamentoData,
             status: lancamentoData.status || status,
+            data_vencimento_fatura: dataVencimentoFatura,
           })
 
           if (error) throw error
