@@ -9,13 +9,10 @@ const iconMap: Record<string, React.ComponentType<LucideProps>> = {
   'bike': LucideIcons.Bike,
   'package': LucideIcons.Package,
   'coffee': LucideIcons.Coffee,
-  'cake': LucideIcons.Cake,
 
   // Transporte
   'car': LucideIcons.Car,
-  'fuel': LucideIcons.Fuel,
   'smartphone': LucideIcons.Smartphone,
-  'square-parking': LucideIcons.SquareParking,
   'wrench': LucideIcons.Wrench,
   'file-text': LucideIcons.FileText,
   'bus': LucideIcons.Bus,
@@ -30,11 +27,8 @@ const iconMap: Record<string, React.ComponentType<LucideProps>> = {
 
   // Saúde
   'heart': LucideIcons.Heart,
-  'pill': LucideIcons.Pill,
-  'stethoscope': LucideIcons.Stethoscope,
   'activity': LucideIcons.Activity,
   'shield': LucideIcons.Shield,
-  'dumbbell': LucideIcons.Dumbbell,
 
   // Lazer
   'smile': LucideIcons.Smile,
@@ -49,34 +43,23 @@ const iconMap: Record<string, React.ComponentType<LucideProps>> = {
   'graduation-cap': LucideIcons.GraduationCap,
   'book-open': LucideIcons.BookOpen,
   'pencil': LucideIcons.Pencil,
-  'school': LucideIcons.School,
 
   // Vestuário
   'shirt': LucideIcons.Shirt,
-  'footprints': LucideIcons.Footprints,
   'watch': LucideIcons.Watch,
 
   // Finanças
-  'piggy-bank': LucideIcons.PiggyBank,
   'trending-up': LucideIcons.TrendingUp,
   'trending-down': LucideIcons.TrendingDown,
   'wallet': LucideIcons.Wallet,
   'credit-card': LucideIcons.CreditCard,
-  'banknote': LucideIcons.Banknote,
-  'coins': LucideIcons.Coins,
   'landmark': LucideIcons.Landmark,
   'dollar-sign': LucideIcons.DollarSign,
-
-  // Pets
-  'dog': LucideIcons.Dog,
-  'cat': LucideIcons.Cat,
-  'fish': LucideIcons.Fish,
 
   // Outros
   'gift': LucideIcons.Gift,
   'shopping-bag': LucideIcons.ShoppingBag,
   'tag': LucideIcons.Tag,
-  'circle-help': LucideIcons.CircleHelp,
   'circle': LucideIcons.Circle,
   'square': LucideIcons.Square,
   'star': LucideIcons.Star,
@@ -94,7 +77,6 @@ const iconMap: Record<string, React.ComponentType<LucideProps>> = {
   'camera': LucideIcons.Camera,
   'image': LucideIcons.Image,
   'video': LucideIcons.Video,
-  'tool': LucideIcons.Tool,
   'settings': LucideIcons.Settings,
 }
 
