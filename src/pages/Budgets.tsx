@@ -17,6 +17,7 @@ import { useTransacoesStore } from '../store/useTransacoesStore'
 import { useCategoriasStore } from '../store/useCategoriasStore'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
+import { IconRenderer } from '../lib/iconRenderer'
 import type { EnvelopeDigital } from '../types'
 
 export function Budgets() {
@@ -340,7 +341,7 @@ export function Budgets() {
                       >
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-2">
-                            <span className="text-2xl">{categoria.icone}</span>
+                            <IconRenderer iconName={categoria.icone} size={24} className="text-gray-300" />
                             <div>
                               <p className="font-medium text-gray-200">{categoria.nome}</p>
                               <p className="text-xs text-gray-500 capitalize">{envelope.prioridade}</p>

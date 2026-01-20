@@ -8,6 +8,7 @@ import { useCategoriasStore } from '../store'
 import type { OrcamentoMensal, Categoria, CategoriaPrioridade } from '../types'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
+import { IconRenderer } from '../lib/iconRenderer'
 
 interface BudgetPlanningModalProps {
   isOpen: boolean
@@ -260,7 +261,7 @@ export function BudgetPlanningModal({
                       {selecionada && <Check size={14} className="text-white" />}
                     </button>
 
-                    <span className="text-lg">{categoria.icone}</span>
+                    <IconRenderer iconName={categoria.icone} size={20} className="text-gray-300" />
                     <span className="font-medium text-gray-200 flex-1">{categoria.nome}</span>
                   </div>
 

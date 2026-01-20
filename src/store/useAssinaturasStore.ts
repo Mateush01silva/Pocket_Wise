@@ -138,7 +138,13 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
           })
 
           // Gerar lançamentos futuros automaticamente
-          await get().gerarLancamentosFuturos(data, 12)
+          // Não falhar se a geração de lançamentos falhar
+          try {
+            await get().gerarLancamentosFuturos(data, 12)
+          } catch (lancamentoError) {
+            console.error('Erro ao gerar lançamentos futuros:', lancamentoError)
+            // Assinatura já foi criada, apenas logar o erro
+          }
 
           return data
         } catch (error) {
