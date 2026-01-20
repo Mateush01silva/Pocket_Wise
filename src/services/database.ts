@@ -876,11 +876,16 @@ export const assinaturasService = {
       return { data: null, error: new Error('Supabase not configured'), count: null }
     }
 
-    const familyId = await getUserFamilyId()
+    // Para Supabase, usar user_id ao invés de family_id
+    const user = await getCurrentUser()
+    if (!user) {
+      return { data: [], error: null, count: 0 }
+    }
+
     let query = (supabase as any)
       .from('assinaturas')
       .select('*', { count: 'exact' })
-      .eq('family_id', familyId as string)
+      .eq('user_id', user.id)
       .order('nome')
 
     if (filters?.ativa !== undefined) {
@@ -940,12 +945,25 @@ export const assinaturasService = {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
-    const familyId = await getUserFamilyId()
+    // Para Supabase, usar user_id ao invés de family_id
+    const user = await getCurrentUser()
+    if (!user) {
+      return { data: null, error: new Error('User not authenticated') }
+    }
+
     const { data, error } = await (supabase as any)
       .from('assinaturas')
       .insert({
-        ...input,
-        family_id: familyId,
+        user_id: user.id,
+        nome: input.nome,
+        logo_url: input.logo_url || null,
+        valor: input.valor,
+        frequencia: input.frequencia,
+        dia_cobranca: input.dia_cobranca,
+        categoria_id: input.categoria_id,
+        subcategoria_id: input.subcategoria_id || null,
+        primeira_cobranca: input.primeira_cobranca,
+        ativa: true,
       } as any)
       .select()
       .single()
