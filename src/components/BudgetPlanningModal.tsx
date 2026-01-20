@@ -38,11 +38,18 @@ export function BudgetPlanningModal({
   const [metaPoupanca, setMetaPoupanca] = useState(0)
   const [metaPoupancaPercentual, setMetaPoupancaPercentual] = useState<number | null>(null)
   const [tipoMeta, setTipoMeta] = useState<'valor' | 'percentual'>('valor')
-  const [receitasProjetadas, setReceitasProjetadas] = useState(0)
-  const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<CategoriaFormData[]>([])
+  const [categoriasReceitaSelecionadas, setCategoriasReceitaSelecionadas] = useState<CategoriaFormData[]>([])
+  const [categoriasDespesaSelecionadas, setCategoriasDespesaSelecionadas] = useState<CategoriaFormData[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
   const isEditMode = !!orcamento
+
+  // Filtrar categorias de receita principais
+  const categoriasReceita = useMemo(
+    () =>
+      categorias.filter((c) => c.tipo === 'receita' && !c.categoria_pai_id).sort((a, b) => a.nome.localeCompare(b.nome)),
+    [categorias]
+  )
 
   // Filtrar apenas categorias de despesa principais
   const categoriasDespesa = useMemo(
@@ -58,49 +65,86 @@ export function BudgetPlanningModal({
       setMetaPoupancaPercentual(orcamento.meta_poupanca_percentual)
       setTipoMeta(orcamento.meta_poupanca_percentual ? 'percentual' : 'valor')
 
-      // Carregar categorias budget existentes
-      const categoriasDoOrcamento = categoriasBudget
-        .filter((cb) => cb.orcamento_id === orcamento.id)
+      // Carregar categorias budget existentes (separar receitas e despesas)
+      const categoriasDoOrcamento = categoriasBudget.filter((cb) => cb.orcamento_id === orcamento.id)
+
+      const receitas = categoriasDoOrcamento
+        .filter((cb) => {
+          const categoria = categorias.find((c) => c.id === cb.categoria_id)
+          return categoria?.tipo === 'receita'
+        })
         .map((cb) => ({
           categoria_id: cb.categoria_id,
           valor_orcado: cb.valor_orcado,
           prioridade: cb.prioridade,
         }))
 
-      setCategoriasSelecionadas(categoriasDoOrcamento)
+      const despesas = categoriasDoOrcamento
+        .filter((cb) => {
+          const categoria = categorias.find((c) => c.id === cb.categoria_id)
+          return categoria?.tipo === 'despesa'
+        })
+        .map((cb) => ({
+          categoria_id: cb.categoria_id,
+          valor_orcado: cb.valor_orcado,
+          prioridade: cb.prioridade,
+        }))
+
+      setCategoriasReceitaSelecionadas(receitas)
+      setCategoriasDespesaSelecionadas(despesas)
     }
-  }, [orcamento, categoriasBudget])
+  }, [orcamento, categoriasBudget, categorias])
 
   // Cálculos
-  const totalDespesasPlanejadas = categoriasSelecionadas.reduce((sum, c) => sum + c.valor_orcado, 0)
+  const totalReceitasPlanejadas = categoriasReceitaSelecionadas.reduce((sum, c) => sum + c.valor_orcado, 0)
+  const totalDespesasPlanejadas = categoriasDespesaSelecionadas.reduce((sum, c) => sum + c.valor_orcado, 0)
   const metaReal = tipoMeta === 'percentual' && metaPoupancaPercentual
-    ? (receitasProjetadas * metaPoupancaPercentual) / 100
+    ? (totalReceitasPlanejadas * metaPoupancaPercentual) / 100
     : metaPoupanca
   const totalNecessario = totalDespesasPlanejadas + metaReal
-  const saldo = receitasProjetadas - totalNecessario
+  const saldo = totalReceitasPlanejadas - totalNecessario
   const isValid = saldo >= 0
 
-  const handleToggleCategoria = (categoria: Categoria) => {
-    const exists = categoriasSelecionadas.find((c) => c.categoria_id === categoria.id)
+  const handleToggleCategoriaReceita = (categoria: Categoria) => {
+    const exists = categoriasReceitaSelecionadas.find((c) => c.categoria_id === categoria.id)
 
     if (exists) {
-      setCategoriasSelecionadas((prev) => prev.filter((c) => c.categoria_id !== categoria.id))
+      setCategoriasReceitaSelecionadas((prev) => prev.filter((c) => c.categoria_id !== categoria.id))
     } else {
-      setCategoriasSelecionadas((prev) => [
+      setCategoriasReceitaSelecionadas((prev) => [
         ...prev,
         { categoria_id: categoria.id, valor_orcado: 0, prioridade: 'importante' },
       ])
     }
   }
 
-  const handleUpdateValor = (categoriaId: string, valor: number) => {
-    setCategoriasSelecionadas((prev) =>
+  const handleToggleCategoriaDespesa = (categoria: Categoria) => {
+    const exists = categoriasDespesaSelecionadas.find((c) => c.categoria_id === categoria.id)
+
+    if (exists) {
+      setCategoriasDespesaSelecionadas((prev) => prev.filter((c) => c.categoria_id !== categoria.id))
+    } else {
+      setCategoriasDespesaSelecionadas((prev) => [
+        ...prev,
+        { categoria_id: categoria.id, valor_orcado: 0, prioridade: 'importante' },
+      ])
+    }
+  }
+
+  const handleUpdateValorReceita = (categoriaId: string, valor: number) => {
+    setCategoriasReceitaSelecionadas((prev) =>
       prev.map((c) => (c.categoria_id === categoriaId ? { ...c, valor_orcado: valor } : c))
     )
   }
 
-  const handleUpdatePrioridade = (categoriaId: string, prioridade: CategoriaPrioridade) => {
-    setCategoriasSelecionadas((prev) =>
+  const handleUpdateValorDespesa = (categoriaId: string, valor: number) => {
+    setCategoriasDespesaSelecionadas((prev) =>
+      prev.map((c) => (c.categoria_id === categoriaId ? { ...c, valor_orcado: valor } : c))
+    )
+  }
+
+  const handleUpdatePrioridadeDespesa = (categoriaId: string, prioridade: CategoriaPrioridade) => {
+    setCategoriasDespesaSelecionadas((prev) =>
       prev.map((c) => (c.categoria_id === categoriaId ? { ...c, prioridade } : c))
     )
   }
@@ -113,8 +157,8 @@ export function BudgetPlanningModal({
       return
     }
 
-    if (categoriasSelecionadas.length === 0) {
-      alert('Selecione ao menos uma categoria para orçar')
+    if (categoriasReceitaSelecionadas.length === 0 && categoriasDespesaSelecionadas.length === 0) {
+      alert('Selecione ao menos uma categoria (receita ou despesa) para orçar')
       return
     }
 
@@ -147,11 +191,12 @@ export function BudgetPlanningModal({
         orcamentoId = novoOrcamento.id
       }
 
-      // Criar categorias budget
+      // Criar categorias budget (receitas + despesas)
       if (orcamentoId) {
+        const todasCategorias = [...categoriasReceitaSelecionadas, ...categoriasDespesaSelecionadas]
         await bulkCreateCategoriasBudget({
           orcamento_id: orcamentoId,
-          categorias: categoriasSelecionadas,
+          categorias: todasCategorias,
         })
       }
 
@@ -171,20 +216,72 @@ export function BudgetPlanningModal({
       title={isEditMode ? 'Editar Orçamento' : 'Planejar Orçamento'}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Seção 1: Receitas Projetadas */}
-        <div className="bg-dark-700/30 p-4 rounded-lg border border-dark-600">
+        {/* Seção 1: Categorias de Receita */}
+        <div>
           <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
             <TrendingUp size={16} className="text-green-400" />
-            Receitas Projetadas do Mês
+            Receitas Previstas ({categoriasReceitaSelecionadas.length} categorias)
           </h3>
-          <CurrencyInput
-            value={receitasProjetadas}
-            onChange={setReceitasProjetadas}
-            placeholder="Ex: R$ 5.000,00"
-          />
-          <p className="text-xs text-gray-500 mt-2">
-            Some todas as suas receitas previstas (salário, freelances, etc.)
-          </p>
+
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {categoriasReceita.map((categoria) => {
+              const selecionada = categoriasReceitaSelecionadas.find((c) => c.categoria_id === categoria.id)
+
+              return (
+                <div
+                  key={categoria.id}
+                  className={cn(
+                    'border rounded-lg transition-all',
+                    selecionada ? 'border-green-500 bg-green-500/5' : 'border-dark-600 bg-dark-700/30'
+                  )}
+                >
+                  <div className="flex items-center gap-3 p-3">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleCategoriaReceita(categoria)}
+                      className={cn(
+                        'w-5 h-5 rounded border-2 flex items-center justify-center transition-colors',
+                        selecionada
+                          ? 'bg-green-500 border-green-500'
+                          : 'border-gray-600 hover:border-green-500'
+                      )}
+                    >
+                      {selecionada && <Check size={14} className="text-white" />}
+                    </button>
+
+                    <IconRenderer iconName={categoria.icone} size={20} className="text-gray-300" />
+                    <span className="font-medium text-gray-200 flex-1">{categoria.nome}</span>
+
+                    {selecionada && (
+                      <div className="w-40">
+                        <CurrencyInput
+                          value={selecionada.valor_orcado}
+                          onChange={(valor) => handleUpdateValorReceita(categoria.id, valor)}
+                          placeholder="R$ 0,00"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+
+            {categoriasReceita.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-4">
+                Nenhuma categoria de receita encontrada. Crie categorias de receita primeiro.
+              </p>
+            )}
+          </div>
+
+          {/* Resumo de Receitas */}
+          {categoriasReceitaSelecionadas.length > 0 && (
+            <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
+              <p className="text-sm text-gray-300">
+                <span className="font-semibold text-green-400">Total de Receitas: </span>
+                {formatCurrency(totalReceitasPlanejadas)}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Seção 2: Meta de Poupança */}
@@ -221,23 +318,23 @@ export function BudgetPlanningModal({
               </div>
             )}
 
-            {tipoMeta === 'percentual' && metaPoupancaPercentual && receitasProjetadas > 0 && (
+            {tipoMeta === 'percentual' && metaPoupancaPercentual && totalReceitasPlanejadas > 0 && (
               <p className="text-xs text-gray-400">
-                = {formatCurrency(metaReal)} ({metaPoupancaPercentual}% de {formatCurrency(receitasProjetadas)})
+                = {formatCurrency(metaReal)} ({metaPoupancaPercentual}% de {formatCurrency(totalReceitasPlanejadas)})
               </p>
             )}
           </div>
         </div>
 
-        {/* Seção 3: Seleção de Categorias */}
+        {/* Seção 3: Categorias de Despesa */}
         <div>
           <h3 className="text-sm font-semibold text-gray-300 mb-3">
-            Categorias de Despesa ({categoriasSelecionadas.length} selecionadas)
+            Despesas Previstas ({categoriasDespesaSelecionadas.length} categorias)
           </h3>
 
-          <div className="space-y-2 max-h-96 overflow-y-auto">
+          <div className="space-y-2 max-h-80 overflow-y-auto">
             {categoriasDespesa.map((categoria) => {
-              const selecionada = categoriasSelecionadas.find((c) => c.categoria_id === categoria.id)
+              const selecionada = categoriasDespesaSelecionadas.find((c) => c.categoria_id === categoria.id)
 
               return (
                 <div
@@ -250,7 +347,7 @@ export function BudgetPlanningModal({
                   <div className="flex items-center gap-3 p-3">
                     <button
                       type="button"
-                      onClick={() => handleToggleCategoria(categoria)}
+                      onClick={() => handleToggleCategoriaDespesa(categoria)}
                       className={cn(
                         'w-5 h-5 rounded border-2 flex items-center justify-center transition-colors',
                         selecionada
@@ -271,7 +368,7 @@ export function BudgetPlanningModal({
                         <label className="block text-xs text-gray-400 mb-1">Valor Orçado</label>
                         <CurrencyInput
                           value={selecionada.valor_orcado}
-                          onChange={(value) => handleUpdateValor(categoria.id, value)}
+                          onChange={(value) => handleUpdateValorDespesa(categoria.id, value)}
                           placeholder="R$ 0,00"
                         />
                       </div>
@@ -281,7 +378,7 @@ export function BudgetPlanningModal({
                         <Select
                           value={selecionada.prioridade}
                           onChange={(e) =>
-                            handleUpdatePrioridade(categoria.id, e.target.value as CategoriaPrioridade)
+                            handleUpdatePrioridadeDespesa(categoria.id, e.target.value as CategoriaPrioridade)
                           }
                           options={[
                             { value: 'essencial', label: '🔴 Essencial' },
@@ -295,7 +392,23 @@ export function BudgetPlanningModal({
                 </div>
               )
             })}
+
+            {categoriasDespesa.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-4">
+                Nenhuma categoria de despesa encontrada.
+              </p>
+            )}
           </div>
+
+          {/* Resumo de Despesas */}
+          {categoriasDespesaSelecionadas.length > 0 && (
+            <div className="mt-3 p-3 bg-red-500/10 rounded-lg border border-red-500/30">
+              <p className="text-sm text-gray-300">
+                <span className="font-semibold text-red-400">Total de Despesas: </span>
+                {formatCurrency(totalDespesasPlanejadas)}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Seção 4: Resumo e Validação */}
@@ -309,12 +422,12 @@ export function BudgetPlanningModal({
         >
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-400">Receitas Projetadas:</span>
-              <span className="font-medium text-green-400">{formatCurrency(receitasProjetadas)}</span>
+              <span className="text-gray-400">Total de Receitas:</span>
+              <span className="font-medium text-green-400">{formatCurrency(totalReceitasPlanejadas)}</span>
             </div>
 
             <div className="flex justify-between">
-              <span className="text-gray-400">Despesas Planejadas:</span>
+              <span className="text-gray-400">Total de Despesas:</span>
               <span className="font-medium text-red-400">{formatCurrency(totalDespesasPlanejadas)}</span>
             </div>
 
@@ -326,7 +439,7 @@ export function BudgetPlanningModal({
             <div className="h-px bg-dark-600 my-2" />
 
             <div className="flex justify-between items-center">
-              <span className="font-semibold text-gray-200">Saldo:</span>
+              <span className="font-semibold text-gray-200">Saldo (Receitas - Despesas - Poupança):</span>
               <div className="flex items-center gap-2">
                 <span className={cn('font-bold text-lg', isValid ? 'text-green-400' : 'text-red-400')}>
                   {formatCurrency(saldo)}
