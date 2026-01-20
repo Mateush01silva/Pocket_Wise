@@ -57,12 +57,38 @@ export function Subscriptions() {
   }
 
   const handleCancel = async (assinatura: AssinaturaComDetalhes) => {
-    const confirmacao = window.confirm(
-      `Tem certeza que deseja cancelar a assinatura "${assinatura.nome}"?\n\nOs lançamentos futuros serão removidos.`
+    // Perguntar ao usuário qual a data da última cobrança
+    const dataUltimaCobranca = window.prompt(
+      `Cancelar assinatura "${assinatura.nome}"\n\n` +
+      `Qual será a data da ÚLTIMA cobrança?\n` +
+      `(Manteremos os lançamentos até esta data, e apagaremos apenas os lançamentos futuros)\n\n` +
+      `Digite a data no formato: AAAA-MM-DD\n` +
+      `Exemplo: ${format(new Date(), 'yyyy-MM-dd')}`,
+      format(new Date(), 'yyyy-MM-dd')
     )
+
+    if (!dataUltimaCobranca) {
+      return // Usuário cancelou
+    }
+
+    // Validar formato da data
+    const regexData = /^\d{4}-\d{2}-\d{2}$/
+    if (!regexData.test(dataUltimaCobranca)) {
+      alert('Data inválida! Use o formato AAAA-MM-DD (exemplo: 2026-01-20)')
+      return
+    }
+
+    // Confirmar cancelamento
+    const confirmacao = window.confirm(
+      `Confirmar cancelamento de "${assinatura.nome}"?\n\n` +
+      `✓ Última cobrança: ${format(new Date(dataUltimaCobranca), 'dd/MM/yyyy')}\n` +
+      `✓ A assinatura será marcada como INATIVA\n` +
+      `✓ Lançamentos até ${format(new Date(dataUltimaCobranca), 'dd/MM/yyyy')} serão MANTIDOS\n` +
+      `✓ Lançamentos após esta data serão REMOVIDOS`
+    )
+
     if (confirmacao) {
-      const hoje = format(new Date(), 'yyyy-MM-dd')
-      await cancelarAssinatura(assinatura.id, hoje)
+      await cancelarAssinatura(assinatura.id, dataUltimaCobranca)
     }
   }
 
