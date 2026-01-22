@@ -6,6 +6,7 @@
 const STORAGE_KEYS = {
   TRANSACTIONS: 'pocketwise_transactions',
   CREDIT_CARDS: 'pocketwise_credit_cards',
+  BANK_ACCOUNTS: 'pocketwise_bank_accounts',
   CATEGORIAS: 'pocketwise_categorias',
   PLANEJAMENTOS: 'pocketwise_planejamentos',
   RECEITAS_PROJETADAS: 'pocketwise_receitas_projetadas',

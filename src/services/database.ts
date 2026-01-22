@@ -14,6 +14,8 @@ import type {
   Cartao,
   CreateCartaoInput,
   UpdateCartaoInput,
+  ContaBancaria,
+  CreateContaBancariaInput,
   Categoria,
   CreateCategoriaInput,
   UpdateCategoriaInput,
@@ -337,6 +339,128 @@ export const cartoesService = {
     // @ts-ignore - Supabase types will be generated later
     // Soft delete - set ativo to false
     const { error } = await supabase.from('cartoes').update({ ativo: false } as any).eq('id', id)
+
+    return { data: undefined as void, error }
+  },
+}
+
+// =====================================================
+// CONTAS BANCÁRIAS Service
+// =====================================================
+
+export const contasBancariasService = {
+  async getAll(): Promise<DbListResult<ContaBancaria>> {
+    if (useLocalStorage) {
+      const contas = LocalStorageService.get<ContaBancaria[]>(STORAGE_KEYS.BANK_ACCOUNTS) || []
+      return { data: contas, error: null, count: contas.length }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured'), count: null }
+    }
+
+    const familyId = await getUserFamilyId()
+    const { data, error, count } = await supabase
+      .from('contas_bancarias')
+      .select('*', { count: 'exact' })
+      .eq('family_id', familyId as string)
+      .order('nome')
+
+    return { data: data as ContaBancaria[] | null, error, count }
+  },
+
+  async create(input: CreateContaBancariaInput): Promise<DbResult<ContaBancaria>> {
+    if (useLocalStorage) {
+      const contas = LocalStorageService.get<ContaBancaria[]>(STORAGE_KEYS.BANK_ACCOUNTS) || []
+      const newConta: ContaBancaria = {
+        id: crypto.randomUUID(),
+        user_id: input.user_id || null,
+        family_id: input.family_id,
+        nome: input.nome,
+        tipo: input.tipo,
+        saldo_inicial: input.saldo_inicial,
+        saldo_atual: input.saldo_inicial, // Saldo atual começa igual ao inicial
+        cor: input.cor || '#6366f1',
+        icone: input.icone || null,
+        ativo: input.ativo ?? true,
+        instituicao: input.instituicao || null,
+        agencia: input.agencia || null,
+        numero_conta: input.numero_conta || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      contas.push(newConta)
+      LocalStorageService.set(STORAGE_KEYS.BANK_ACCOUNTS, contas)
+      return { data: newConta, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const familyId = await getUserFamilyId()
+    const { data, error } = await supabase
+      .from('contas_bancarias')
+      .insert({
+        ...input,
+        family_id: familyId,
+        saldo_atual: input.saldo_inicial,
+      } as any)
+      .select()
+      .single()
+
+    return { data: data as ContaBancaria | null, error }
+  },
+
+  async update(input: Partial<ContaBancaria> & { id: string }): Promise<DbResult<ContaBancaria>> {
+    const { id, ...updateData } = input
+
+    if (useLocalStorage) {
+      const contas = LocalStorageService.get<ContaBancaria[]>(STORAGE_KEYS.BANK_ACCOUNTS) || []
+      const index = contas.findIndex((c) => c.id === id)
+      if (index === -1) {
+        return { data: null, error: new Error('Conta not found') }
+      }
+      contas[index] = {
+        ...contas[index],
+        ...updateData,
+        updated_at: new Date().toISOString(),
+      }
+      LocalStorageService.set(STORAGE_KEYS.BANK_ACCOUNTS, contas)
+      return { data: contas[index], error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { data, error } = await supabase
+      .from('contas_bancarias')
+      .update(updateData as any)
+      .eq('id', id)
+      .select()
+      .single()
+
+    return { data: data as ContaBancaria | null, error }
+  },
+
+  async delete(id: string): Promise<DbResult<void>> {
+    if (useLocalStorage) {
+      const contas = LocalStorageService.get<ContaBancaria[]>(STORAGE_KEYS.BANK_ACCOUNTS) || []
+      const filtered = contas.filter((c) => c.id !== id)
+      LocalStorageService.set(STORAGE_KEYS.BANK_ACCOUNTS, filtered)
+      return { data: undefined as void, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    // Soft delete - set ativo to false
+    const { error } = await supabase
+      .from('contas_bancarias')
+      .update({ ativo: false } as any)
+      .eq('id', id)
 
     return { data: undefined as void, error }
   },
@@ -1090,6 +1214,7 @@ export const historicoValorAssinaturasService = {
 export const db = {
   lancamentos: lancamentosService,
   cartoes: cartoesService,
+  contas: contasBancariasService,
   categorias: categoriasService,
   orcamentos: orcamentosService,
   categoriasBudget: categoriasBudgetService,
