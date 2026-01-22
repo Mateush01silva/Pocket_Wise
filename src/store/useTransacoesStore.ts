@@ -78,9 +78,17 @@ export const useTransacoesStore = create<TransacoesStore>()(
         set({ isLoading: true, error: null })
 
         try {
-          // Determinar status baseado na data
+          // Determinar status baseado na forma de pagamento e data
           const hoje = new Date().toISOString().split('T')[0]
-          const status = lancamentoData.data <= hoje ? 'pago' : 'pendente'
+          let status: 'pago' | 'pendente'
+
+          // Cartão de crédito: sempre pendente até pagar a fatura
+          if (lancamentoData.cartao_id && lancamentoData.forma_pagamento === 'credito') {
+            status = 'pendente'
+          } else {
+            // Outras formas: baseado na data (hoje/passado = pago, futuro = pendente)
+            status = lancamentoData.data <= hoje ? 'pago' : 'pendente'
+          }
 
           // Se for lançamento de cartão de crédito, calcular data de vencimento da fatura
           let dataVencimentoFatura: string | null = null

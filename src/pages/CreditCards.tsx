@@ -8,11 +8,13 @@ import {
   DollarSign,
   TrendingUp,
   AlertCircle,
+  Eye,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { useCartoesStore, useTransacoesStore } from '../store'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CreditCardModal } from '../components/CreditCardModal'
+import { FaturaDetailsModal } from '../components/FaturaDetailsModal'
 import { formatCurrency } from '../utils/currency'
 import type { Cartao } from '../types'
 
@@ -25,6 +27,7 @@ export function CreditCards() {
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [cartaoToEdit, setCartaoToEdit] = useState<Cartao | undefined>()
+  const [faturaDetailsCartaoId, setFaturaDetailsCartaoId] = useState<string | null>(null)
 
   // Obter mês atual no formato YYYY-MM
   const mesAtual = format(new Date(), 'yyyy-MM')
@@ -211,9 +214,20 @@ export function CreditCards() {
           <div className="pt-3 border-t border-dark-700">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-400">Fatura Atual</span>
-              <span className="text-lg font-bold text-primary-400">
-                {formatCurrency(cartao.totalFatura)}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-primary-400">
+                  {formatCurrency(cartao.totalFatura)}
+                </span>
+                {cartao.totalFatura > 0 && (
+                  <button
+                    onClick={() => setFaturaDetailsCartaoId(cartao.id)}
+                    className="p-1.5 hover:bg-dark-700 rounded transition-colors text-gray-400 hover:text-primary-400"
+                    title="Ver detalhes da fatura"
+                  >
+                    <Eye size={16} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -379,6 +393,30 @@ export function CreditCards() {
         onClose={handleCloseModal}
         cartao={cartaoToEdit}
       />
+
+      {/* Modal de Detalhes da Fatura */}
+      {faturaDetailsCartaoId && (() => {
+        const cartao = cartoesComEstatisticas.find((c) => c.id === faturaDetailsCartaoId)
+        if (!cartao) return null
+
+        const transacoesCartao = lancamentos.filter(
+          (l) =>
+            l.cartao_id === cartao.id &&
+            l.forma_pagamento === 'credito' &&
+            l.status !== 'pago'
+        )
+
+        return (
+          <FaturaDetailsModal
+            isOpen={true}
+            onClose={() => setFaturaDetailsCartaoId(null)}
+            cartaoNome={cartao.nome}
+            cartaoCor={cartao.cor || '#6b7280'}
+            transacoes={transacoesCartao}
+            totalFatura={cartao.totalFatura}
+          />
+        )
+      })()}
     </div>
   )
 }
