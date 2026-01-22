@@ -80,11 +80,11 @@ export const useTransacoesStore = create<TransacoesStore>()(
         try {
           // Determinar status baseado na forma de pagamento e data
           const hoje = new Date().toISOString().split('T')[0]
-          let status: 'pago' | 'pendente'
+          let status: 'pago' | 'pendente' | 'projetado'
 
-          // Cartão de crédito: sempre pendente até pagar a fatura
+          // Cartão de crédito: sempre projetado até pagar a fatura
           if (lancamentoData.cartao_id && lancamentoData.forma_pagamento === 'credito') {
-            status = 'pendente'
+            status = 'projetado'
           } else {
             // Outras formas: baseado na data (hoje/passado = pago, futuro = pendente)
             status = lancamentoData.data <= hoje ? 'pago' : 'pendente'

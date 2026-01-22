@@ -87,6 +87,51 @@ export interface Cartao {
 }
 
 // =====================================================
+// CONTAS BANCÁRIAS
+// =====================================================
+
+export type TipoConta =
+  | 'conta_corrente'
+  | 'poupanca'
+  | 'carteira_digital'
+  | 'dinheiro'
+  | 'investimento'
+  | 'outra'
+
+export interface ContaBancaria {
+  id: string
+  user_id: string | null
+  family_id: string | null
+  nome: string
+  tipo: TipoConta
+  saldo_inicial: number
+  saldo_atual: number
+  cor: string
+  icone: string | null
+  ativo: boolean
+  instituicao: string | null // Nome do banco (ex: "Nubank", "Inter")
+  agencia: string | null
+  numero_conta: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Input para criar conta
+export interface CreateContaBancariaInput {
+  user_id?: string | null
+  family_id: string
+  nome: string
+  tipo: TipoConta
+  saldo_inicial: number
+  cor?: string
+  icone?: string | null
+  ativo?: boolean
+  instituicao?: string | null
+  agencia?: string | null
+  numero_conta?: string | null
+}
+
+// =====================================================
 // LANÇAMENTOS (Transações)
 // =====================================================
 
@@ -102,6 +147,7 @@ export interface Lancamento {
   observacao: string | null
   forma_pagamento: PaymentMethod
   cartao_id: string | null
+  conta_id: string | null // Conta bancária vinculada
   parcela_atual: number | null
   parcela_total: number | null
   grupo_parcelas_id: string | null
@@ -225,6 +271,7 @@ export interface CreateLancamentoInput {
   observacao?: string | null
   forma_pagamento: PaymentMethod
   cartao_id?: string | null
+  conta_id?: string | null
   parcela_atual?: number | null
   parcela_total?: number | null
   grupo_parcelas_id?: string | null
