@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select, CurrencyInput } from './ui'
-import { useCategoriasStore, useCartoesStore, useTransacoesStore } from '../store'
+import { useCategoriasStore, useCartoesStore, useContasBancariasStore, useTransacoesStore } from '../store'
 import type { CreateLancamentoInput, Lancamento } from '../types'
 import { format } from 'date-fns'
 
@@ -15,6 +15,8 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
   const categorias = useCategoriasStore((state) => state.categorias)
   // Select raw cartoes array and derive active cards with memo to keep identity stable
   const cartoes = useCartoesStore((state) => state.cartoes)
+  const contas = useContasBancariasStore((state) => state.contas)
+  const fetchContas = useContasBancariasStore((state) => state.fetchContas)
   const createLancamento = useTransacoesStore((state) => state.createLancamento)
   const createLancamentoParcelado = useTransacoesStore(
     (state) => state.createLancamentoParcelado
@@ -27,6 +29,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
     forma_pagamento: 'dinheiro',
     valor: 0,
     status: 'pago',
+    conta_id: undefined,
   })
   const [parcelas, setParcelas] = useState<number>(1)
   const [isLoading, setIsLoading] = useState(false)
@@ -62,6 +65,20 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
     }))
   }, [cartoes])
 
+  const contaOptions = useMemo(() => {
+    return contas.filter(c => c.ativo).map((conta) => ({
+      value: conta.id,
+      label: `${conta.icone || ''} ${conta.nome}`.trim(),
+    }))
+  }, [contas])
+
+  // Buscar contas ao abrir o modal
+  useEffect(() => {
+    if (isOpen) {
+      fetchContas()
+    }
+  }, [isOpen, fetchContas])
+
   // Effect to populate form when editing
   useEffect(() => {
     if (editingLancamento && isOpen) {
@@ -73,6 +90,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         data: editingLancamento.data,
         forma_pagamento: editingLancamento.forma_pagamento,
         cartao_id: editingLancamento.cartao_id || undefined,
+        conta_id: editingLancamento.conta_id || undefined,
         observacao: editingLancamento.observacao || undefined,
         status: editingLancamento.status || 'pago',
       })
@@ -85,6 +103,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         forma_pagamento: 'dinheiro',
         valor: 0,
         status: 'pago',
+        conta_id: undefined,
       })
       setParcelas(1)
     }
@@ -118,6 +137,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
           data: formData.data!,
           forma_pagamento: formData.forma_pagamento as any,
           cartao_id: formData.cartao_id,
+          conta_id: formData.conta_id,
           observacao: formData.observacao,
           status: formData.status,
         })
@@ -132,6 +152,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
           data: formData.data!,
           forma_pagamento: formData.forma_pagamento as any,
           cartao_id: formData.cartao_id,
+          conta_id: formData.conta_id,
           observacao: formData.observacao,
           status: formData.status || 'pago',
         }
@@ -155,6 +176,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         forma_pagamento: 'dinheiro',
         valor: 0,
         status: 'pago',
+        conta_id: undefined,
       })
       setParcelas(1)
       onClose()
@@ -174,6 +196,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         forma_pagamento: 'dinheiro',
         valor: 0,
         status: 'pago',
+        conta_id: undefined,
       })
       setParcelas(1)
       onClose()
@@ -314,6 +337,23 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
           ]}
           required
         />
+
+        {/* Conta Bancária (exceto para crédito não pago) */}
+        {formData.forma_pagamento !== 'credito' && (
+          <Select
+            label="Conta Bancária"
+            value={formData.conta_id || ''}
+            onChange={(e) =>
+              setFormData({ ...formData, conta_id: e.target.value || undefined })
+            }
+            options={contaOptions}
+            helperText={
+              contaOptions.length === 0
+                ? 'Nenhuma conta cadastrada. Cadastre uma conta na página "Contas".'
+                : 'Selecione a conta de onde sairá/entrará o dinheiro'
+            }
+          />
+        )}
 
         {/* Cartão (só se for crédito) */}
         {formData.forma_pagamento === 'credito' && (
