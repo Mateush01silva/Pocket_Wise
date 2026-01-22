@@ -361,7 +361,6 @@ export const contasBancariasService = {
     }
 
     const familyId = await getUserFamilyId()
-    // @ts-expect-error - Supabase types will be generated later
     const { data, error, count } = await (supabase as any)
       .from('contas_bancarias')
       .select('*', { count: 'exact' })
@@ -401,7 +400,6 @@ export const contasBancariasService = {
     }
 
     const familyId = await getUserFamilyId()
-    // @ts-expect-error - Supabase types will be generated later
     const { data, error } = await (supabase as any)
       .from('contas_bancarias')
       .insert({
@@ -437,7 +435,6 @@ export const contasBancariasService = {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
-    // @ts-expect-error - Supabase types will be generated later
     const { data, error } = await (supabase as any)
       .from('contas_bancarias')
       .update(updateData)
@@ -460,7 +457,6 @@ export const contasBancariasService = {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
-    // @ts-expect-error - Supabase types will be generated later
     // Soft delete - set ativo to false
     const { error } = await (supabase as any)
       .from('contas_bancarias')
