@@ -25,8 +25,8 @@ export function CreditCards() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [cartaoToEdit, setCartaoToEdit] = useState<Cartao | undefined>()
 
-  // Obter mês atual
-  const mesAtual = format(new Date(), 'yyyy-MM-dd')
+  // Obter mês atual no formato YYYY-MM
+  const mesAtual = format(new Date(), 'yyyy-MM')
 
   // Calcular estatísticas de cada cartão
   const cartoesComEstatisticas = useMemo(() => {
