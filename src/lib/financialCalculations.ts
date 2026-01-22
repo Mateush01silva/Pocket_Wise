@@ -95,6 +95,21 @@ export function calcularFaturasCartao(
 }
 
 /**
+ * Calcula total de TODAS as faturas atuais (não pagas) de todos os cartões
+ */
+export function calcularFaturasAtuaisCartao(lancamentos: Lancamento[]): number {
+  return lancamentos
+    .filter(
+      (l) =>
+        l.tipo === 'despesa' &&
+        l.cartao_id &&
+        l.forma_pagamento === 'credito' &&
+        l.status !== 'pago' // Considera pendente, projetado, etc
+    )
+    .reduce((sum, l) => sum + l.valor, 0)
+}
+
+/**
  * Filtra lançamentos por período
  */
 export function filtrarPorPeriodo(

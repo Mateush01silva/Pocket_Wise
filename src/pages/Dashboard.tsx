@@ -9,7 +9,7 @@ import { PatrimonioModal } from '../components/PatrimonioModal'
 import { HealthIndicator } from '../components/HealthIndicator'
 import { DetectorEstouro } from '../components/DetectorEstouro'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
-import { calcularSaldoReal, calcularSaldoProjetado, calcularFaturasCartao, filtrarPorPeriodo } from '../lib/financialCalculations'
+import { calcularSaldoReal, calcularSaldoProjetado, calcularFaturasCartao, calcularFaturasAtuaisCartao, filtrarPorPeriodo } from '../lib/financialCalculations'
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
@@ -141,8 +141,8 @@ export function Dashboard() {
     periodFilter.dataFim
   )
 
-  // Faturas de cartão do período
-  const faturasCartao = calcularFaturasCartao(lancamentos, periodFilter.dataInicio, periodFilter.dataFim)
+  // Faturas de cartão ATUAIS (todas as não pagas)
+  const faturasCartaoAtuais = calcularFaturasAtuaisCartao(lancamentos)
 
   // Patrimônio atualizado (base + transações pagas)
   const valorPatrimonioBase = patrimonioAtual?.valor_total || 0
@@ -328,20 +328,20 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Faturas */}
+        {/* Próximas Faturas */}
         <Card hover>
           <CardContent>
             <div className="flex items-center justify-between mb-2">
               <div className="flex-1">
-                <p className="text-sm text-gray-400 mb-1">Faturas de Cartão</p>
-                <p className="text-2xl font-bold text-gray-100">{formatCurrency(faturasCartao)}</p>
+                <p className="text-sm text-gray-400 mb-1">Próximas Faturas</p>
+                <p className="text-2xl font-bold text-gray-100">{formatCurrency(faturasCartaoAtuais)}</p>
               </div>
               <div className="w-12 h-12 rounded-lg bg-secondary-500/10 flex items-center justify-center shrink-0">
                 <CreditCard className="w-6 h-6 text-secondary-400" />
               </div>
             </div>
             <p className="text-xs text-gray-500">
-              {faturasCartao > 0 ? 'Do período' : 'Nenhuma fatura'}
+              {faturasCartaoAtuais > 0 ? 'Total não pago' : 'Nenhuma fatura'}
             </p>
           </CardContent>
         </Card>

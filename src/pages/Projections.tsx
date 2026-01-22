@@ -30,7 +30,7 @@ export function Projections() {
       const mesReferencia = startOfMonth(addMonths(hoje, i))
       const mesFormatado = format(mesReferencia, 'yyyy-MM')
 
-      // Calcular parcelas pendentes para este mês
+      // Calcular parcelas não pagas para este mês (inclui pendente e projetado)
       const parcelasMes = lancamentos.filter((l) => {
         if (
           !l.grupo_parcelas_id ||
@@ -41,7 +41,7 @@ export function Projections() {
           return false
         }
 
-        const dataLancamento = new Date(l.data)
+        const dataLancamento = new Date(l.data_vencimento_fatura || l.data)
         const mesLancamento = format(dataLancamento, 'yyyy-MM')
 
         return mesLancamento === mesFormatado
@@ -83,7 +83,7 @@ export function Projections() {
     return projecoesMensais
   }, [lancamentos, orcamentos])
 
-  // Listar todas as parcelas pendentes
+  // Listar todas as parcelas não pagas (inclui pendente e projetado)
   const parcelasPendentes = useMemo(() => {
     return lancamentos
       .filter(
@@ -91,10 +91,10 @@ export function Projections() {
           l.grupo_parcelas_id &&
           l.parcela_atual &&
           l.parcela_total &&
-          l.status === 'pendente' &&
+          l.status !== 'pago' && // Inclui pendente e projetado
           l.parcela_total > 1
       )
-      .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+      .sort((a, b) => new Date(a.data_vencimento_fatura || a.data).getTime() - new Date(b.data_vencimento_fatura || b.data).getTime())
   }, [lancamentos])
 
   // Agrupar parcelas por grupo
@@ -168,6 +168,7 @@ export function Projections() {
                 >
                   {formatCurrency(totais.proximoMes)}
                 </p>
+                <p className="text-xs text-gray-500 mt-1">Projeção do saldo</p>
               </div>
               <div
                 className={`w-12 h-12 rounded-full flex items-center justify-center ${
@@ -192,6 +193,7 @@ export function Projections() {
                 <p className="text-2xl font-bold text-primary-400">
                   {formatCurrency(totais.totalParcelas)}
                 </p>
+                <p className="text-xs text-gray-500 mt-1">Total não pago</p>
               </div>
               <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center">
                 <CreditCard className="text-primary-500" size={24} />
@@ -208,6 +210,7 @@ export function Projections() {
                 <p className="text-2xl font-bold text-yellow-400">
                   {formatCurrency(totais.compromissosProximos3Meses)}
                 </p>
+                <p className="text-xs text-gray-500 mt-1">Parcelas a vencer</p>
               </div>
               <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center">
                 <Calendar className="text-yellow-500" size={24} />
@@ -258,8 +261,8 @@ export function Projections() {
                   name="Receitas Projetadas"
                 />
                 <Bar dataKey="despesasOrcadas" fill="#ef4444" name="Despesas Orçadas" />
-                <Bar dataKey="parcelas" fill="#f59e0b" name="Parcelas" />
-                <Bar dataKey="saldoProjetado" fill="#3b82f6" name="Saldo Projetado" />
+                <Bar dataKey="parcelas" fill="#f59e0b" name="Parcelas Pendentes" />
+                <Bar dataKey="saldoProjetado" fill="#8b5cf6" name="Saldo Projetado" />
               </BarChart>
             </ResponsiveContainer>
           ) : (
