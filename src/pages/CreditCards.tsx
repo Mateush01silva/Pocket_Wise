@@ -21,18 +21,24 @@ export function CreditCards() {
   const deleteCartao = useCartoesStore((state) => state.deleteCartao)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const getFaturasCartao = useTransacoesStore((state) => state.getFaturasCartao)
+  const marcarFaturaComoPaga = useTransacoesStore((state) => state.marcarFaturaComoPaga)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [cartaoToEdit, setCartaoToEdit] = useState<Cartao | undefined>()
 
-  // Obter mês atual
-  const mesAtual = format(new Date(), 'yyyy-MM-dd')
+  // Obter mês atual no formato YYYY-MM
+  const mesAtual = format(new Date(), 'yyyy-MM')
+  const diaAtual = new Date().getDate()
 
   // Calcular estatísticas de cada cartão
   const cartoesComEstatisticas = useMemo(() => {
     return cartoes.map((cartao) => {
       const faturas = getFaturasCartao(cartao.id, mesAtual)
-      const totalFatura = faturas.reduce((sum, f) => sum + f.valor, 0)
+
+      // Considerar apenas lançamentos não pagos para o cálculo do limite
+      const faturasNaoPagas = faturas.filter((l) => l.status !== 'pago')
+      const totalFatura = faturasNaoPagas.reduce((sum, f) => sum + f.valor, 0)
+
       const parcelasPendentes = lancamentos.filter(
         (l) =>
           l.cartao_id === cartao.id &&
@@ -46,15 +52,21 @@ export function CreditCards() {
       const limiteDisponivel = limite - totalFatura
       const percentualUsado = limite > 0 ? (totalFatura / limite) * 100 : 0
 
+      // Verificar se a fatura está fechada (dia atual > dia de fechamento)
+      const faturaFechada = diaAtual > cartao.dia_fechamento
+      const temFaturaParaPagar = faturasNaoPagas.length > 0 && faturaFechada
+
       return {
         ...cartao,
         totalFatura,
         limiteDisponivel,
         percentualUsado,
         quantidadeParcelas: parcelasPendentes.length,
+        faturaFechada,
+        temFaturaParaPagar,
       }
     })
-  }, [cartoes, lancamentos, mesAtual, getFaturasCartao])
+  }, [cartoes, lancamentos, mesAtual, diaAtual, getFaturasCartao])
 
   const cartoesAtivos = useMemo(
     () => cartoesComEstatisticas.filter((c) => c.ativo),
@@ -80,6 +92,20 @@ export function CreditCards() {
       } catch (error) {
         console.error('Erro ao deletar cartão:', error)
         alert('Erro ao deletar cartão. Verifique se não há lançamentos associados.')
+      }
+    }
+  }
+
+  const handlePagarFatura = async (cartao: typeof cartoesComEstatisticas[0]) => {
+    const confirmMessage = `Confirmar pagamento da fatura do cartão "${cartao.nome}"?\n\nValor: ${formatCurrency(cartao.totalFatura)}\n\nTodos os lançamentos desta fatura serão marcados como pagos e o limite será liberado.`
+
+    if (window.confirm(confirmMessage)) {
+      try {
+        await marcarFaturaComoPaga(cartao.id, mesAtual)
+        alert('Fatura paga com sucesso! Limite liberado.')
+      } catch (error) {
+        console.error('Erro ao pagar fatura:', error)
+        alert('Erro ao pagar fatura. Tente novamente.')
       }
     }
   }
@@ -191,6 +217,18 @@ export function CreditCards() {
               <span>Vence dia {cartao.dia_vencimento}</span>
             </div>
           </div>
+
+          {/* Botão Pagar Fatura */}
+          {cartao.temFaturaParaPagar && (
+            <Button
+              onClick={() => handlePagarFatura(cartao)}
+              className="w-full bg-green-600 hover:bg-green-700 text-white"
+              size="sm"
+            >
+              <DollarSign size={14} className="mr-2" />
+              Pagar Fatura ({formatCurrency(cartao.totalFatura)})
+            </Button>
+          )}
 
           {/* Parcelas pendentes */}
           {cartao.quantidadeParcelas > 0 && (
