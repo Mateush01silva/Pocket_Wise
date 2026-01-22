@@ -4,6 +4,7 @@ import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { SubscriptionCard } from '../components/SubscriptionCard'
 import { SubscriptionModal } from '../components/SubscriptionModal'
+import { CancelSubscriptionModal } from '../components/CancelSubscriptionModal'
 import { SubscriptionStats } from '../components/SubscriptionStats'
 import { useAssinaturasStore } from '../store/useAssinaturasStore'
 import { format } from 'date-fns'
@@ -11,8 +12,10 @@ import type { Assinatura, AssinaturaComDetalhes } from '../types'
 
 export function Subscriptions() {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
   const [editingAssinatura, setEditingAssinatura] = useState<Assinatura | undefined>()
-  const [showInactive, setShowInactive] = useState(false)
+  const [cancelingAssinatura, setCancelingAssinatura] = useState<AssinaturaComDetalhes | null>(null)
+  const [showInactive, setShowInactive] = useState(true) // Mostrar inativas por padrão
   const [sortBy, setSortBy] = useState<'nome' | 'valor' | 'proxima_cobranca'>('nome')
 
   const initialize = useAssinaturasStore((state) => state.initialize)
@@ -56,40 +59,15 @@ export function Subscriptions() {
     setIsModalOpen(true)
   }
 
-  const handleCancel = async (assinatura: AssinaturaComDetalhes) => {
-    // Perguntar ao usuário qual a data da última cobrança
-    const dataUltimaCobranca = window.prompt(
-      `Cancelar assinatura "${assinatura.nome}"\n\n` +
-      `Qual será a data da ÚLTIMA cobrança?\n` +
-      `(Manteremos os lançamentos até esta data, e apagaremos apenas os lançamentos futuros)\n\n` +
-      `Digite a data no formato: AAAA-MM-DD\n` +
-      `Exemplo: ${format(new Date(), 'yyyy-MM-dd')}`,
-      format(new Date(), 'yyyy-MM-dd')
-    )
+  const handleCancel = (assinatura: AssinaturaComDetalhes) => {
+    setCancelingAssinatura(assinatura)
+    setIsCancelModalOpen(true)
+  }
 
-    if (!dataUltimaCobranca) {
-      return // Usuário cancelou
-    }
-
-    // Validar formato da data
-    const regexData = /^\d{4}-\d{2}-\d{2}$/
-    if (!regexData.test(dataUltimaCobranca)) {
-      alert('Data inválida! Use o formato AAAA-MM-DD (exemplo: 2026-01-20)')
-      return
-    }
-
-    // Confirmar cancelamento
-    const confirmacao = window.confirm(
-      `Confirmar cancelamento de "${assinatura.nome}"?\n\n` +
-      `✓ Última cobrança: ${format(new Date(dataUltimaCobranca), 'dd/MM/yyyy')}\n` +
-      `✓ A assinatura será marcada como INATIVA\n` +
-      `✓ Lançamentos até ${format(new Date(dataUltimaCobranca), 'dd/MM/yyyy')} serão MANTIDOS\n` +
-      `✓ Lançamentos após esta data serão REMOVIDOS`
-    )
-
-    if (confirmacao) {
-      await cancelarAssinatura(assinatura.id, dataUltimaCobranca)
-    }
+  const handleConfirmCancel = async (dataUltimaCobranca: string) => {
+    if (!cancelingAssinatura) return
+    await cancelarAssinatura(cancelingAssinatura.id, dataUltimaCobranca)
+    setCancelingAssinatura(null)
   }
 
   const handleDelete = async (assinatura: AssinaturaComDetalhes) => {
@@ -209,11 +187,21 @@ export function Subscriptions() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modals */}
       <SubscriptionModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         editingAssinatura={editingAssinatura}
+      />
+
+      <CancelSubscriptionModal
+        isOpen={isCancelModalOpen}
+        onClose={() => {
+          setIsCancelModalOpen(false)
+          setCancelingAssinatura(null)
+        }}
+        assinatura={cancelingAssinatura}
+        onConfirm={handleConfirmCancel}
       />
     </div>
   )
