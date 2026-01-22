@@ -1,6 +1,8 @@
 export { useCategoriasStore } from './useCategoriasStore'
 export { useTransacoesStore } from './useTransacoesStore'
 export { useCartoesStore } from './useCartoesStore'
+export { useContasBancariasStore } from './useContasBancariasStore'
 export { useOrcamentosStore } from './useOrcamentosStore'
 export { usePatrimonioStore } from './usePatrimonioStore'
 export { useAssinaturasStore } from './useAssinaturasStore'
+export { useFamilyStore } from './useFamilyStore'
