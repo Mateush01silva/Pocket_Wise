@@ -17,6 +17,7 @@ import {
   Transactions,
   Categories,
   CreditCards,
+  BankAccounts,
   Budgets,
   Envelopes,
   Projections,
@@ -169,6 +170,7 @@ function AppRoutes() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/credit-cards" element={<CreditCards />} />
+              <Route path="/bank-accounts" element={<BankAccounts />} />
               <Route path="/categories" element={<Categories />} />
               <Route path="/budgets" element={<Budgets />} />
               <Route path="/envelopes" element={<Envelopes />} />
@@ -235,6 +237,16 @@ function AppRoutes() {
               <PrivateRoute>
                 <Layout>
                   <CreditCards />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/contas"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <BankAccounts />
                 </Layout>
               </PrivateRoute>
             }
@@ -313,6 +325,7 @@ function AppRoutes() {
           {/* Redirect old routes */}
           <Route path="/transactions" element={<Navigate to="/app/transacoes" replace />} />
           <Route path="/credit-cards" element={<Navigate to="/app/cartoes" replace />} />
+          <Route path="/bank-accounts" element={<Navigate to="/app/contas" replace />} />
           <Route path="/categories" element={<Navigate to="/app/categorias" replace />} />
           <Route path="/budgets" element={<Navigate to="/app/orcamento" replace />} />
           <Route path="/envelopes" element={<Navigate to="/app/envelopes" replace />} />
