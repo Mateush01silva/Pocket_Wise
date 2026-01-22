@@ -33,11 +33,21 @@ export function CreditCards() {
   // Calcular estatísticas de cada cartão
   const cartoesComEstatisticas = useMemo(() => {
     return cartoes.map((cartao) => {
-      const faturas = getFaturasCartao(cartao.id, mesAtual)
+      // Buscar TODAS as compras não pagas do cartão (independente do mês de vencimento)
+      // O que importa é: se não foi pago, está usando o limite!
+      const comprasNaoPagas = lancamentos.filter(
+        (l) =>
+          l.cartao_id === cartao.id &&
+          l.forma_pagamento === 'credito' &&
+          l.status !== 'pago' // Considera pendente, projetado, etc
+      )
 
-      // Considerar apenas lançamentos não pagos para o cálculo do limite
-      const faturasNaoPagas = faturas.filter((l) => l.status !== 'pago')
-      const totalFatura = faturasNaoPagas.reduce((sum, f) => sum + f.valor, 0)
+      const totalUsandoLimite = comprasNaoPagas.reduce((sum, f) => sum + f.valor, 0)
+
+      // Buscar faturas do mês atual para o botão "Pagar Fatura"
+      const faturasMesAtual = getFaturasCartao(cartao.id, mesAtual)
+      const faturasNaoPagasMesAtual = faturasMesAtual.filter((l) => l.status !== 'pago')
+      const totalFaturaMesAtual = faturasNaoPagasMesAtual.reduce((sum, f) => sum + f.valor, 0)
 
       const parcelasPendentes = lancamentos.filter(
         (l) =>
@@ -49,16 +59,16 @@ export function CreditCards() {
       )
 
       const limite = cartao.limite ?? 0
-      const limiteDisponivel = limite - totalFatura
-      const percentualUsado = limite > 0 ? (totalFatura / limite) * 100 : 0
+      const limiteDisponivel = limite - totalUsandoLimite
+      const percentualUsado = limite > 0 ? (totalUsandoLimite / limite) * 100 : 0
 
-      // Verificar se a fatura está fechada (dia atual > dia de fechamento)
+      // Verificar se a fatura do mês atual está fechada (dia atual > dia de fechamento)
       const faturaFechada = diaAtual > cartao.dia_fechamento
-      const temFaturaParaPagar = faturasNaoPagas.length > 0 && faturaFechada
+      const temFaturaParaPagar = totalFaturaMesAtual > 0 && faturaFechada
 
       return {
         ...cartao,
-        totalFatura,
+        totalFatura: totalFaturaMesAtual, // Fatura do mês para exibir e pagar
         limiteDisponivel,
         percentualUsado,
         quantidadeParcelas: parcelasPendentes.length,
