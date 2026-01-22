@@ -1,4 +1,4 @@
-import { Calendar, Edit2, Trash2, X, TrendingUp } from 'lucide-react'
+import { Calendar, Edit2, Trash2, Ban, TrendingUp } from 'lucide-react'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
 import { formatCurrency } from '../utils/currency'
@@ -63,11 +63,11 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
               </div>
             )}
 
-            {assinatura.ultima_cobranca && (
+            {!assinatura.ativa && assinatura.ultima_cobranca && (
               <div className="flex items-center gap-2 text-sm text-gray-400">
-                <X className="w-4 h-4" />
+                <Ban className="w-4 h-4" />
                 <span>
-                  Cancelada em: {format(parseISO(assinatura.ultima_cobranca), 'dd/MM/yyyy', { locale: ptBR })}
+                  Última cobrança: {format(parseISO(assinatura.ultima_cobranca), 'dd/MM/yyyy', { locale: ptBR })}
                 </span>
               </div>
             )}
@@ -95,35 +95,40 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
           </div>
 
           {/* Ações */}
-          <div className="flex gap-2 justify-end">
+          <div className="flex flex-col gap-2">
             {assinatura.ativa && (
               <>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onEdit(assinatura)}
-                  className="h-8 w-8 p-0"
+                  className="text-xs"
                 >
-                  <Edit2 className="w-4 h-4" />
+                  <Edit2 className="w-3 h-3 mr-1.5" />
+                  Editar
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onCancel(assinatura)}
-                  className="h-8 w-8 p-0 text-yellow-500 hover:text-yellow-400"
+                  className="text-xs text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10"
                 >
-                  <X className="w-4 h-4" />
+                  <Ban className="w-3 h-3 mr-1.5" />
+                  Cancelar
                 </Button>
               </>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onDelete(assinatura)}
-              className="h-8 w-8 p-0 text-red-500 hover:text-red-400"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            {!assinatura.ativa && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onDelete(assinatura)}
+                className="text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10"
+              >
+                <Trash2 className="w-3 h-3 mr-1.5" />
+                Excluir
+              </Button>
+            )}
           </div>
         </div>
       </div>

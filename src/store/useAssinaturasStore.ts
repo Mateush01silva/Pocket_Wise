@@ -316,27 +316,44 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
       },
 
       getSummary: () => {
-        const assinaturas = get().assinaturas.filter((a) => a.ativa)
+        const assinaturas = get().assinaturas
+        const assinaturasAtivas = assinaturas.filter((a) => a.ativa)
         const categorias = useCategoriasStore.getState().categorias
+        const lancamentos = useTransacoesStore.getState().lancamentos
 
-        // Total mensal (soma de todas as assinaturas mensais + anuais / 12)
-        const totalMensal = assinaturas.reduce((sum, a) => {
+        // Total mensal (apenas assinaturas ativas)
+        const totalMensal = assinaturasAtivas.reduce((sum, a) => {
           if (a.frequencia === 'mensal') return sum + a.valor
           return sum + a.valor / 12
         }, 0)
 
-        // Total anual
-        const totalAnual = totalMensal * 12
+        // Total anual = assinaturas ativas projetadas (12 meses) + assinaturas canceladas (o que já foi pago)
+        const totalAnualAtivas = totalMensal * 12
 
-        // Assinatura mais cara
-        const assinaturaMaisCara = assinaturas.reduce((max, a) => {
+        // Calcular o que foi pago nas assinaturas canceladas nos últimos 12 meses
+        const umAnoAtras = addMonths(new Date(), -12)
+        const assinaturasInativas = assinaturas.filter((a) => !a.ativa)
+        const totalPagoInativas = assinaturasInativas.reduce((sum, assinatura) => {
+          const lancamentosAssinatura = lancamentos.filter(
+            (l) =>
+              l.assinatura_id === assinatura.id &&
+              isAfter(parseISO(l.data), umAnoAtras)
+          )
+          const totalPagoAno = lancamentosAssinatura.reduce((s, l) => s + l.valor, 0)
+          return sum + totalPagoAno
+        }, 0)
+
+        const totalAnual = totalAnualAtivas + totalPagoInativas
+
+        // Assinatura mais cara (apenas ativas)
+        const assinaturaMaisCara = assinaturasAtivas.reduce((max, a) => {
           const valorMensal = a.frequencia === 'mensal' ? a.valor : a.valor / 12
           const maxValorMensal = max ? (max.frequencia === 'mensal' ? max.valor : max.valor / 12) : 0
           return valorMensal > maxValorMensal ? a : max
         }, null as Assinatura | null)
 
-        // Categoria com mais gastos
-        const gastosPorCategoria = assinaturas.reduce((acc, a) => {
+        // Categoria com mais gastos (apenas ativas)
+        const gastosPorCategoria = assinaturasAtivas.reduce((acc, a) => {
           const valorMensal = a.frequencia === 'mensal' ? a.valor : a.valor / 12
           if (!acc[a.categoria_id]) {
             acc[a.categoria_id] = { total: 0, quantidade: 0 }
@@ -354,7 +371,7 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
           : null
 
         return {
-          total_assinaturas_ativas: assinaturas.length,
+          total_assinaturas_ativas: assinaturasAtivas.length,
           total_mensal: totalMensal,
           total_anual: totalAnual,
           assinatura_mais_cara: assinaturaMaisCara,
