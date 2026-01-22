@@ -68,7 +68,8 @@ export function CreditCards() {
 
       return {
         ...cartao,
-        totalFatura: totalFaturaMesAtual, // Fatura do mês para exibir e pagar
+        totalFatura: totalUsandoLimite, // Total usando o limite (TODAS as compras não pagas)
+        totalFaturaMesAtual, // Fatura do mês para pagar
         limiteDisponivel,
         percentualUsado,
         quantidadeParcelas: parcelasPendentes.length,
@@ -107,7 +108,7 @@ export function CreditCards() {
   }
 
   const handlePagarFatura = async (cartao: typeof cartoesComEstatisticas[0]) => {
-    const confirmMessage = `Confirmar pagamento da fatura do cartão "${cartao.nome}"?\n\nValor: ${formatCurrency(cartao.totalFatura)}\n\nTodos os lançamentos desta fatura serão marcados como pagos e o limite será liberado.`
+    const confirmMessage = `Confirmar pagamento da fatura do cartão "${cartao.nome}"?\n\nValor: ${formatCurrency(cartao.totalFaturaMesAtual)}\n\nTodos os lançamentos desta fatura serão marcados como pagos e o limite será liberado.`
 
     if (window.confirm(confirmMessage)) {
       try {
@@ -236,7 +237,7 @@ export function CreditCards() {
               size="sm"
             >
               <DollarSign size={14} className="mr-2" />
-              Pagar Fatura ({formatCurrency(cartao.totalFatura)})
+              Pagar Fatura ({formatCurrency(cartao.totalFaturaMesAtual)})
             </Button>
           )}
 
