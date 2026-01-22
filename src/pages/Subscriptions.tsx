@@ -7,7 +7,6 @@ import { SubscriptionModal } from '../components/SubscriptionModal'
 import { CancelSubscriptionModal } from '../components/CancelSubscriptionModal'
 import { SubscriptionStats } from '../components/SubscriptionStats'
 import { useAssinaturasStore } from '../store/useAssinaturasStore'
-import { format } from 'date-fns'
 import type { Assinatura, AssinaturaComDetalhes } from '../types'
 
 export function Subscriptions() {
