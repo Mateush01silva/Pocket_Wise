@@ -62,10 +62,8 @@ export const useContasBancariasStore = create<ContasBancariasStore>()(
         set({ isLoading: true, error: null })
 
         try {
-          const { data, error } = await db.contas.create({
-            ...contaData,
-            saldo_atual: contaData.saldo_inicial, // Saldo atual começa igual ao inicial
-          })
+          // saldo_atual é definido automaticamente no database service
+          const { data, error } = await db.contas.create(contaData)
 
           if (error) throw error
           if (!data) return null

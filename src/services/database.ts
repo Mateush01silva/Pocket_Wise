@@ -135,6 +135,7 @@ export const lancamentosService = {
         subcategoria_id: input.subcategoria_id || null,
         observacao: input.observacao || null,
         cartao_id: input.cartao_id || null,
+        conta_id: input.conta_id || null,
         parcela_atual: input.parcela_atual || null,
         parcela_total: input.parcela_total || null,
         grupo_parcelas_id: input.grupo_parcelas_id || null,
@@ -360,6 +361,7 @@ export const contasBancariasService = {
     }
 
     const familyId = await getUserFamilyId()
+    // @ts-ignore - Supabase types will be generated later
     const { data, error, count } = await supabase
       .from('contas_bancarias')
       .select('*', { count: 'exact' })
@@ -399,6 +401,7 @@ export const contasBancariasService = {
     }
 
     const familyId = await getUserFamilyId()
+    // @ts-ignore - Supabase types will be generated later
     const { data, error } = await supabase
       .from('contas_bancarias')
       .insert({
@@ -434,6 +437,7 @@ export const contasBancariasService = {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
+    // @ts-ignore - Supabase types will be generated later
     const { data, error } = await supabase
       .from('contas_bancarias')
       .update(updateData as any)
@@ -456,6 +460,7 @@ export const contasBancariasService = {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
+    // @ts-ignore - Supabase types will be generated later
     // Soft delete - set ativo to false
     const { error } = await supabase
       .from('contas_bancarias')

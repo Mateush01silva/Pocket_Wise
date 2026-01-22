@@ -271,6 +271,7 @@ export interface CreateLancamentoInput {
   observacao?: string | null
   forma_pagamento: PaymentMethod
   cartao_id?: string | null
+  conta_id?: string | null
   parcela_atual?: number | null
   parcela_total?: number | null
   grupo_parcelas_id?: string | null
