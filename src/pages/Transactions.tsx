@@ -1,7 +1,7 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
-import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2 } from 'lucide-react'
+import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
 import { TransactionModal } from '../components/TransactionModal'
@@ -113,6 +113,21 @@ export function Transactions() {
 
     return true
   }).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+
+  // Calculate totals for filtered transactions
+  const totals = useMemo(() => {
+    const totalReceitas = filteredLancamentos
+      .filter(l => l.tipo === 'receita')
+      .reduce((sum, l) => sum + l.valor, 0)
+
+    const totalDespesas = filteredLancamentos
+      .filter(l => l.tipo === 'despesa')
+      .reduce((sum, l) => sum + l.valor, 0)
+
+    const saldo = totalReceitas - totalDespesas
+
+    return { totalReceitas, totalDespesas, saldo }
+  }, [filteredLancamentos])
 
   // Pagination
   const totalPages = Math.ceil(filteredLancamentos.length / itemsPerPage)
@@ -278,6 +293,63 @@ export function Transactions() {
           </div>
         </div>
       </Card>
+
+      {/* Transaction Summary */}
+      {filteredLancamentos.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Total Receitas</p>
+                  <p className="text-2xl font-bold text-green-400">
+                    {formatCurrency(totals.totalReceitas)}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
+                  <TrendingUp className="text-green-500" size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Total Despesas</p>
+                  <p className="text-2xl font-bold text-red-400">
+                    {formatCurrency(totals.totalDespesas)}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
+                  <TrendingDown className="text-red-500" size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Saldo</p>
+                  <p className={`text-2xl font-bold ${
+                    totals.saldo >= 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {formatCurrency(totals.saldo)}
+                  </p>
+                </div>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                  totals.saldo >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
+                }`}>
+                  <DollarSign className={totals.saldo >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Bulk Actions */}
       {selectedIds.length > 0 && (
