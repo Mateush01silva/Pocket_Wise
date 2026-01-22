@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Modal } from './ui/Modal'
 import { Button, Input, CurrencyInput } from './ui'
-import { useContasBancariasStore } from '../store/useContasBancariasStore'
-import { useFamilyStore } from '../store'
+import { useContasBancariasStore, useFamilyStore } from '../store'
 import type { CreateContaBancariaInput, ContaBancaria, TipoConta } from '../types'
 import { Landmark, Wallet, Smartphone, DollarSign, TrendingUp, HelpCircle } from 'lucide-react'
 
@@ -46,7 +45,7 @@ const ICONES_DISPONIVEIS = ['💳', '🏦', '💰', '💵', '💸', '🪙', '�
 export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalProps) {
   const createConta = useContasBancariasStore((state) => state.createConta)
   const updateConta = useContasBancariasStore((state) => state.updateConta)
-  const familyId = useFamilyStore((state) => state.family?.id)
+  const familyId = useFamilyStore((state: any) => state.family?.id)
 
   const [formData, setFormData] = useState<Partial<CreateContaBancariaInput>>({
     nome: '',
