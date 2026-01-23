@@ -9,6 +9,7 @@ import { PatrimonioModal } from '../components/PatrimonioModal'
 import { HealthIndicator } from '../components/HealthIndicator'
 import { DetectorEstouro } from '../components/DetectorEstouro'
 import { BankAccountsWidget } from '../components/BankAccountsWidget'
+import { UpcomingBillsWidget } from '../components/UpcomingBillsWidget'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
 import { calcularSaldoReal, calcularSaldoProjetado, calcularFaturasAtuaisCartao, filtrarPorPeriodo } from '../lib/financialCalculations'
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
@@ -616,6 +617,9 @@ export function Dashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Upcoming Bills Widget */}
+      <UpcomingBillsWidget />
 
       {/* Charts Section */}
       {lancamentos.length > 0 && (
