@@ -68,7 +68,7 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
       setFormData({
         nome: conta.nome,
         tipo: conta.tipo,
-        saldo_inicial: conta.saldo_inicial,
+        saldo_inicial: conta.saldo_atual, // Carregar saldo atual para edição
         cor: conta.cor || CORES_DISPONIVEIS[10],
         icone: conta.icone || '💳',
         ativo: conta.ativo,
@@ -126,6 +126,7 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
         await updateConta(conta.id, {
           nome: formData.nome,
           tipo: formData.tipo,
+          saldo_atual: formData.saldo_inicial, // Permite ajustar saldo atual
           cor: formData.cor,
           icone: formData.icone,
           ativo: formData.ativo ?? true,
@@ -210,22 +211,22 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
           </div>
         </div>
 
-        {/* Saldo Inicial (apenas na criação) */}
-        {!isEditMode && (
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Saldo Inicial
-            </label>
-            <CurrencyInput
-              value={formData.saldo_inicial || 0}
-              onChange={(value) => setFormData({ ...formData, saldo_inicial: value })}
-              placeholder="0,00"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Informe o saldo atual desta conta
-            </p>
-          </div>
-        )}
+        {/* Saldo Inicial (criação) ou Saldo Atual (edição) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            {isEditMode ? 'Saldo Atual' : 'Saldo Inicial'}
+          </label>
+          <CurrencyInput
+            value={formData.saldo_inicial || 0}
+            onChange={(value) => setFormData({ ...formData, saldo_inicial: value })}
+            placeholder="0,00"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            {isEditMode
+              ? 'Ajuste manual do saldo desta conta (use com cuidado!)'
+              : 'Informe o saldo atual desta conta'}
+          </p>
+        </div>
 
         {/* Instituição Financeira */}
         <div>

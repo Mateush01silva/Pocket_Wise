@@ -457,10 +457,10 @@ export const contasBancariasService = {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
-    // Soft delete - set ativo to false
+    // Hard delete - remove completamente do banco
     const { error } = await (supabase as any)
       .from('contas_bancarias')
-      .update({ ativo: false })
+      .delete()
       .eq('id', id)
 
     return { data: undefined as void, error }

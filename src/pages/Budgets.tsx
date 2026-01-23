@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { Plus, Copy, Calendar, Edit2 } from 'lucide-react'
+import { Plus, Copy, Calendar, Edit2, Trash2 } from 'lucide-react'
 import { format, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
@@ -59,6 +59,7 @@ export function Budgets() {
   const setOrcamentoAtual = useOrcamentosStore((state) => state.setOrcamentoAtual)
   const copiarOrcamentoMesAnterior = useOrcamentosStore((state) => state.copiarOrcamentoMesAnterior)
   const createOrcamento = useOrcamentosStore((state) => state.createOrcamento)
+  const deleteOrcamento = useOrcamentosStore((state) => state.deleteOrcamento)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
 
@@ -158,6 +159,31 @@ export function Budgets() {
 
   const handleCloseModal = () => {
     setSelectedEnvelope(null)
+  }
+
+  const handleDeleteOrcamento = async () => {
+    if (!orcamentoAtual) return
+
+    const mesFormatado = format(new Date(mesAtual), 'MMMM yyyy', { locale: ptBR })
+    const confirmacao = confirm(
+      `Tem certeza que deseja excluir o orçamento de ${mesFormatado}?\n\n` +
+      'Esta ação é IRREVERSÍVEL e irá apagar:\n' +
+      '• Todas as categorias orçadas\n' +
+      '• Todas as metas e alertas\n' +
+      '• Todos os envelopes digitais\n\n' +
+      'As transações não serão afetadas.'
+    )
+
+    if (!confirmacao) return
+
+    try {
+      await deleteOrcamento(orcamentoAtual.id)
+      setOrcamentoAtual(null)
+      alert(`Orçamento de ${mesFormatado} excluído com sucesso!`)
+    } catch (error) {
+      console.error('Erro ao deletar orçamento:', error)
+      alert('Erro ao excluir orçamento. Tente novamente.')
+    }
   }
 
   // Filtrar transações do envelope selecionado
@@ -276,6 +302,15 @@ export function Budgets() {
           >
             <Edit2 size={16} className="mr-2" />
             Editar Orçamento
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDeleteOrcamento}
+            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+          >
+            <Trash2 size={16} className="mr-2" />
+            Excluir Orçamento
           </Button>
         </div>
       </div>
