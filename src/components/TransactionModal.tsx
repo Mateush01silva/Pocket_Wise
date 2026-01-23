@@ -21,6 +21,9 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
   const createLancamentoParcelado = useTransacoesStore(
     (state) => state.createLancamentoParcelado
   )
+  const createLancamentoRecorrente = useTransacoesStore(
+    (state) => state.createLancamentoRecorrente
+  )
   const updateLancamento = useTransacoesStore((state) => state.updateLancamento)
 
   const [formData, setFormData] = useState<Partial<CreateLancamentoInput>>({
@@ -32,6 +35,9 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
     conta_id: undefined,
   })
   const [parcelas, setParcelas] = useState<number>(1)
+  const [isRecorrente, setIsRecorrente] = useState<boolean>(false)
+  const [mesesRecorrencia, setMesesRecorrencia] = useState<number>(3)
+  const [isFaturaConsolidada, setIsFaturaConsolidada] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState(false)
 
   // Filtrar categorias principais por tipo
@@ -106,6 +112,9 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         conta_id: undefined,
       })
       setParcelas(1)
+      setIsRecorrente(false)
+      setMesesRecorrencia(3)
+      setIsFaturaConsolidada(false)
     }
   }, [editingLancamento, isOpen])
 
@@ -155,6 +164,14 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         })
       } else {
         // Criando novo
+        let observacaoFinal = formData.observacao || ''
+
+        // Se é fatura consolidada, adicionar no nome
+        if (isFaturaConsolidada && formData.forma_pagamento === 'credito' && formData.cartao_id) {
+          const cartao = cartoes.find(c => c.id === formData.cartao_id)
+          observacaoFinal = `Fatura Consolidada${cartao ? ` - ${cartao.nome}` : ''}${formData.observacao ? ` - ${formData.observacao}` : ''}`
+        }
+
         const lancamentoData: CreateLancamentoInput = {
           family_id: 'local-storage-family',
           tipo: formData.tipo as 'receita' | 'despesa',
@@ -165,18 +182,25 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
           forma_pagamento: formData.forma_pagamento as any,
           cartao_id: formData.cartao_id,
           conta_id: formData.conta_id,
-          observacao: formData.observacao,
+          observacao: observacaoFinal,
           status: formData.status || 'pago',
         }
 
-        // Se é cartão de crédito com parcelamento
-        if (
+        // Se é transação recorrente
+        if (isRecorrente && mesesRecorrencia > 1) {
+          await createLancamentoRecorrente(lancamentoData, mesesRecorrencia)
+        }
+        // Se é cartão de crédito com parcelamento (e não é recorrente)
+        else if (
           formData.forma_pagamento === 'credito' &&
           formData.cartao_id &&
-          parcelas > 1
+          parcelas > 1 &&
+          !isFaturaConsolidada
         ) {
           await createLancamentoParcelado(lancamentoData, parcelas)
-        } else {
+        }
+        // Lançamento simples (ou fatura consolidada)
+        else {
           await createLancamento(lancamentoData)
         }
       }
@@ -191,6 +215,9 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         conta_id: undefined,
       })
       setParcelas(1)
+      setIsRecorrente(false)
+      setMesesRecorrencia(3)
+      setIsFaturaConsolidada(false)
       onClose()
     } catch (error) {
       console.error('Erro ao criar transação:', error)
@@ -211,6 +238,9 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         conta_id: undefined,
       })
       setParcelas(1)
+      setIsRecorrente(false)
+      setMesesRecorrencia(3)
+      setIsFaturaConsolidada(false)
       onClose()
     }
   }
@@ -399,7 +429,34 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
               required
             />
 
+            {/* Checkbox Fatura Consolidada */}
             {formData.cartao_id && (
+              <div className="flex items-start gap-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="fatura_consolidada"
+                  checked={isFaturaConsolidada}
+                  onChange={(e) => {
+                    setIsFaturaConsolidada(e.target.checked)
+                    if (e.target.checked) {
+                      setParcelas(1) // Resetar parcelas se marcar consolidada
+                    }
+                  }}
+                  className="mt-1 w-4 h-4 rounded border-gray-600 text-primary-500 focus:ring-primary-500 focus:ring-offset-dark-800"
+                />
+                <div className="flex-1">
+                  <label htmlFor="fatura_consolidada" className="text-sm font-medium text-blue-300 cursor-pointer">
+                    📋 Lançar como Fatura Consolidada
+                  </label>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Marque para lançar o valor total da fatura sem detalhar cada compra. Ideal para começar no sistema.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Parcelas (só se não for consolidada) */}
+            {formData.cartao_id && !isFaturaConsolidada && (
               <Input
                 type="number"
                 label="Número de Parcelas"
@@ -410,6 +467,49 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
                 helperText="Deixe 1 para pagamento à vista"
               />
             )}
+          </div>
+        )}
+
+        {/* Transação Recorrente */}
+        {!editingLancamento && (
+          <div className="flex items-start gap-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+            <input
+              type="checkbox"
+              id="is_recorrente"
+              checked={isRecorrente}
+              onChange={(e) => setIsRecorrente(e.target.checked)}
+              className="mt-1 w-4 h-4 rounded border-gray-600 text-primary-500 focus:ring-primary-500 focus:ring-offset-dark-800"
+            />
+            <div className="flex-1">
+              <label htmlFor="is_recorrente" className="text-sm font-medium text-green-300 cursor-pointer">
+                🔄 Transação Recorrente
+              </label>
+              <p className="text-xs text-gray-400 mt-1">
+                Marque para repetir esta transação automaticamente nos próximos meses (aluguel, assinaturas, etc.)
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Configuração de Recorrência */}
+        {isRecorrente && !editingLancamento && (
+          <div className="p-4 bg-dark-700/50 border border-dark-600 rounded-lg space-y-3">
+            <Input
+              type="number"
+              label="Repetir por quantos meses?"
+              value={mesesRecorrencia}
+              onChange={(e) => setMesesRecorrencia(Math.max(1, parseInt(e.target.value) || 1))}
+              min={1}
+              max={24}
+              helperText={`Será criada 1 transação por mês, totalizando ${mesesRecorrencia} transação${mesesRecorrencia > 1 ? 'ões' : ''}`}
+            />
+            <div className="flex items-start gap-2 text-xs text-gray-400">
+              <span>💡</span>
+              <span>
+                As transações futuras serão criadas com status "Pendente".
+                Transações passadas serão criadas como "Pago".
+              </span>
+            </div>
           </div>
         )}
 
