@@ -69,6 +69,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
     icone: EMOJI_DEFAULT,
     categoria_pai_id: null,
     prioridade: 'importante',
+    despesa_fixa: false,
   })
   const [isLoading, setIsLoading] = useState(false)
 
@@ -84,6 +85,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
         icone: categoria.icone || EMOJI_DEFAULT,
         categoria_pai_id: categoria.categoria_pai_id || null,
         prioridade: categoria.prioridade || 'importante',
+        despesa_fixa: categoria.despesa_fixa || false,
       })
     } else {
       setFormData({
@@ -93,6 +95,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
         icone: EMOJI_DEFAULT,
         categoria_pai_id: categoriaPaiIdInicial || null, // Pré-selecionar se fornecido
         prioridade: 'importante',
+        despesa_fixa: false,
       })
     }
   }, [categoria, categoriaPaiIdInicial])
@@ -152,6 +155,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
           icone: formData.icone || EMOJI_DEFAULT,
           categoria_pai_id: formData.categoria_pai_id || null,
           prioridade: formData.prioridade as CategoriaPrioridade,
+          despesa_fixa: formData.despesa_fixa || false,
         })
       } else {
         // Criar nova categoria
@@ -164,6 +168,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
           icone: formData.icone || EMOJI_DEFAULT,
           categoria_pai_id: formData.categoria_pai_id || null,
           prioridade: formData.prioridade as CategoriaPrioridade,
+          despesa_fixa: formData.despesa_fixa || false,
         }
 
         await createCategoria(categoriaData)
@@ -177,6 +182,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
         icone: EMOJI_DEFAULT,
         categoria_pai_id: null,
         prioridade: 'importante',
+        despesa_fixa: false,
       })
       onClose()
     } catch (error) {
@@ -196,6 +202,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
         icone: EMOJI_DEFAULT,
         categoria_pai_id: null,
         prioridade: 'importante',
+        despesa_fixa: false,
       })
       onClose()
     }
@@ -255,6 +262,29 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
             <p className="text-xs text-gray-500 mt-1">
               Usado no rebalanceamento: categorias desejáveis são as primeiras a ceder saldo
             </p>
+          </div>
+        )}
+
+        {/* Despesa Fixa */}
+        {formData.tipo === 'despesa' && (
+          <div className="flex items-start gap-3 p-3 bg-dark-700/50 rounded-lg border border-dark-600">
+            <input
+              type="checkbox"
+              id="despesa_fixa"
+              checked={formData.despesa_fixa || false}
+              onChange={(e) =>
+                setFormData({ ...formData, despesa_fixa: e.target.checked })
+              }
+              className="mt-1 w-4 h-4 rounded border-gray-600 text-primary-500 focus:ring-primary-500 focus:ring-offset-dark-800"
+            />
+            <div className="flex-1">
+              <label htmlFor="despesa_fixa" className="text-sm font-medium text-gray-300 cursor-pointer">
+                Despesa Fixa
+              </label>
+              <p className="text-xs text-gray-500 mt-1">
+                Marque se esta categoria representa despesas fixas e recorrentes (aluguel, condomínio, assinaturas, etc.)
+              </p>
+            </div>
           </div>
         )}
 

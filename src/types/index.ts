@@ -59,6 +59,7 @@ export interface Categoria {
   categoria_pai_id: string | null
   cor: string | null
   prioridade?: CategoriaPrioridade
+  despesa_fixa?: boolean
   created_at: string
   updated_at: string
 }
@@ -308,6 +309,7 @@ export interface CreateCategoriaInput {
   categoria_pai_id: string | null
   cor?: string | null
   prioridade?: CategoriaPrioridade
+  despesa_fixa?: boolean
 }
 
 export interface UpdateCategoriaInput extends Partial<CreateCategoriaInput> {

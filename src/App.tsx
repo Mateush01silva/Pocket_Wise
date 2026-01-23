@@ -18,6 +18,8 @@ import {
   Categories,
   CreditCards,
   BankAccounts,
+  CashFlow,
+  ComparativeReports,
   Budgets,
   Envelopes,
   Projections,
@@ -171,6 +173,8 @@ function AppRoutes() {
               <Route path="/transactions" element={<Transactions />} />
               <Route path="/credit-cards" element={<CreditCards />} />
               <Route path="/bank-accounts" element={<BankAccounts />} />
+              <Route path="/cash-flow" element={<CashFlow />} />
+              <Route path="/reports" element={<ComparativeReports />} />
               <Route path="/categories" element={<Categories />} />
               <Route path="/budgets" element={<Budgets />} />
               <Route path="/envelopes" element={<Envelopes />} />
@@ -252,6 +256,26 @@ function AppRoutes() {
             }
           />
           <Route
+            path="/app/fluxo-caixa"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <CashFlow />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/relatorios"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <ComparativeReports />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
             path="/app/orcamento"
             element={
               <PrivateRoute>
@@ -326,6 +350,8 @@ function AppRoutes() {
           <Route path="/transactions" element={<Navigate to="/app/transacoes" replace />} />
           <Route path="/credit-cards" element={<Navigate to="/app/cartoes" replace />} />
           <Route path="/bank-accounts" element={<Navigate to="/app/contas" replace />} />
+          <Route path="/cash-flow" element={<Navigate to="/app/fluxo-caixa" replace />} />
+          <Route path="/reports" element={<Navigate to="/app/relatorios" replace />} />
           <Route path="/categories" element={<Navigate to="/app/categorias" replace />} />
           <Route path="/budgets" element={<Navigate to="/app/orcamento" replace />} />
           <Route path="/envelopes" element={<Navigate to="/app/envelopes" replace />} />
