@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react'
-import { Card, CardContent, Button } from '../components/ui'
+import { Card, CardContent } from '../components/ui'
 import { TrendingUp, TrendingDown, Calendar, ArrowUpRight, ArrowDownRight, MinusCircle } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts'
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts'
 
 interface MonthlyData {
   receitas: number

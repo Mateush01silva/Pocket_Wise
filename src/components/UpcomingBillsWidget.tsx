@@ -3,7 +3,7 @@ import { Card, CardContent } from './ui'
 import { AlertCircle, Clock, Calendar, CheckCircle } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
-import { format, isToday, isThisWeek, isThisMonth, isPast, startOfDay } from 'date-fns'
+import { format, isToday, isThisWeek, isPast, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useNavigate } from 'react-router-dom'
 
@@ -23,8 +23,6 @@ export function UpcomingBillsWidget() {
 
   // Calcular contas a pagar (despesas pendentes ou projetadas)
   const upcomingBills = useMemo((): UpcomingBill[] => {
-    const today = startOfDay(new Date())
-
     return lancamentos
       .filter(l =>
         l.tipo === 'despesa' &&
@@ -46,7 +44,7 @@ export function UpcomingBillsWidget() {
 
         return {
           id: l.id,
-          descricao: l.descricao || categoria?.nome || 'Sem descrição',
+          descricao: l.observacao || categoria?.nome || 'Sem descrição',
           valor: l.valor,
           data: dataLancamento,
           categoria_nome: categoria?.nome || 'Sem categoria',

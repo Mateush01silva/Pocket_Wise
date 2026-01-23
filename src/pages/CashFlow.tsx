@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react'
 import { Card, CardContent, Button } from '../components/ui'
-import { TrendingDown, TrendingUp, AlertTriangle, Calendar } from 'lucide-react'
+import { AlertTriangle, Calendar } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useContasBancariasStore } from '../store'
-import { format, addDays, startOfDay, endOfDay, isAfter, isBefore, isWithinInterval } from 'date-fns'
+import { format, addDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 
