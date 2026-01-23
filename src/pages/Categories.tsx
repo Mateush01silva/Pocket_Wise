@@ -167,7 +167,14 @@ export function Categories() {
                           </span>
                         )}
                         <div className="flex flex-col">
-                          <span className="text-base font-semibold">{categoria.nome}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-base font-semibold">{categoria.nome}</span>
+                            {categoria.despesa_fixa && (
+                              <span className="px-1.5 py-0.5 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-blue-400 font-medium">
+                                Fixa
+                              </span>
+                            )}
+                          </div>
                           {subcategorias.length > 0 && (
                             <span className="text-xs text-gray-500 font-normal">
                               {subcategorias.length} subcategoria
@@ -209,6 +216,11 @@ export function Categories() {
                                   <span className="text-xs">{getSafeIcon(sub.icone)}</span>
                                 )}
                                 <span>{sub.nome}</span>
+                                {sub.despesa_fixa && (
+                                  <span className="px-1 py-0.5 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-blue-400 font-medium">
+                                    Fixa
+                                  </span>
+                                )}
                               </div>
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
@@ -341,6 +353,11 @@ export function Categories() {
                                   <span className="text-xs">{getSafeIcon(sub.icone)}</span>
                                 )}
                                 <span>{sub.nome}</span>
+                                {sub.despesa_fixa && (
+                                  <span className="px-1 py-0.5 bg-blue-500/10 border border-blue-500/30 rounded text-xs text-blue-400 font-medium">
+                                    Fixa
+                                  </span>
+                                )}
                               </div>
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button

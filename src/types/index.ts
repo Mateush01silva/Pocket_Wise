@@ -59,6 +59,7 @@ export interface Categoria {
   categoria_pai_id: string | null
   cor: string | null
   prioridade?: CategoriaPrioridade
+  despesa_fixa?: boolean
   created_at: string
   updated_at: string
 }
