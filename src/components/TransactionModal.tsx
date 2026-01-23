@@ -127,6 +127,18 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         return
       }
 
+      // Validar conta bancária para débito, PIX e transferência
+      if (
+        (formData.forma_pagamento === 'debito' ||
+          formData.forma_pagamento === 'pix' ||
+          formData.forma_pagamento === 'transferencia') &&
+        !formData.conta_id
+      ) {
+        alert('Por favor, selecione a conta bancária para esta forma de pagamento')
+        setIsLoading(false)
+        return
+      }
+
       // Se está editando
       if (editingLancamento) {
         await updateLancamento(editingLancamento.id, {
@@ -326,6 +338,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
               ...formData,
               forma_pagamento: e.target.value as any,
               cartao_id: undefined,
+              conta_id: undefined, // Limpar conta ao mudar forma de pagamento
             })
           }
           options={[
@@ -334,25 +347,43 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
             { value: 'credito', label: 'Crédito' },
             { value: 'pix', label: 'PIX' },
             { value: 'transferencia', label: 'Transferência' },
+            { value: 'boleto', label: 'Boleto' },
           ]}
           required
         />
 
-        {/* Conta Bancária (exceto para crédito não pago) */}
+        {/* Conta Bancária (para todas exceto crédito) */}
         {formData.forma_pagamento !== 'credito' && (
-          <Select
-            label="Conta Bancária"
-            value={formData.conta_id || ''}
-            onChange={(e) =>
-              setFormData({ ...formData, conta_id: e.target.value || undefined })
-            }
-            options={contaOptions}
-            helperText={
-              contaOptions.length === 0
-                ? 'Nenhuma conta cadastrada. Cadastre uma conta na página "Contas".'
-                : 'Selecione a conta de onde sairá/entrará o dinheiro'
-            }
-          />
+          <div>
+            <Select
+              label={
+                formData.forma_pagamento === 'debito' ||
+                formData.forma_pagamento === 'pix' ||
+                formData.forma_pagamento === 'transferencia'
+                  ? 'Conta Bancária *'
+                  : 'Conta Bancária'
+              }
+              value={formData.conta_id || ''}
+              onChange={(e) =>
+                setFormData({ ...formData, conta_id: e.target.value || undefined })
+              }
+              options={contaOptions}
+              required={
+                formData.forma_pagamento === 'debito' ||
+                formData.forma_pagamento === 'pix' ||
+                formData.forma_pagamento === 'transferencia'
+              }
+              helperText={
+                contaOptions.length === 0
+                  ? '⚠️ Nenhuma conta cadastrada. Vá em "Contas" no menu lateral para criar uma.'
+                  : formData.forma_pagamento === 'debito' ||
+                    formData.forma_pagamento === 'pix' ||
+                    formData.forma_pagamento === 'transferencia'
+                  ? '💳 Selecione a conta de onde sairá/entrará o dinheiro (obrigatório)'
+                  : '💰 Opcional: Selecione a conta para controle do saldo'
+              }
+            />
+          </div>
         )}
 
         {/* Cartão (só se for crédito) */}
