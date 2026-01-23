@@ -22,6 +22,7 @@ interface TransacoesActions {
   fetchLancamentos: (filters?: LancamentoFilters) => Promise<void>
   createLancamento: (data: CreateLancamentoInput) => Promise<Lancamento | null>
   createLancamentoParcelado: (data: CreateLancamentoInput, parcelas: number) => Promise<void>
+  createLancamentoRecorrente: (data: CreateLancamentoInput, meses: number) => Promise<void>
   updateLancamento: (id: string, data: Partial<Lancamento>) => Promise<void>
   deleteLancamento: (id: string) => Promise<void>
   deleteGrupoParcelas: (grupoParcelasId: string) => Promise<void>
@@ -172,6 +173,66 @@ export const useTransacoesStore = create<TransacoesStore>()(
           })
         } catch (error) {
           console.error('Erro ao criar lançamento parcelado:', error)
+          set({ error: (error as Error).message, isLoading: false })
+        }
+      },
+
+      // Criar lançamento recorrente (repete por X meses)
+      createLancamentoRecorrente: async (lancamentoData, numeroMeses) => {
+        set({ isLoading: true, error: null })
+
+        try {
+          const grupoRecorrenciaId = crypto.randomUUID()
+          const transacoes: Lancamento[] = []
+
+          // Criar transação para cada mês
+          for (let i = 0; i < numeroMeses; i++) {
+            // Calcular data da transação para cada mês
+            const dataTransacao = format(
+              addMonths(parseISO(lancamentoData.data), i),
+              'yyyy-MM-dd'
+            )
+
+            // Determinar status baseado na data
+            const hoje = new Date().toISOString().split('T')[0]
+            let status: 'pago' | 'pendente' | 'projetado'
+
+            if (lancamentoData.cartao_id && lancamentoData.forma_pagamento === 'credito') {
+              status = 'projetado'
+            } else {
+              status = dataTransacao <= hoje ? 'pago' : 'pendente'
+            }
+
+            // Calcular data de vencimento da fatura se for cartão
+            let dataVencimentoFatura: string | null = null
+            if (lancamentoData.cartao_id && lancamentoData.forma_pagamento === 'credito') {
+              dataVencimentoFatura = get().calcularDataVencimentoFatura(
+                lancamentoData.cartao_id,
+                dataTransacao
+              )
+            }
+
+            const transacao: CreateLancamentoInput = {
+              ...lancamentoData,
+              data: dataTransacao,
+              observacao: `${lancamentoData.observacao || ''} (Recorrente ${i + 1}/${numeroMeses})`.trim(),
+              grupo_parcelas_id: grupoRecorrenciaId, // Usar mesmo campo para agrupar
+              status,
+              data_vencimento_fatura: dataVencimentoFatura,
+            }
+
+            const { data, error } = await db.lancamentos.create(transacao)
+
+            if (error) throw error
+            if (data) transacoes.push(data)
+          }
+
+          set((state) => {
+            state.lancamentos.push(...transacoes)
+            state.isLoading = false
+          })
+        } catch (error) {
+          console.error('Erro ao criar lançamento recorrente:', error)
           set({ error: (error as Error).message, isLoading: false })
         }
       },
