@@ -8,6 +8,7 @@ import { TransactionModal } from '../components/TransactionModal'
 import { PatrimonioModal } from '../components/PatrimonioModal'
 import { HealthIndicator } from '../components/HealthIndicator'
 import { DetectorEstouro } from '../components/DetectorEstouro'
+import { BankAccountsWidget } from '../components/BankAccountsWidget'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
 import { calcularSaldoReal, calcularSaldoProjetado, calcularFaturasAtuaisCartao, filtrarPorPeriodo } from '../lib/financialCalculations'
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
@@ -430,6 +431,9 @@ export function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Bank Accounts Widget */}
+      <BankAccountsWidget />
 
       {/* Budget Section */}
       {orcamentoAtual && projecao && (
