@@ -3,7 +3,7 @@ import { Card, CardContent } from './ui'
 import { AlertCircle, Clock, Calendar, CheckCircle } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
-import { format, isToday, isThisWeek, isPast, startOfDay } from 'date-fns'
+import { format, isToday, isThisWeek, isPast } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useNavigate } from 'react-router-dom'
 
