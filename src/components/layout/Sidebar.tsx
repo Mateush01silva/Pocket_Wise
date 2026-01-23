@@ -13,6 +13,7 @@ import {
   Package,
   PiggyBank,
   Repeat,
+  FileBarChart,
 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 
@@ -28,6 +29,7 @@ const navItems: NavItem[] = [
   { name: 'Cartões', path: '/app/cartoes', icon: CreditCard },
   { name: 'Contas', path: '/app/contas', icon: Landmark },
   { name: 'Fluxo de Caixa', path: '/app/fluxo-caixa', icon: BarChart3 },
+  { name: 'Relatórios', path: '/app/relatorios', icon: FileBarChart },
   { name: 'Categorias', path: '/app/categorias', icon: FolderTree },
   { name: 'Orçamentos', path: '/app/orcamento', icon: Wallet },
   { name: 'Envelopes', path: '/app/envelopes', icon: Package },
