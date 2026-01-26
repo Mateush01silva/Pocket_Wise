@@ -191,12 +191,14 @@ export function BudgetPlanningModal({
         orcamentoId = novoOrcamento.id
       }
 
-      // Criar categorias budget (receitas + despesas)
+      // Criar/atualizar categorias budget (receitas + despesas)
       if (orcamentoId) {
         const todasCategorias = [...categoriasReceitaSelecionadas, ...categoriasDespesaSelecionadas]
+        // Usar a nova função que substitui as categorias existentes
         await bulkCreateCategoriasBudget({
           orcamento_id: orcamentoId,
           categorias: todasCategorias,
+          substituir_existentes: true, // Importante: deletar categorias antigas antes de criar novas
         })
       }
 
