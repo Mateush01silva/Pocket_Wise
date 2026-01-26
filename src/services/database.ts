@@ -788,7 +788,13 @@ export const categoriasBudgetService = {
 
   async bulkCreate(inputs: import('../types').BulkCategoriaBudgetInput): Promise<DbResult<import('../types').CategoriaBudget[]>> {
     if (useLocalStorage) {
-      const categoriasBudget = LocalStorageService.get<import('../types').CategoriaBudget[]>(STORAGE_KEYS.CATEGORIAS_BUDGET) || []
+      let categoriasBudget = LocalStorageService.get<import('../types').CategoriaBudget[]>(STORAGE_KEYS.CATEGORIAS_BUDGET) || []
+
+      // Se substituir_existentes for true, deletar categorias antigas deste orçamento
+      if (inputs.substituir_existentes) {
+        categoriasBudget = categoriasBudget.filter((cb) => cb.orcamento_id !== inputs.orcamento_id)
+      }
+
       const newCategorias = inputs.categorias.map((cat) => ({
         id: crypto.randomUUID(),
         orcamento_id: inputs.orcamento_id,
@@ -805,6 +811,14 @@ export const categoriasBudgetService = {
 
     if (!supabase) {
       return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    // Se substituir_existentes for true, deletar categorias antigas primeiro
+    if (inputs.substituir_existentes) {
+      await supabase
+        .from('categorias_budget')
+        .delete()
+        .eq('orcamento_id', inputs.orcamento_id)
     }
 
     const insertData = inputs.categorias.map((cat) => ({

@@ -572,6 +572,7 @@ export interface BulkCategoriaBudgetInput {
     valor_orcado: number
     prioridade: CategoriaPrioridade
   }>
+  substituir_existentes?: boolean // Se true, deleta categorias existentes antes de criar novas
 }
 
 // =====================================================

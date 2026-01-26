@@ -107,7 +107,8 @@ export function calcularSaldoAtual(lancamentos: Lancamento[]): SaldoAtual {
 export function calcularProjecaoMensal(
   orcamento: OrcamentoMensal,
   categoriasBudget: CategoriaBudget[],
-  lancamentos: Lancamento[]
+  lancamentos: Lancamento[],
+  categorias?: Categoria[]
 ): ProjecaoMensal {
   const hoje = new Date()
   const mesRefParsed = parseISO(orcamento.mes_referencia)
@@ -134,8 +135,17 @@ export function calcularProjecaoMensal(
     .filter((l) => l.tipo === 'despesa' && l.status === 'pendente' && l.data >= format(hoje, 'yyyy-MM-dd'))
     .reduce((sum, l) => sum + l.valor, 0)
 
-  // Despesas orçadas mas não lançadas
-  const totalOrcado = categoriasBudget.reduce((sum, cb) => sum + cb.valor_orcado, 0)
+  // Filtrar apenas categorias de DESPESA para o cálculo do orçamento
+  // Isso evita que receitas orçadas sejam contabilizadas como despesas
+  const categoriasBudgetDespesa = categorias
+    ? categoriasBudget.filter((cb) => {
+        const categoria = categorias.find((c) => c.id === cb.categoria_id)
+        return categoria?.tipo === 'despesa'
+      })
+    : categoriasBudget
+
+  // Despesas orçadas mas não lançadas (considerando apenas categorias de despesa)
+  const totalOrcado = categoriasBudgetDespesa.reduce((sum, cb) => sum + cb.valor_orcado, 0)
   const totalGasto = lancamentosDoMes
     .filter((l) => l.tipo === 'despesa' && l.status === 'pago')
     .reduce((sum, l) => sum + l.valor, 0)
@@ -165,6 +175,7 @@ export function calcularProjecaoMensal(
 
 /**
  * Identifica categorias em risco (acima de 80% do orçamento)
+ * Considera apenas categorias de DESPESA
  */
 export function calcularCategoriasEmRisco(
   categoriasBudget: CategoriaBudget[],
@@ -174,9 +185,15 @@ export function calcularCategoriasEmRisco(
 ): CategoriaEmRisco[] {
   const categoriasEmRisco: CategoriaEmRisco[] = []
 
-  for (const catBudget of categoriasBudget) {
+  // Filtrar apenas categorias de DESPESA
+  const categoriasBudgetDespesa = categoriasBudget.filter((cb) => {
+    const categoria = categorias.find((c) => c.id === cb.categoria_id)
+    return categoria?.tipo === 'despesa'
+  })
+
+  for (const catBudget of categoriasBudgetDespesa) {
     const gastoCategoria = calcularGastoPorCategoria(lancamentos, catBudget.categoria_id, mesReferencia)
-    const percentualUsado = (gastoCategoria / catBudget.valor_orcado) * 100
+    const percentualUsado = catBudget.valor_orcado > 0 ? (gastoCategoria / catBudget.valor_orcado) * 100 : 0
 
     if (percentualUsado >= 80) {
       const categoria = categorias.find((c) => c.id === catBudget.categoria_id)
@@ -252,7 +269,8 @@ export function simularCompra(
 }
 
 /**
- * Gera envelopes digitais para todas as categorias do orçamento
+ * Gera envelopes digitais apenas para categorias de DESPESA do orçamento
+ * Categorias de receita são usadas apenas para planejamento, não para envelopes
  */
 export function gerarEnvelopesDigitais(
   categoriasBudget: CategoriaBudget[],
@@ -262,11 +280,17 @@ export function gerarEnvelopesDigitais(
 ): EnvelopeDigital[] {
   const anoMes = mesReferencia.substring(0, 7) // YYYY-MM
 
-  return categoriasBudget.map((catBudget) => {
+  // Filtrar apenas categorias de DESPESA para gerar envelopes
+  const categoriasBudgetDespesa = categoriasBudget.filter((catBudget) => {
+    const categoria = categorias.find((c) => c.id === catBudget.categoria_id)
+    return categoria?.tipo === 'despesa'
+  })
+
+  return categoriasBudgetDespesa.map((catBudget) => {
     const categoria = categorias.find((c) => c.id === catBudget.categoria_id)!
     const valorGasto = calcularGastoPorCategoria(lancamentos, catBudget.categoria_id, mesReferencia)
     const valorDisponivel = catBudget.valor_orcado - valorGasto
-    const percentualUsado = (valorGasto / catBudget.valor_orcado) * 100
+    const percentualUsado = catBudget.valor_orcado > 0 ? (valorGasto / catBudget.valor_orcado) * 100 : 0
 
     let status: SaudeFinanceira = 'saudavel'
     if (percentualUsado > 100) status = 'critico'
@@ -297,6 +321,7 @@ export function gerarEnvelopesDigitais(
 
 /**
  * Gera comparativo de planejado x realizado por categoria
+ * Considera apenas categorias de DESPESA
  */
 export function gerarComparativoCategoria(
   categoriasBudget: CategoriaBudget[],
@@ -304,11 +329,17 @@ export function gerarComparativoCategoria(
   categorias: Categoria[],
   mesReferencia: string
 ): ComparativoCategoria[] {
-  return categoriasBudget.map((catBudget) => {
+  // Filtrar apenas categorias de DESPESA
+  const categoriasBudgetDespesa = categoriasBudget.filter((cb) => {
+    const categoria = categorias.find((c) => c.id === cb.categoria_id)
+    return categoria?.tipo === 'despesa'
+  })
+
+  return categoriasBudgetDespesa.map((catBudget) => {
     const categoria = categorias.find((c) => c.id === catBudget.categoria_id)!
     const valorGasto = calcularGastoPorCategoria(lancamentos, catBudget.categoria_id, mesReferencia)
     const desvio = valorGasto - catBudget.valor_orcado
-    const percentualDesvio = (desvio / catBudget.valor_orcado) * 100
+    const percentualDesvio = catBudget.valor_orcado > 0 ? (desvio / catBudget.valor_orcado) * 100 : 0
 
     let status: 'dentro' | 'atencao' | 'estourado' = 'dentro'
     if (percentualDesvio > 0) status = 'estourado'

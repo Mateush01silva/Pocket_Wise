@@ -240,6 +240,12 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
           if (!newCats) return
 
           set((state) => {
+            // Se substituir_existentes for true, remover categorias antigas do orçamento no state
+            if (data.substituir_existentes) {
+              state.categoriasBudget = state.categoriasBudget.filter(
+                (cb) => cb.orcamento_id !== data.orcamento_id
+              )
+            }
             state.categoriasBudget.push(...newCats)
             state.isLoading = false
           })
@@ -295,8 +301,9 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
 
         const categoriasBudget = get().categoriasBudget.filter((cb) => cb.orcamento_id === orcamentoId)
         const lancamentos = useTransacoesStore.getState().lancamentos
+        const categorias = useCategoriasStore.getState().categorias
 
-        return calcularProjecaoMensal(orcamento, categoriasBudget, lancamentos)
+        return calcularProjecaoMensal(orcamento, categoriasBudget, lancamentos, categorias)
       },
 
       getEnvelopesDigitais: (orcamentoId) => {
