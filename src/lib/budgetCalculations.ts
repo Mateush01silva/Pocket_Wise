@@ -103,6 +103,8 @@ export function calcularSaldoAtual(lancamentos: Lancamento[]): SaldoAtual {
 
 /**
  * Calcula projeção para fim do mês
+ * O saldo considera as RECEITAS ORÇADAS (planejadas) para dar visibilidade
+ * se o orçamento planejado faz sentido para passar o mês
  */
 export function calcularProjecaoMensal(
   orcamento: OrcamentoMensal,
@@ -122,21 +124,14 @@ export function calcularProjecaoMensal(
   const anoMes = orcamento.mes_referencia.substring(0, 7)
   const lancamentosDoMes = lancamentos.filter((l) => l.data.substring(0, 7) === anoMes)
 
-  // Calculo saldo atual
-  const saldoAtual = calcularSaldoAtual(lancamentos)
+  // Separar categorias de RECEITA e DESPESA do orçamento
+  const categoriasBudgetReceita = categorias
+    ? categoriasBudget.filter((cb) => {
+        const categoria = categorias.find((c) => c.id === cb.categoria_id)
+        return categoria?.tipo === 'receita'
+      })
+    : []
 
-  // Receitas futuras (pendentes e projetadas do mês)
-  const receitasFuturas = lancamentosDoMes
-    .filter((l) => l.tipo === 'receita' && l.status !== 'pago' && l.data >= format(hoje, 'yyyy-MM-dd'))
-    .reduce((sum, l) => sum + l.valor, 0)
-
-  // Despesas futuras confirmadas (lançadas mas não pagas)
-  const despesasFuturasConfirmadas = lancamentosDoMes
-    .filter((l) => l.tipo === 'despesa' && l.status === 'pendente' && l.data >= format(hoje, 'yyyy-MM-dd'))
-    .reduce((sum, l) => sum + l.valor, 0)
-
-  // Filtrar apenas categorias de DESPESA para o cálculo do orçamento
-  // Isso evita que receitas orçadas sejam contabilizadas como despesas
   const categoriasBudgetDespesa = categorias
     ? categoriasBudget.filter((cb) => {
         const categoria = categorias.find((c) => c.id === cb.categoria_id)
@@ -144,27 +139,49 @@ export function calcularProjecaoMensal(
       })
     : categoriasBudget
 
-  // Despesas orçadas mas não lançadas (considerando apenas categorias de despesa)
-  const totalOrcado = categoriasBudgetDespesa.reduce((sum, cb) => sum + cb.valor_orcado, 0)
-  const totalGasto = lancamentosDoMes
+  // RECEITAS ORÇADAS (planejadas) - base para o saldo do orçamento
+  const receitasOrcadas = categoriasBudgetReceita.reduce((sum, cb) => sum + cb.valor_orcado, 0)
+
+  // Despesas já pagas no mês
+  const despesasPagasMes = lancamentosDoMes
     .filter((l) => l.tipo === 'despesa' && l.status === 'pago')
     .reduce((sum, l) => sum + l.valor, 0)
-  const despesasOrcadasNaoLancadas = Math.max(0, totalOrcado - totalGasto - despesasFuturasConfirmadas)
 
-  // Saldo projetado fim do mês
-  const saldoProjetadoFimMes =
-    saldoAtual.valor + receitasFuturas - despesasFuturasConfirmadas - despesasOrcadasNaoLancadas
+  // Despesas pendentes (lançadas mas não pagas)
+  const despesasPendentes = lancamentosDoMes
+    .filter((l) => l.tipo === 'despesa' && l.status === 'pendente')
+    .reduce((sum, l) => sum + l.valor, 0)
 
-  // Calcular percentual de orçamento usado
-  const percentualOrcamentoUsado = totalOrcado > 0 ? (totalGasto / totalOrcado) * 100 : 0
+  // Total de despesas orçadas
+  const totalDespesasOrcadas = categoriasBudgetDespesa.reduce((sum, cb) => sum + cb.valor_orcado, 0)
+
+  // Despesas orçadas ainda não lançadas
+  const despesasOrcadasNaoLancadas = Math.max(0, totalDespesasOrcadas - despesasPagasMes - despesasPendentes)
+
+  // SALDO ATUAL DO ORÇAMENTO:
+  // Considera as receitas ORÇADAS (planejadas) menos o que já foi gasto
+  // Isso permite ao usuário ver se o orçamento planejado faz sentido
+  const saldoAtualOrcamento = receitasOrcadas - despesasPagasMes
+
+  // Receitas futuras (pendentes no mês que ainda não foram recebidas)
+  const receitasFuturas = lancamentosDoMes
+    .filter((l) => l.tipo === 'receita' && l.status !== 'pago')
+    .reduce((sum, l) => sum + l.valor, 0)
+
+  // SALDO PROJETADO FIM DO MÊS:
+  // Receitas orçadas - Todas as despesas (pagas + pendentes + orçadas não lançadas)
+  const saldoProjetadoFimMes = receitasOrcadas - despesasPagasMes - despesasPendentes - despesasOrcadasNaoLancadas
+
+  // Calcular percentual de orçamento de despesas usado
+  const percentualOrcamentoUsado = totalDespesasOrcadas > 0 ? (despesasPagasMes / totalDespesasOrcadas) * 100 : 0
 
   // Saúde financeira
   const saude = calcularSaudeFinanceira(percentualOrcamentoUsado, percentualMesDecorrido)
 
   return {
-    saldo_atual: saldoAtual.valor,
+    saldo_atual: saldoAtualOrcamento,
     receitas_futuras: receitasFuturas,
-    despesas_futuras_confirmadas: despesasFuturasConfirmadas,
+    despesas_futuras_confirmadas: despesasPendentes,
     despesas_orcadas_nao_lancadas: despesasOrcadasNaoLancadas,
     saldo_projetado_fim_mes: saldoProjetadoFimMes,
     saude,
