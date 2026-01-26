@@ -40,18 +40,13 @@ export const useCategoriasStore = create<CategoriasStore>()(
       error: null,
       initialized: false,
 
-      // Inicializar categorias padrão na primeira vez
+      // Inicializar categorias - sempre sincroniza com o banco de dados
       initialize: async () => {
-        const { initialized, categorias } = get()
-
-        if (initialized && categorias.length > 0) {
-          return
-        }
-
+        // Sempre buscar do banco para garantir sincronização
         set({ isLoading: true, error: null })
 
         try {
-          // Tentar buscar do banco
+          // Buscar do banco (localStorage ou Supabase)
           const { data, error } = await db.categorias.getAll()
 
           if (error) throw error
