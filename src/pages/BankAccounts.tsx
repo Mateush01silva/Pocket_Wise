@@ -11,10 +11,12 @@ import {
   Trash2,
   Eye,
   EyeOff,
+  RefreshCw,
 } from 'lucide-react'
 import { useContasBancariasStore } from '../store/useContasBancariasStore'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { BankAccountModal } from '../components/BankAccountModal'
+import { AdjustBalanceModal } from '../components/AdjustBalanceModal'
 import { formatCurrency } from '../utils/currency'
 import type { ContaBancaria, TipoConta } from '../types'
 
@@ -45,6 +47,7 @@ export function BankAccounts() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [contaToEdit, setContaToEdit] = useState<ContaBancaria | undefined>()
   const [saldosVisiveis, setSaldosVisiveis] = useState(true)
+  const [contaToAdjust, setContaToAdjust] = useState<ContaBancaria | undefined>()
 
   // Buscar contas ao carregar
   useEffect(() => {
@@ -87,6 +90,14 @@ export function BankAccounts() {
     setContaToEdit(undefined)
   }
 
+  const handleAdjustBalance = (conta: ContaBancaria) => {
+    setContaToAdjust(conta)
+  }
+
+  const handleCloseAdjustModal = () => {
+    setContaToAdjust(undefined)
+  }
+
   const renderConta = (conta: ContaBancaria) => {
     const saldoPositivo = conta.saldo_atual >= 0
 
@@ -118,6 +129,13 @@ export function BankAccounts() {
               </div>
             </CardTitle>
             <div className="flex gap-1">
+              <button
+                onClick={() => handleAdjustBalance(conta)}
+                className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-green-400"
+                title="Ajustar saldo"
+              >
+                <RefreshCw size={14} />
+              </button>
               <button
                 onClick={() => handleEdit(conta)}
                 className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
@@ -310,6 +328,15 @@ export function BankAccounts() {
         onClose={handleCloseModal}
         conta={contaToEdit}
       />
+
+      {/* Modal de Ajuste de Saldo */}
+      {contaToAdjust && (
+        <AdjustBalanceModal
+          isOpen={!!contaToAdjust}
+          onClose={handleCloseAdjustModal}
+          conta={contaToAdjust}
+        />
+      )}
     </div>
   )
 }
