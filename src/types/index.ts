@@ -865,6 +865,7 @@ export interface Assinatura {
   dia_cobranca: number // 1-31
   categoria_id: string
   subcategoria_id: string | null
+  cartao_id: string | null // Cartão de crédito vinculado (se for pago no cartão)
   primeira_cobranca: string // YYYY-MM-DD
   ultima_cobranca: string | null // YYYY-MM-DD quando cancelada
   ativa: boolean
@@ -904,6 +905,7 @@ export interface CreateAssinaturaInput {
   dia_cobranca: number
   categoria_id: string
   subcategoria_id?: string | null
+  cartao_id?: string | null // Cartão de crédito vinculado
   primeira_cobranca: string
 }
 

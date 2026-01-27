@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select, CurrencyInput } from './ui'
-import { useCategoriasStore, useAssinaturasStore } from '../store'
+import { useCategoriasStore, useAssinaturasStore, useCartoesStore } from '../store'
 import { SUBSCRIPTION_LOGOS } from '../data/subscription-logos'
 import type { SubscriptionLogoOption } from '../data/subscription-logos'
 import type { CreateAssinaturaInput, Assinatura } from '../types'
 import { format } from 'date-fns'
 import { cn } from '../lib/cn'
+import { CreditCard } from 'lucide-react'
 
 interface SubscriptionModalProps {
   isOpen: boolean
@@ -18,6 +19,8 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
   const categorias = useCategoriasStore((state) => state.categorias)
   const createAssinatura = useAssinaturasStore((state) => state.createAssinatura)
   const updateAssinatura = useAssinaturasStore((state) => state.updateAssinatura)
+  const cartoes = useCartoesStore((state) => state.cartoes)
+  const fetchCartoes = useCartoesStore((state) => state.fetchCartoes)
 
   const [formData, setFormData] = useState<Partial<CreateAssinaturaInput>>({
     nome: '',
@@ -26,7 +29,24 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
     dia_cobranca: 1,
     primeira_cobranca: format(new Date(), 'yyyy-MM-dd'),
     logo_url: null,
+    cartao_id: null,
   })
+
+  // Buscar cartões ao abrir o modal
+  useEffect(() => {
+    if (isOpen) {
+      fetchCartoes()
+    }
+  }, [isOpen, fetchCartoes])
+
+  // Opções de cartões
+  const cartaoOptions = useMemo(
+    () => [
+      { value: '', label: 'Nenhum (débito/boleto)' },
+      ...cartoes.map((c) => ({ value: c.id, label: c.nome })),
+    ],
+    [cartoes]
+  )
   const [logoSelecionado, setLogoSelecionado] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -72,6 +92,7 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
         dia_cobranca: editingAssinatura.dia_cobranca,
         categoria_id: editingAssinatura.categoria_id,
         subcategoria_id: editingAssinatura.subcategoria_id,
+        cartao_id: editingAssinatura.cartao_id,
         primeira_cobranca: editingAssinatura.primeira_cobranca,
         logo_url: editingAssinatura.logo_url,
       })
@@ -84,6 +105,7 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
         dia_cobranca: 1,
         primeira_cobranca: format(new Date(), 'yyyy-MM-dd'),
         logo_url: null,
+        cartao_id: null,
       })
       setLogoSelecionado(null)
       setSearchTerm('')
@@ -127,6 +149,7 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
           dia_cobranca: formData.dia_cobranca,
           categoria_id: formData.categoria_id,
           subcategoria_id: formData.subcategoria_id,
+          cartao_id: formData.cartao_id || null,
           logo_url: logoSelecionado,
         })
       } else {
@@ -138,6 +161,7 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
           dia_cobranca: formData.dia_cobranca!,
           categoria_id: formData.categoria_id!,
           subcategoria_id: formData.subcategoria_id,
+          cartao_id: formData.cartao_id || null,
           primeira_cobranca: formData.primeira_cobranca!,
           logo_url: logoSelecionado,
         }
@@ -278,6 +302,20 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
             helperText="Opcional"
           />
         )}
+
+        {/* Forma de Pagamento */}
+        <div className="p-4 bg-dark-800/50 rounded-lg border border-dark-700">
+          <div className="flex items-center gap-2 mb-3">
+            <CreditCard size={18} className="text-gray-400" />
+            <span className="text-sm font-medium text-gray-300">Forma de Pagamento</span>
+          </div>
+          <Select
+            value={formData.cartao_id || ''}
+            onChange={(e) => setFormData({ ...formData, cartao_id: e.target.value || null })}
+            options={cartaoOptions}
+            helperText="Se pago no cartão de crédito, a cobrança aparecerá na fatura"
+          />
+        </div>
 
         {/* Primeira Cobrança (apenas ao criar) */}
         {!editingAssinatura && (
