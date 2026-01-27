@@ -9,12 +9,14 @@ import {
   TrendingUp,
   AlertCircle,
   Eye,
+  FileText,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { useCartoesStore, useTransacoesStore } from '../store'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CreditCardModal } from '../components/CreditCardModal'
 import { FaturaDetailsModal } from '../components/FaturaDetailsModal'
+import { ConsolidatedInvoiceModal } from '../components/ConsolidatedInvoiceModal'
 import { formatCurrency } from '../utils/currency'
 import type { Cartao } from '../types'
 
@@ -28,6 +30,7 @@ export function CreditCards() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [cartaoToEdit, setCartaoToEdit] = useState<Cartao | undefined>()
   const [faturaDetailsCartaoId, setFaturaDetailsCartaoId] = useState<string | null>(null)
+  const [cartaoForConsolidatedInvoice, setCartaoForConsolidatedInvoice] = useState<Cartao | null>(null)
 
   // Obter mês atual no formato YYYY-MM
   const mesAtual = format(new Date(), 'yyyy-MM')
@@ -155,6 +158,13 @@ export function CreditCards() {
               {cartao.nome}
             </CardTitle>
             <div className="flex gap-1">
+              <button
+                onClick={() => setCartaoForConsolidatedInvoice(cartao)}
+                className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-blue-400"
+                title="Lançar fatura consolidada"
+              >
+                <FileText size={14} />
+              </button>
               <button
                 onClick={() => handleEdit(cartao)}
                 className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
@@ -417,6 +427,15 @@ export function CreditCards() {
           />
         )
       })()}
+
+      {/* Modal de Fatura Consolidada */}
+      {cartaoForConsolidatedInvoice && (
+        <ConsolidatedInvoiceModal
+          isOpen={!!cartaoForConsolidatedInvoice}
+          onClose={() => setCartaoForConsolidatedInvoice(null)}
+          cartao={cartaoForConsolidatedInvoice}
+        />
+      )}
     </div>
   )
 }
