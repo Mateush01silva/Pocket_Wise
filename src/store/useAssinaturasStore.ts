@@ -14,6 +14,7 @@ import type {
 import { db } from '../services/database'
 import { useTransacoesStore } from './useTransacoesStore'
 import { useCategoriasStore } from './useCategoriasStore'
+import { useCartoesStore } from './useCartoesStore'
 
 interface AssinaturasState {
   assinaturas: Assinatura[]
@@ -47,6 +48,7 @@ interface AssinaturasActions {
   gerarLancamentosFuturos: (assinatura: Assinatura, mesesFuturos?: number) => Promise<void>
   removerLancamentosFuturos: (assinaturaId: string, apartirDe: string) => Promise<void>
   atualizarLancamentosFuturos: (assinaturaId: string, novoValor: number, apartirDe: string) => Promise<void>
+  atualizarLancamentosFuturosCompleto: (assinaturaId: string, assinatura: Assinatura, apartirDe: string) => Promise<void>
 }
 
 type AssinaturasStore = AssinaturasState & AssinaturasActions
@@ -170,6 +172,7 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
       updateAssinatura: async (id, updateData) => {
         set({ isLoading: true, error: null })
         try {
+          const assinaturaAtual = get().getAssinaturaById(id)
           const { data, error } = await db.assinaturas.update({ id, ...updateData })
           if (error) throw error
           if (!data) return
@@ -181,6 +184,17 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
             }
             state.isLoading = false
           })
+
+          // Se alterou valor, cartão ou categoria, atualizar lançamentos futuros
+          const hoje = format(new Date(), 'yyyy-MM-dd')
+          const mudouValor = updateData.valor !== undefined && assinaturaAtual && updateData.valor !== assinaturaAtual.valor
+          const mudouCartao = updateData.cartao_id !== undefined && assinaturaAtual && updateData.cartao_id !== assinaturaAtual.cartao_id
+          const mudouCategoria = updateData.categoria_id !== undefined && assinaturaAtual && updateData.categoria_id !== assinaturaAtual.categoria_id
+
+          if (mudouValor || mudouCartao || mudouCategoria) {
+            console.log('🔄 Assinatura alterada, atualizando lançamentos futuros...')
+            await get().atualizarLancamentosFuturosCompleto(id, data, hoje)
+          }
         } catch (error) {
           console.error('Erro ao atualizar assinatura:', error)
           set({ error: (error as Error).message, isLoading: false })
@@ -398,11 +412,35 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
 
         const dataReferencia = parseISO(assinatura.primeira_cobranca)
         const createLancamento = useTransacoesStore.getState().createLancamento
+        const cartoes = useCartoesStore.getState().cartoes
+        const cartao = assinatura.cartao_id ? cartoes.find(c => c.id === assinatura.cartao_id) : null
 
         let dataCobranca = calcularProximaCobranca(assinatura.dia_cobranca, dataReferencia, assinatura.frequencia)
         let count = 0
 
         while (count < mesesFuturos) {
+          // Calcular data de vencimento da fatura se for cartão de crédito
+          let dataVencimentoFatura: string | null = null
+          if (cartao) {
+            // Se a compra é antes do fechamento, vence no mesmo mês
+            // Se é depois do fechamento, vence no próximo mês
+            const diaCompra = dataCobranca.getDate()
+            let mesVencimento = dataCobranca.getMonth()
+            let anoVencimento = dataCobranca.getFullYear()
+
+            if (diaCompra > cartao.dia_fechamento) {
+              // Compra após fechamento, vai para próxima fatura
+              mesVencimento += 1
+              if (mesVencimento > 11) {
+                mesVencimento = 0
+                anoVencimento += 1
+              }
+            }
+
+            const dataVenc = new Date(anoVencimento, mesVencimento, cartao.dia_vencimento)
+            dataVencimentoFatura = format(dataVenc, 'yyyy-MM-dd')
+          }
+
           // Criar lançamento projetado
           const lancamentoData: CreateLancamentoInput = {
             family_id: assinatura.family_id || 'local-storage-family',
@@ -412,7 +450,9 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
             categoria_id: assinatura.categoria_id,
             subcategoria_id: assinatura.subcategoria_id,
             observacao: assinatura.nome,
-            forma_pagamento: 'debito',
+            forma_pagamento: cartao ? 'credito' : 'debito',
+            cartao_id: assinatura.cartao_id || null,
+            data_vencimento_fatura: dataVencimentoFatura,
             status: 'projetado',
             assinatura_id: assinatura.id,
           }
@@ -478,6 +518,56 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
         }
 
         console.log(`✅ ${lancamentosParaAtualizar.length} lançamentos atualizados`)
+      },
+
+      atualizarLancamentosFuturosCompleto: async (assinaturaId, assinatura, apartirDe) => {
+        console.log(`🔄 Atualizando todos os campos dos lançamentos futuros da assinatura:`, assinatura.nome)
+
+        const lancamentos = useTransacoesStore.getState().lancamentos
+        const updateLancamento = useTransacoesStore.getState().updateLancamento
+        const cartoes = useCartoesStore.getState().cartoes
+        const cartao = assinatura.cartao_id ? cartoes.find(c => c.id === assinatura.cartao_id) : null
+
+        const lancamentosParaAtualizar = lancamentos.filter(
+          (l) =>
+            l.assinatura_id === assinaturaId &&
+            l.status === 'projetado' &&
+            l.data >= apartirDe
+        )
+
+        for (const lancamento of lancamentosParaAtualizar) {
+          // Calcular data de vencimento da fatura se for cartão de crédito
+          let dataVencimentoFatura: string | null = null
+          if (cartao) {
+            const dataLancamento = parseISO(lancamento.data)
+            const diaCompra = dataLancamento.getDate()
+            let mesVencimento = dataLancamento.getMonth()
+            let anoVencimento = dataLancamento.getFullYear()
+
+            if (diaCompra > cartao.dia_fechamento) {
+              mesVencimento += 1
+              if (mesVencimento > 11) {
+                mesVencimento = 0
+                anoVencimento += 1
+              }
+            }
+
+            const dataVenc = new Date(anoVencimento, mesVencimento, cartao.dia_vencimento)
+            dataVencimentoFatura = format(dataVenc, 'yyyy-MM-dd')
+          }
+
+          await updateLancamento(lancamento.id, {
+            valor: assinatura.valor,
+            categoria_id: assinatura.categoria_id,
+            subcategoria_id: assinatura.subcategoria_id,
+            cartao_id: assinatura.cartao_id || null,
+            forma_pagamento: cartao ? 'credito' : 'debito',
+            data_vencimento_fatura: dataVencimentoFatura,
+            observacao: assinatura.nome,
+          })
+        }
+
+        console.log(`✅ ${lancamentosParaAtualizar.length} lançamentos atualizados com todos os campos`)
       },
     })),
     {
