@@ -99,12 +99,13 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
       // =====================================================
 
       initialize: async () => {
-        if (get().initialized) return
-
-        set({ isLoading: true })
+        // Sempre buscar do banco para garantir sincronização
+        // (evita conflito entre Zustand persist e localStorage do database)
+        set({ isLoading: true, error: null })
         try {
-          await get().fetchAssinaturas()
-          set({ initialized: true, isLoading: false })
+          const { data, error } = await db.assinaturas.getAll()
+          if (error) throw error
+          set({ assinaturas: data || [], initialized: true, isLoading: false })
         } catch (error) {
           console.error('Erro ao inicializar assinaturas:', error)
           set({ error: (error as Error).message, isLoading: false })
