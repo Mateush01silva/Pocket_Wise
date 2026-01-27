@@ -414,6 +414,10 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
         const cartoes = useCartoesStore.getState().cartoes
         const cartao = assinatura.cartao_id ? cartoes.find(c => c.id === assinatura.cartao_id) : null
 
+        // IMPORTANTE: forma_pagamento é baseada em ter cartao_id, não em encontrar o cartão
+        const temCartao = !!assinatura.cartao_id
+        const formaPagamento = temCartao ? 'credito' : 'debito'
+
         let dataCobranca = calcularProximaCobranca(assinatura.dia_cobranca, dataReferencia, assinatura.frequencia)
         let count = 0
 
@@ -449,7 +453,7 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
             categoria_id: assinatura.categoria_id,
             subcategoria_id: assinatura.subcategoria_id,
             observacao: assinatura.nome,
-            forma_pagamento: cartao ? 'credito' : 'debito',
+            forma_pagamento: formaPagamento,
             cartao_id: assinatura.cartao_id || null,
             data_vencimento_fatura: dataVencimentoFatura,
             status: 'projetado',
@@ -521,11 +525,18 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
 
       atualizarLancamentosFuturosCompleto: async (assinaturaId, assinatura, apartirDe) => {
         console.log(`🔄 Atualizando todos os campos dos lançamentos futuros da assinatura:`, assinatura.nome)
+        console.log(`📋 cartao_id da assinatura:`, assinatura.cartao_id)
 
         const lancamentos = useTransacoesStore.getState().lancamentos
         const updateLancamento = useTransacoesStore.getState().updateLancamento
         const cartoes = useCartoesStore.getState().cartoes
         const cartao = assinatura.cartao_id ? cartoes.find(c => c.id === assinatura.cartao_id) : null
+
+        // IMPORTANTE: forma_pagamento é baseada em ter cartao_id, não em encontrar o cartão
+        const temCartao = !!assinatura.cartao_id
+        const formaPagamento = temCartao ? 'credito' : 'debito'
+
+        console.log(`💳 Tem cartão: ${temCartao}, forma_pagamento: ${formaPagamento}`)
 
         const lancamentosParaAtualizar = lancamentos.filter(
           (l) =>
@@ -533,6 +544,8 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
             l.status === 'projetado' &&
             l.data >= apartirDe
         )
+
+        console.log(`📝 Lançamentos para atualizar: ${lancamentosParaAtualizar.length}`)
 
         for (const lancamento of lancamentosParaAtualizar) {
           // Calcular data de vencimento da fatura se for cartão de crédito
@@ -560,7 +573,7 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
             categoria_id: assinatura.categoria_id,
             subcategoria_id: assinatura.subcategoria_id,
             cartao_id: assinatura.cartao_id || null,
-            forma_pagamento: cartao ? 'credito' : 'debito',
+            forma_pagamento: formaPagamento,
             data_vencimento_fatura: dataVencimentoFatura,
             observacao: assinatura.nome,
           })
