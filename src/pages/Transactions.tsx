@@ -5,7 +5,8 @@ import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, Dol
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
 import { TransactionModal } from '../components/TransactionModal'
-import { format } from 'date-fns'
+import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
+import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Lancamento } from '../types'
 
@@ -19,8 +20,11 @@ export function Transactions() {
   const [filterCategoria, setFilterCategoria] = useState<string>('all')
   const [filterFormaPagamento, setFilterFormaPagamento] = useState<string>('all')
   const [filterCartao, setFilterCartao] = useState<string>('all')
-  const [filterDataInicio, setFilterDataInicio] = useState<string>('')
-  const [filterDataFim, setFilterDataFim] = useState<string>('')
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterValue>({
+    tipo: 'mes-atual',
+    dataInicio: startOfMonth(new Date()),
+    dataFim: endOfMonth(new Date()),
+  })
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
@@ -99,9 +103,11 @@ export function Transactions() {
     // Filter by card
     if (filterCartao !== 'all' && lancamento.cartao_id !== filterCartao) return false
 
-    // Filter by date range
-    if (filterDataInicio && lancamento.data < filterDataInicio) return false
-    if (filterDataFim && lancamento.data > filterDataFim) return false
+    // Filter by date range (usando PeriodFilter)
+    const dataInicio = format(periodFilter.dataInicio, 'yyyy-MM-dd')
+    const dataFim = format(periodFilter.dataFim, 'yyyy-MM-dd')
+    if (lancamento.data < dataInicio) return false
+    if (lancamento.data > dataFim) return false
 
     // Search term (category name or observacao)
     if (searchTerm) {
@@ -273,22 +279,9 @@ export function Transactions() {
               />
             </div>
 
-            {/* Date Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                type="date"
-                label="Data Início"
-                value={filterDataInicio}
-                onChange={(e) => setFilterDataInicio(e.target.value)}
-                placeholder="Data inicial"
-              />
-              <Input
-                type="date"
-                label="Data Fim"
-                value={filterDataFim}
-                onChange={(e) => setFilterDataFim(e.target.value)}
-                placeholder="Data final"
-              />
+            {/* Filtro de Período */}
+            <div className="pt-2 border-t border-dark-700">
+              <PeriodFilter value={periodFilter} onChange={setPeriodFilter} />
             </div>
           </div>
         </div>
