@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { addMonths, format, parseISO, setDate, isBefore, isAfter } from 'date-fns'
 import type {
@@ -85,14 +84,13 @@ function calcularProximaCobranca(diaCobranca: number, dataReferencia: Date, freq
 }
 
 export const useAssinaturasStore = create<AssinaturasStore>()(
-  persist(
-    immer((set, get) => ({
-      // Estado inicial
-      assinaturas: [],
-      historico: [],
-      isLoading: false,
-      error: null,
-      initialized: false,
+  immer((set, get) => ({
+    // Estado inicial
+    assinaturas: [],
+    historico: [],
+    isLoading: false,
+    error: null,
+    initialized: false,
 
       // =====================================================
       // INICIALIZAÇÃO
@@ -570,25 +568,5 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
 
         console.log(`✅ ${lancamentosParaAtualizar.length} lançamentos atualizados com todos os campos`)
       },
-    })),
-    {
-      name: 'pocketwise-assinaturas-store',
-      partialize: (state) => ({
-        assinaturas: state.assinaturas,
-        historico: state.historico,
-      }),
-      onRehydrateStorage: () => {
-        return (_state, error) => {
-          if (error) {
-            console.error('Erro ao hidratar store de assinaturas:', error)
-            try {
-              localStorage.removeItem('pocketwise-assinaturas-store')
-            } catch (e) {
-              console.error('Erro ao limpar storage:', e)
-            }
-          }
-        }
-      },
-    }
+    }))
   )
-)

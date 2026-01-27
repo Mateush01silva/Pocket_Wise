@@ -167,18 +167,47 @@ export function PeriodFilter({ value, onChange, className }: PeriodFilterProps) 
   }
 
   const handleCustomRangeApply = () => {
+    // Validar se as datas são válidas
+    const dataInicio = new Date(tempDataInicio)
+    const dataFim = new Date(tempDataFim)
+
+    // Verificar se as datas são válidas (não NaN)
+    if (isNaN(dataInicio.getTime())) {
+      alert('Data de início inválida. Por favor, selecione uma data válida.')
+      return
+    }
+    if (isNaN(dataFim.getTime())) {
+      alert('Data de fim inválida. Por favor, selecione uma data válida.')
+      return
+    }
+
+    // Verificar se a data de início não é maior que a de fim
+    if (dataInicio > dataFim) {
+      alert('A data de início não pode ser maior que a data de fim.')
+      return
+    }
+
     onChange({
       tipo: 'range-custom',
-      dataInicio: new Date(tempDataInicio),
-      dataFim: new Date(tempDataFim),
+      dataInicio,
+      dataFim,
     })
     setShowCustom(false)
   }
 
   const getDisplayPeriod = () => {
-    const inicio = format(value.dataInicio, 'dd MMM', { locale: ptBR })
-    const fim = format(value.dataFim, 'dd MMM yyyy', { locale: ptBR })
-    return `${inicio} - ${fim}`
+    try {
+      // Verificar se as datas são válidas
+      if (!value.dataInicio || !value.dataFim ||
+          isNaN(value.dataInicio.getTime()) || isNaN(value.dataFim.getTime())) {
+        return 'Período inválido'
+      }
+      const inicio = format(value.dataInicio, 'dd MMM', { locale: ptBR })
+      const fim = format(value.dataFim, 'dd MMM yyyy', { locale: ptBR })
+      return `${inicio} - ${fim}`
+    } catch {
+      return 'Período inválido'
+    }
   }
 
   return (
