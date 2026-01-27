@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { format, addMonths, parseISO } from 'date-fns'
 import type {
@@ -53,14 +52,13 @@ interface TransacoesActions {
 type TransacoesStore = TransacoesState & TransacoesActions
 
 export const useTransacoesStore = create<TransacoesStore>()(
-  persist(
-    immer((set, get) => ({
-      // Estado inicial
-      lancamentos: [],
-      isLoading: false,
-      error: null,
-      filters: {},
-      initialized: false,
+  immer((set, get) => ({
+    // Estado inicial
+    lancamentos: [],
+    isLoading: false,
+    error: null,
+    filters: {},
+    initialized: false,
 
       // Inicialização - sempre busca do banco para garantir sincronização
       initialize: async () => {
@@ -414,58 +412,9 @@ export const useTransacoesStore = create<TransacoesStore>()(
         get().fetchLancamentos()
       },
 
-      clearFilters: () => {
-        set({ filters: {} })
-        get().fetchLancamentos()
-      },
-    })),
-    {
-      name: 'pocketwise-transacoes-store',
-      partialize: (state) => ({
-        lancamentos: state.lancamentos,
-      }),
-      onRehydrateStorage: () => {
-        console.log('🔄 Iniciando hidratação do store de transações...')
-        return (state, error) => {
-          if (error) {
-            console.error('❌ Erro ao hidratar store de transações:', error)
-            try {
-              localStorage.removeItem('pocketwise-transacoes-store')
-              console.log('🗑️ Storage de transações corrompido foi limpo')
-            } catch (e) {
-              console.error('Erro ao limpar storage:', e)
-            }
-            return
-          }
-
-          // Validar dados hidratados
-          if (state) {
-            try {
-              // Garantir que lancamentos é um array
-              if (!Array.isArray(state.lancamentos)) {
-                console.warn('⚠️ Lançamentos não é um array, resetando...')
-                state.lancamentos = []
-              }
-
-              // Validar cada lançamento
-              state.lancamentos = state.lancamentos.filter((lanc: any) => {
-                return lanc && typeof lanc === 'object' && lanc.id && lanc.tipo && lanc.valor !== undefined
-              })
-
-              // Garantir que filters é um objeto
-              if (!state.filters || typeof state.filters !== 'object') {
-                state.filters = {}
-              }
-
-              console.log(`✅ Store de transações hidratado com ${state.lancamentos.length} lançamentos`)
-            } catch (validationError) {
-              console.error('❌ Erro ao validar dados hidratados:', validationError)
-              state.lancamentos = []
-              state.filters = {}
-            }
-          }
-        }
-      },
-    }
-  )
+    clearFilters: () => {
+      set({ filters: {} })
+      get().fetchLancamentos()
+    },
+  }))
 )

@@ -104,10 +104,17 @@ export function Transactions() {
     if (filterCartao !== 'all' && lancamento.cartao_id !== filterCartao) return false
 
     // Filter by date range (usando PeriodFilter)
-    const dataInicio = format(periodFilter.dataInicio, 'yyyy-MM-dd')
-    const dataFim = format(periodFilter.dataFim, 'yyyy-MM-dd')
-    if (lancamento.data < dataInicio) return false
-    if (lancamento.data > dataFim) return false
+    try {
+      if (periodFilter.dataInicio && periodFilter.dataFim &&
+          !isNaN(periodFilter.dataInicio.getTime()) && !isNaN(periodFilter.dataFim.getTime())) {
+        const dataInicio = format(periodFilter.dataInicio, 'yyyy-MM-dd')
+        const dataFim = format(periodFilter.dataFim, 'yyyy-MM-dd')
+        if (lancamento.data < dataInicio) return false
+        if (lancamento.data > dataFim) return false
+      }
+    } catch {
+      // Se houver erro na formatação de data, ignorar o filtro de período
+    }
 
     // Search term (category name or observacao)
     if (searchTerm) {
