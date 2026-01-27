@@ -75,6 +75,7 @@ export function ConsolidatedInvoiceModal({ isOpen, onClose, cartao }: Consolidat
       // Criar lançamento consolidado
       const descricaoFatura = descricao || `Fatura ${cartao.nome} - ${format(new Date(mesVencimento + '-01'), "MMM/yyyy", { locale: ptBR })}`
       await createLancamento({
+        family_id: 'local-storage-family',
         valor,
         data: dataVencimento,
         tipo: 'despesa',
