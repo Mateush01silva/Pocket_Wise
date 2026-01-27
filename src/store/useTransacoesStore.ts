@@ -15,9 +15,13 @@ interface TransacoesState {
   isLoading: boolean
   error: string | null
   filters: LancamentoFilters
+  initialized: boolean
 }
 
 interface TransacoesActions {
+  // Inicialização
+  initialize: () => Promise<void>
+
   // CRUD
   fetchLancamentos: (filters?: LancamentoFilters) => Promise<void>
   createLancamento: (data: CreateLancamentoInput) => Promise<Lancamento | null>
@@ -56,6 +60,20 @@ export const useTransacoesStore = create<TransacoesStore>()(
       isLoading: false,
       error: null,
       filters: {},
+      initialized: false,
+
+      // Inicialização - sempre busca do banco para garantir sincronização
+      initialize: async () => {
+        set({ isLoading: true, error: null })
+        try {
+          const { data, error } = await db.lancamentos.getAll()
+          if (error) throw error
+          set({ lancamentos: data || [], initialized: true, isLoading: false })
+        } catch (error) {
+          console.error('Erro ao inicializar transações:', error)
+          set({ error: (error as Error).message, isLoading: false })
+        }
+      },
 
       // Buscar lançamentos
       fetchLancamentos: async (filters) => {
