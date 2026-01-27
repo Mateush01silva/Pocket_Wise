@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react'
 import { X, CreditCard, Calendar, AlertCircle, Plus } from 'lucide-react'
 import { useTransacoesStore, useCategoriasStore } from '../store'
 import { Button, Input, Select, CurrencyInput } from './ui'
-import { formatCurrency } from '../utils/currency'
 import { format, addMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Cartao } from '../types'
@@ -74,8 +73,8 @@ export function ConsolidatedInvoiceModal({ isOpen, onClose, cartao }: Consolidat
       const dataVencimento = `${ano}-${mes}-${String(diaVencimento).padStart(2, '0')}`
 
       // Criar lançamento consolidado
+      const descricaoFatura = descricao || `Fatura ${cartao.nome} - ${format(new Date(mesVencimento + '-01'), "MMM/yyyy", { locale: ptBR })}`
       await createLancamento({
-        descricao: descricao || `Fatura ${cartao.nome} - ${format(new Date(mesVencimento + '-01'), "MMM/yyyy", { locale: ptBR })}`,
         valor,
         data: dataVencimento,
         tipo: 'despesa',
@@ -85,7 +84,7 @@ export function ConsolidatedInvoiceModal({ isOpen, onClose, cartao }: Consolidat
         cartao_id: cartao.id,
         forma_pagamento: 'credito',
         status: 'pendente',
-        observacoes: 'Fatura consolidada - ponto de partida',
+        observacao: `${descricaoFatura} - Fatura consolidada (ponto de partida)`,
       })
 
       alert('Fatura consolidada lançada com sucesso!')
