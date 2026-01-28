@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { format, parseISO, addMonths, startOfMonth, setDate } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { X, Calendar, ShoppingBag } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
@@ -12,6 +12,40 @@ interface FaturaDetailsModalProps {
   cartaoCor: string
   transacoes: Lancamento[]
   totalFatura: number
+  diaFechamento: number
+}
+
+/**
+ * Calcula o mês da fatura baseado na data da compra e dia de fechamento
+ *
+ * Exemplo com fechamento dia 13:
+ * - Compra em 10/jan (dia 10 <= 13) → Fatura de janeiro
+ * - Compra em 15/jan (dia 15 > 13) → Fatura de fevereiro
+ */
+function calcularMesFatura(dataCompra: string, diaFechamento: number): Date {
+  const data = parseISO(dataCompra)
+  const diaCompra = data.getDate()
+
+  // Se comprou depois do fechamento, vai para o próximo mês
+  if (diaCompra > diaFechamento) {
+    return addMonths(startOfMonth(data), 1)
+  }
+
+  return startOfMonth(data)
+}
+
+/**
+ * Retorna o período do ciclo de faturamento
+ * Exemplo com fechamento dia 13 para fatura de Janeiro:
+ * - Início: 14 de dezembro
+ * - Fim: 13 de janeiro
+ */
+function getPeriodoCiclo(mesFatura: Date, diaFechamento: number): { inicio: Date; fim: Date } {
+  const mesAnterior = addMonths(mesFatura, -1)
+  const inicio = setDate(mesAnterior, diaFechamento + 1)
+  const fim = setDate(mesFatura, diaFechamento)
+
+  return { inicio, fim }
 }
 
 export function FaturaDetailsModal({
@@ -21,6 +55,7 @@ export function FaturaDetailsModal({
   cartaoCor,
   transacoes,
   totalFatura,
+  diaFechamento,
 }: FaturaDetailsModalProps) {
   const categorias = useCategoriasStore((state) => state.categorias)
 
@@ -32,18 +67,29 @@ export function FaturaDetailsModal({
     return categoria?.nome || 'Categoria desconhecida'
   }
 
-  // Agrupar por mês de vencimento
+  // Agrupar por ciclo de faturamento (baseado na data de compra e dia de fechamento)
   const transacoesPorMes = transacoes.reduce((acc, t) => {
-    const mes = t.data_vencimento_fatura
-      ? format(new Date(t.data_vencimento_fatura), "MMMM 'de' yyyy", { locale: ptBR })
-      : 'Sem vencimento'
+    const mesFatura = calcularMesFatura(t.data, diaFechamento)
+    const { inicio, fim } = getPeriodoCiclo(mesFatura, diaFechamento)
 
-    if (!acc[mes]) {
-      acc[mes] = []
+    // Chave: "Janeiro 2026 (14/dez - 13/jan)"
+    const mesLabel = format(mesFatura, "MMMM 'de' yyyy", { locale: ptBR })
+    const periodoLabel = `${format(inicio, 'dd/MMM', { locale: ptBR })} - ${format(fim, 'dd/MMM', { locale: ptBR })}`
+    const chave = `${mesLabel}|${periodoLabel}|${mesFatura.getTime()}`
+
+    if (!acc[chave]) {
+      acc[chave] = []
     }
-    acc[mes].push(t)
+    acc[chave].push(t)
     return acc
   }, {} as Record<string, Lancamento[]>)
+
+  // Ordenar por mês (mais recente primeiro)
+  const mesesOrdenados = Object.entries(transacoesPorMes).sort((a, b) => {
+    const [, , timestampA] = a[0].split('|')
+    const [, , timestampB] = b[0].split('|')
+    return parseInt(timestampB) - parseInt(timestampA)
+  })
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -72,17 +118,23 @@ export function FaturaDetailsModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {Object.entries(transacoesPorMes).map(([mes, transacoesDoMes]) => {
+          {mesesOrdenados.map(([chave, transacoesDoMes]) => {
+            const [mesLabel, periodoLabel] = chave.split('|')
             const totalMes = transacoesDoMes.reduce((sum, t) => sum + t.valor, 0)
 
             return (
-              <div key={mes} className="mb-6 last:mb-0">
+              <div key={chave} className="mb-6 last:mb-0">
                 {/* Mês header */}
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-dark-700">
-                  <h3 className="text-lg font-semibold text-gray-200 flex items-center gap-2">
-                    <Calendar size={18} />
-                    {mes}
-                  </h3>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-200 flex items-center gap-2">
+                      <Calendar size={18} />
+                      Fatura de {mesLabel}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Compras de {periodoLabel}
+                    </p>
+                  </div>
                   <span className="text-sm font-medium text-primary-400">
                     {formatCurrency(totalMes)}
                   </span>
