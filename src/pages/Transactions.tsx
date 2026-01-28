@@ -6,7 +6,7 @@ import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
 import { TransactionModal } from '../components/TransactionModal'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
-import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Lancamento } from '../types'
 
@@ -434,7 +434,7 @@ export function Transactions() {
                       </td>
                       <td className="p-4">
                         <p className="text-sm text-gray-300">
-                          {format(new Date(lancamento.data), "dd 'de' MMM, yyyy", { locale: ptBR })}
+                          {format(parseISO(lancamento.data), "dd 'de' MMM, yyyy", { locale: ptBR })}
                         </p>
                       </td>
                       <td className="p-4">

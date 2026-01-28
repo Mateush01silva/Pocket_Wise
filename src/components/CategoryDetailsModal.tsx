@@ -1,6 +1,6 @@
 import { Modal } from './ui'
 import { formatCurrency } from '../utils/currency'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { X } from 'lucide-react'
 import type { Lancamento } from '../types'
@@ -82,7 +82,7 @@ export function CategoryDetailsModal({
                     className="grid grid-cols-12 gap-4 px-4 py-3 bg-dark-800/50 rounded-lg hover:bg-dark-800 transition-colors border border-dark-700/50"
                   >
                     <div className="col-span-2 text-sm text-gray-300">
-                      {format(new Date(transaction.data), 'dd/MM/yy', { locale: ptBR })}
+                      {format(parseISO(transaction.data), 'dd/MM/yy', { locale: ptBR })}
                     </div>
                     <div className="col-span-3 text-sm text-gray-300 truncate">
                       {transaction.subcategoria_id
