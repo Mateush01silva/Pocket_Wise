@@ -12,6 +12,7 @@ import {
   subDays,
   startOfDay,
   endOfDay,
+  parseISO,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Button } from './ui/Button'
@@ -167,9 +168,11 @@ export function PeriodFilter({ value, onChange, className }: PeriodFilterProps) 
   }
 
   const handleCustomRangeApply = () => {
-    // Validar se as datas são válidas
-    const dataInicio = new Date(tempDataInicio)
-    const dataFim = new Date(tempDataFim)
+    // Usar parseISO para evitar problemas de timezone
+    // new Date('2026-01-27') cria meia-noite UTC, que vira dia anterior no Brasil
+    // parseISO('2026-01-27') trata como timezone local
+    const dataInicio = parseISO(tempDataInicio)
+    const dataFim = parseISO(tempDataFim)
 
     // Verificar se as datas são válidas (não NaN)
     if (isNaN(dataInicio.getTime())) {
