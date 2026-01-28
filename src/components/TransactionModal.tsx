@@ -37,7 +37,6 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
   const [parcelas, setParcelas] = useState<number>(1)
   const [isRecorrente, setIsRecorrente] = useState<boolean>(false)
   const [mesesRecorrencia, setMesesRecorrencia] = useState<number>(3)
-  const [isFaturaConsolidada, setIsFaturaConsolidada] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState(false)
 
   // Filtrar categorias principais por tipo
@@ -114,7 +113,6 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
       setParcelas(1)
       setIsRecorrente(false)
       setMesesRecorrencia(3)
-      setIsFaturaConsolidada(false)
     }
   }, [editingLancamento, isOpen])
 
@@ -164,14 +162,6 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         })
       } else {
         // Criando novo
-        let observacaoFinal = formData.observacao || ''
-
-        // Se é fatura consolidada, adicionar no nome
-        if (isFaturaConsolidada && formData.forma_pagamento === 'credito' && formData.cartao_id) {
-          const cartao = cartoes.find(c => c.id === formData.cartao_id)
-          observacaoFinal = `Fatura Consolidada${cartao ? ` - ${cartao.nome}` : ''}${formData.observacao ? ` - ${formData.observacao}` : ''}`
-        }
-
         const lancamentoData: CreateLancamentoInput = {
           family_id: 'local-storage-family',
           tipo: formData.tipo as 'receita' | 'despesa',
@@ -182,7 +172,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
           forma_pagamento: formData.forma_pagamento as any,
           cartao_id: formData.cartao_id,
           conta_id: formData.conta_id,
-          observacao: observacaoFinal,
+          observacao: formData.observacao,
           status: formData.status || 'pago',
         }
 
@@ -194,12 +184,11 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         else if (
           formData.forma_pagamento === 'credito' &&
           formData.cartao_id &&
-          parcelas > 1 &&
-          !isFaturaConsolidada
+          parcelas > 1
         ) {
           await createLancamentoParcelado(lancamentoData, parcelas)
         }
-        // Lançamento simples (ou fatura consolidada)
+        // Lançamento simples
         else {
           await createLancamento(lancamentoData)
         }
@@ -217,7 +206,6 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
       setParcelas(1)
       setIsRecorrente(false)
       setMesesRecorrencia(3)
-      setIsFaturaConsolidada(false)
       onClose()
     } catch (error) {
       console.error('Erro ao criar transação:', error)
@@ -240,7 +228,6 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
       setParcelas(1)
       setIsRecorrente(false)
       setMesesRecorrencia(3)
-      setIsFaturaConsolidada(false)
       onClose()
     }
   }
@@ -429,34 +416,8 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
               required
             />
 
-            {/* Checkbox Fatura Consolidada */}
+            {/* Parcelas */}
             {formData.cartao_id && (
-              <div className="flex items-start gap-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                <input
-                  type="checkbox"
-                  id="fatura_consolidada"
-                  checked={isFaturaConsolidada}
-                  onChange={(e) => {
-                    setIsFaturaConsolidada(e.target.checked)
-                    if (e.target.checked) {
-                      setParcelas(1) // Resetar parcelas se marcar consolidada
-                    }
-                  }}
-                  className="mt-1 w-4 h-4 rounded border-gray-600 text-primary-500 focus:ring-primary-500 focus:ring-offset-dark-800"
-                />
-                <div className="flex-1">
-                  <label htmlFor="fatura_consolidada" className="text-sm font-medium text-blue-300 cursor-pointer">
-                    📋 Lançar como Fatura Consolidada
-                  </label>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Marque para lançar o valor total da fatura sem detalhar cada compra. Ideal para começar no sistema.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Parcelas (só se não for consolidada) */}
-            {formData.cartao_id && !isFaturaConsolidada && (
               <Input
                 type="number"
                 label="Número de Parcelas"
@@ -485,8 +446,13 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
                 🔄 Transação Recorrente
               </label>
               <p className="text-xs text-gray-400 mt-1">
-                Marque para repetir esta transação automaticamente nos próximos meses (aluguel, assinaturas, etc.)
+                Repete esta transação automaticamente nos próximos meses. Ideal para:
               </p>
+              <ul className="text-xs text-gray-400 mt-1 list-disc list-inside space-y-0.5">
+                <li>Aluguel, conta de luz, internet</li>
+                <li>Assinaturas mensais (Netflix, Spotify)</li>
+                <li>Parcelas restantes de compras (ex: parcela 4/10, crie 7 recorrências)</li>
+              </ul>
             </div>
           </div>
         )}

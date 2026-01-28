@@ -33,6 +33,11 @@ import { formatCurrency } from '../utils/currency'
 
 /**
  * Calcula o gasto total de uma categoria em um determinado mês
+ *
+ * Para transações de cartão de crédito:
+ * - Considera pelo mês da COMPRA (data), não pelo mês do vencimento da fatura
+ * - Inclui status 'projetado' pois o gasto já foi "comprometido"
+ * - Isso permite controle do orçamento mesmo antes de pagar a fatura
  */
 export function calcularGastoPorCategoria(
   lancamentos: Lancamento[],
@@ -44,11 +49,16 @@ export function calcularGastoPorCategoria(
   return lancamentos
     .filter((l) => {
       const lancamentoMes = l.data.substring(0, 7)
+
+      // Status válidos: 'pago' OU 'projetado' (cartão de crédito)
+      // Não considera 'pendente' porque ainda não foi efetivado
+      const statusValido = l.status === 'pago' || l.status === 'projetado'
+
       return (
         l.tipo === 'despesa' &&
         l.categoria_id === categoriaId &&
         lancamentoMes === anoMes &&
-        l.status === 'pago'
+        statusValido
       )
     })
     .reduce((sum, l) => sum + l.valor, 0)
@@ -142,12 +152,13 @@ export function calcularProjecaoMensal(
   // RECEITAS ORÇADAS (planejadas) - base para o saldo do orçamento
   const receitasOrcadas = categoriasBudgetReceita.reduce((sum, cb) => sum + cb.valor_orcado, 0)
 
-  // Despesas já pagas no mês
-  const despesasPagasMes = lancamentosDoMes
-    .filter((l) => l.tipo === 'despesa' && l.status === 'pago')
+  // Despesas efetivadas no mês (pagas + projetadas de cartão)
+  // Projetadas são incluídas pois representam gastos já comprometidos
+  const despesasEfetivadasMes = lancamentosDoMes
+    .filter((l) => l.tipo === 'despesa' && (l.status === 'pago' || l.status === 'projetado'))
     .reduce((sum, l) => sum + l.valor, 0)
 
-  // Despesas pendentes (lançadas mas não pagas)
+  // Despesas pendentes (lançadas mas não pagas e não são de cartão)
   const despesasPendentes = lancamentosDoMes
     .filter((l) => l.tipo === 'despesa' && l.status === 'pendente')
     .reduce((sum, l) => sum + l.valor, 0)
@@ -156,12 +167,12 @@ export function calcularProjecaoMensal(
   const totalDespesasOrcadas = categoriasBudgetDespesa.reduce((sum, cb) => sum + cb.valor_orcado, 0)
 
   // Despesas orçadas ainda não lançadas
-  const despesasOrcadasNaoLancadas = Math.max(0, totalDespesasOrcadas - despesasPagasMes - despesasPendentes)
+  const despesasOrcadasNaoLancadas = Math.max(0, totalDespesasOrcadas - despesasEfetivadasMes - despesasPendentes)
 
   // SALDO ATUAL DO ORÇAMENTO:
   // Considera as receitas ORÇADAS (planejadas) menos o que já foi gasto
   // Isso permite ao usuário ver se o orçamento planejado faz sentido
-  const saldoAtualOrcamento = receitasOrcadas - despesasPagasMes
+  const saldoAtualOrcamento = receitasOrcadas - despesasEfetivadasMes
 
   // Receitas futuras (pendentes no mês que ainda não foram recebidas)
   const receitasFuturas = lancamentosDoMes
@@ -170,10 +181,10 @@ export function calcularProjecaoMensal(
 
   // SALDO PROJETADO FIM DO MÊS:
   // Receitas orçadas - Todas as despesas (pagas + pendentes + orçadas não lançadas)
-  const saldoProjetadoFimMes = receitasOrcadas - despesasPagasMes - despesasPendentes - despesasOrcadasNaoLancadas
+  const saldoProjetadoFimMes = receitasOrcadas - despesasEfetivadasMes - despesasPendentes - despesasOrcadasNaoLancadas
 
   // Calcular percentual de orçamento de despesas usado
-  const percentualOrcamentoUsado = totalDespesasOrcadas > 0 ? (despesasPagasMes / totalDespesasOrcadas) * 100 : 0
+  const percentualOrcamentoUsado = totalDespesasOrcadas > 0 ? (despesasEfetivadasMes / totalDespesasOrcadas) * 100 : 0
 
   // Saúde financeira
   const saude = calcularSaudeFinanceira(percentualOrcamentoUsado, percentualMesDecorrido)
