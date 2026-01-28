@@ -10,13 +10,76 @@ import {
   AlertCircle,
   Eye,
 } from 'lucide-react'
-import { format } from 'date-fns'
+import { format, parseISO, addMonths, startOfMonth } from 'date-fns'
 import { useCartoesStore, useTransacoesStore } from '../store'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CreditCardModal } from '../components/CreditCardModal'
 import { FaturaDetailsModal } from '../components/FaturaDetailsModal'
 import { formatCurrency } from '../utils/currency'
-import type { Cartao } from '../types'
+import type { Cartao, Lancamento } from '../types'
+
+/**
+ * Calcula o mês da fatura baseado na data da compra e dia de fechamento
+ *
+ * Exemplo com fechamento dia 13:
+ * - Compra em 10/jan (dia 10 <= 13) → Fatura de janeiro
+ * - Compra em 15/jan (dia 15 > 13) → Fatura de fevereiro
+ */
+function calcularMesFatura(dataCompra: string, diaFechamento: number): Date {
+  const data = parseISO(dataCompra)
+  const diaCompra = data.getDate()
+
+  // Se comprou depois do fechamento, vai para o próximo mês
+  if (diaCompra > diaFechamento) {
+    return addMonths(startOfMonth(data), 1)
+  }
+
+  return startOfMonth(data)
+}
+
+/**
+ * Calcula qual é a fatura atual do cartão (ciclo de faturamento em aberto)
+ *
+ * Se hoje é 20/jan e fechamento é dia 13:
+ * - A fatura de janeiro já fechou (13/jan)
+ * - A fatura atual é de fevereiro (compras de 14/jan a 13/fev)
+ *
+ * Se hoje é 10/jan e fechamento é dia 13:
+ * - A fatura de janeiro ainda não fechou
+ * - A fatura atual é de janeiro (compras de 14/dez a 13/jan)
+ */
+function calcularFaturaAtual(diaFechamento: number): Date {
+  const hoje = new Date()
+  const diaHoje = hoje.getDate()
+
+  // Se já passou do fechamento, a fatura atual é do próximo mês
+  if (diaHoje > diaFechamento) {
+    return addMonths(startOfMonth(hoje), 1)
+  }
+
+  return startOfMonth(hoje)
+}
+
+/**
+ * Filtra transações que pertencem à fatura atual
+ */
+function getTransacoesFaturaAtual(
+  lancamentos: Lancamento[],
+  cartaoId: string,
+  diaFechamento: number
+): Lancamento[] {
+  const faturaAtual = calcularFaturaAtual(diaFechamento)
+  const faturaAtualTime = faturaAtual.getTime()
+
+  return lancamentos.filter((l) => {
+    if (l.cartao_id !== cartaoId) return false
+    if (l.forma_pagamento !== 'credito') return false
+    if (l.status === 'pago') return false
+
+    const mesFatura = calcularMesFatura(l.data, diaFechamento)
+    return mesFatura.getTime() === faturaAtualTime
+  })
+}
 
 export function CreditCards() {
   const cartoes = useCartoesStore((state) => state.cartoes)
@@ -36,18 +99,26 @@ export function CreditCards() {
   // Calcular estatísticas de cada cartão
   const cartoesComEstatisticas = useMemo(() => {
     return cartoes.map((cartao) => {
-      // Buscar TODAS as compras não pagas do cartão (independente do mês de vencimento)
-      // O que importa é: se não foi pago, está usando o limite!
+      // Buscar TODAS as compras não pagas do cartão (para limite)
       const comprasNaoPagas = lancamentos.filter(
         (l) =>
           l.cartao_id === cartao.id &&
           l.forma_pagamento === 'credito' &&
-          l.status !== 'pago' // Considera pendente, projetado, etc
+          l.status !== 'pago'
       )
 
       const totalUsandoLimite = comprasNaoPagas.reduce((sum, f) => sum + f.valor, 0)
 
+      // Fatura Atual: apenas transações do ciclo de faturamento atual
+      const transacoesFaturaAtual = getTransacoesFaturaAtual(
+        lancamentos,
+        cartao.id,
+        cartao.dia_fechamento
+      )
+      const totalFaturaAtual = transacoesFaturaAtual.reduce((sum, f) => sum + f.valor, 0)
+
       // Buscar faturas do mês atual para o botão "Pagar Fatura"
+      // (fatura que já fechou e precisa ser paga)
       const faturasMesAtual = getFaturasCartao(cartao.id, mesAtual)
       const faturasNaoPagasMesAtual = faturasMesAtual.filter((l) => l.status !== 'pago')
       const totalFaturaMesAtual = faturasNaoPagasMesAtual.reduce((sum, f) => sum + f.valor, 0)
@@ -56,7 +127,7 @@ export function CreditCards() {
         (l) =>
           l.cartao_id === cartao.id &&
           l.forma_pagamento === 'credito' &&
-          l.status === 'pendente' &&
+          l.status !== 'pago' &&
           l.parcela_total &&
           l.parcela_total > 1
       )
@@ -71,13 +142,15 @@ export function CreditCards() {
 
       return {
         ...cartao,
-        totalFatura: totalUsandoLimite, // Total usando o limite (TODAS as compras não pagas)
-        totalFaturaMesAtual, // Fatura do mês para pagar
+        totalFatura: totalFaturaAtual, // Fatura do ciclo atual apenas
+        totalUsandoLimite, // Total usando o limite (TODAS as compras não pagas)
+        totalFaturaMesAtual, // Fatura fechada do mês para pagar
         limiteDisponivel,
         percentualUsado,
         quantidadeParcelas: parcelasPendentes.length,
         faturaFechada,
         temFaturaParaPagar,
+        transacoesFaturaAtual, // Para mostrar no modal
       }
     })
   }, [cartoes, lancamentos, mesAtual, diaAtual, getFaturasCartao])
@@ -210,25 +283,34 @@ export function CreditCards() {
             </div>
           </div>
 
-          {/* Fatura do mês */}
-          <div className="pt-3 border-t border-dark-700">
+          {/* Fatura do ciclo atual */}
+          <div className="pt-3 border-t border-dark-700 space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-400">Fatura Atual</span>
+              <div>
+                <span className="text-sm text-gray-400">Fatura em Aberto</span>
+                <p className="text-xs text-gray-500">Ciclo atual</p>
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-lg font-bold text-primary-400">
                   {formatCurrency(cartao.totalFatura)}
                 </span>
-                {cartao.totalFatura > 0 && (
+                {cartao.totalUsandoLimite > 0 && (
                   <button
                     onClick={() => setFaturaDetailsCartaoId(cartao.id)}
                     className="p-1.5 hover:bg-dark-700 rounded transition-colors text-gray-400 hover:text-primary-400"
-                    title="Ver detalhes da fatura"
+                    title="Ver todas as faturas pendentes"
                   >
                     <Eye size={16} />
                   </button>
                 )}
               </div>
             </div>
+            {/* Se há mais faturas pendentes além da atual */}
+            {cartao.totalUsandoLimite > cartao.totalFatura && (
+              <div className="text-xs text-gray-500">
+                + {formatCurrency(cartao.totalUsandoLimite - cartao.totalFatura)} em faturas futuras
+              </div>
+            )}
           </div>
 
           {/* Info de fechamento/vencimento */}
@@ -315,10 +397,10 @@ export function CreditCards() {
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400 mb-1">Total em Faturas</p>
+                  <p className="text-sm text-gray-400 mb-1">Total a Pagar</p>
                   <p className="text-2xl font-bold text-red-400">
                     {formatCurrency(
-                      cartoesAtivos.reduce((sum, c) => sum + c.totalFatura, 0)
+                      cartoesAtivos.reduce((sum, c) => sum + c.totalUsandoLimite, 0)
                     )}
                   </p>
                 </div>
@@ -399,6 +481,7 @@ export function CreditCards() {
         const cartao = cartoesComEstatisticas.find((c) => c.id === faturaDetailsCartaoId)
         if (!cartao) return null
 
+        // Mostrar TODAS as transações não pagas, agrupadas por ciclo de faturamento
         const transacoesCartao = lancamentos.filter(
           (l) =>
             l.cartao_id === cartao.id &&
@@ -413,7 +496,8 @@ export function CreditCards() {
             cartaoNome={cartao.nome}
             cartaoCor={cartao.cor || '#6b7280'}
             transacoes={transacoesCartao}
-            totalFatura={cartao.totalFatura}
+            totalFatura={cartao.totalUsandoLimite}
+            diaFechamento={cartao.dia_fechamento}
           />
         )
       })()}
