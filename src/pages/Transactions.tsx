@@ -422,9 +422,17 @@ export function Transactions() {
                   paginatedLancamentos.map((lancamento) => (
                     <tr
                       key={lancamento.id}
-                      className="border-b border-dark-700/50 hover:bg-dark-800/30 transition-colors"
+                      className="border-b border-dark-700/50 hover:bg-dark-800/30 transition-colors cursor-pointer"
+                      onClick={(e) => {
+                        // Não abre o modal se clicou no checkbox ou nos botões de ação
+                        const target = e.target as HTMLElement
+                        if (target.closest('input[type="checkbox"]') || target.closest('button')) {
+                          return
+                        }
+                        handleEditLancamento(lancamento)
+                      }}
                     >
-                      <td className="p-4">
+                      <td className="p-4" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={selectedIds.includes(lancamento.id)}
@@ -433,12 +441,12 @@ export function Transactions() {
                         />
                       </td>
                       <td className="p-4">
-                        <p className="text-sm text-gray-300">
+                        <p className="text-sm text-gray-300 hover:text-primary-400 transition-colors">
                           {format(parseISO(lancamento.data), "dd 'de' MMM, yyyy", { locale: ptBR })}
                         </p>
                       </td>
                       <td className="p-4">
-                        <div>
+                        <div className="hover:text-primary-400 transition-colors">
                           <p className="text-sm text-gray-100 font-medium">
                             {getCategoryName(lancamento.categoria_id)}
                           </p>
@@ -450,7 +458,7 @@ export function Transactions() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <div>
+                        <div className="hover:text-primary-400 transition-colors">
                           {lancamento.observacao ? (
                             <p className="text-sm text-gray-300">{lancamento.observacao}</p>
                           ) : (
@@ -464,17 +472,17 @@ export function Transactions() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <p className="text-sm text-gray-300">
+                        <p className="text-sm text-gray-300 hover:text-primary-400 transition-colors">
                           {translatePaymentMethod(lancamento.forma_pagamento)}
                         </p>
                       </td>
                       <td className="p-4">
-                        <p className="text-sm text-gray-300">
+                        <p className="text-sm text-gray-300 hover:text-primary-400 transition-colors">
                           {getCardName(lancamento.cartao_id)}
                         </p>
                       </td>
                       <td className="p-4 text-right">
-                        <p className={`text-sm font-semibold ${
+                        <p className={`text-sm font-semibold hover:opacity-80 transition-opacity ${
                           lancamento.tipo === 'receita' ? 'text-green-400' : 'text-red-400'
                         }`}>
                           {lancamento.tipo === 'receita' ? '+' : '-'} {formatCurrency(lancamento.valor)}
