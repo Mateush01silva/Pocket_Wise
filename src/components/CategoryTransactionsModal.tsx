@@ -1,6 +1,6 @@
 import { Modal } from './ui/Modal'
 import { formatCurrency } from '../utils/currency'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Lancamento, Categoria } from '../types'
 import { TrendingDown, Calendar } from 'lucide-react'
@@ -126,7 +126,7 @@ export function CategoryTransactionsModal({
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <Calendar size={12} className="text-gray-500" />
                         <span className="text-xs text-gray-500">
-                          {format(new Date(transacao.data), "dd 'de' MMMM", { locale: ptBR })}
+                          {format(parseISO(transacao.data), "dd 'de' MMMM", { locale: ptBR })}
                         </span>
                         <span
                           className={cn(

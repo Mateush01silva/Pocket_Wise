@@ -11,7 +11,7 @@ import { BankAccountsWidget } from '../components/BankAccountsWidget'
 import { UpcomingBillsWidget } from '../components/UpcomingBillsWidget'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
 import { calcularSaldoReal, calcularSaldoProjetado, calcularFaturasAtuaisCartao, filtrarPorPeriodo } from '../lib/financialCalculations'
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
+import { format, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
 import { useNavigate } from 'react-router-dom'
@@ -634,7 +634,7 @@ export function Dashboard() {
                       </p>
                       <div className="flex items-center gap-2 mt-1">
                         <p className="text-xs text-gray-500">
-                          {format(new Date(lancamento.data), "dd 'de' MMM", { locale: ptBR })}
+                          {format(parseISO(lancamento.data), "dd 'de' MMM", { locale: ptBR })}
                         </p>
                         {lancamento.parcela_atual && lancamento.parcela_total && (
                           <span className="text-xs text-gray-500">

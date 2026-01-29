@@ -172,7 +172,7 @@ export function FaturaDetailsModal({
                           </div>
                           <div className="flex items-center gap-3 text-xs text-gray-500">
                             <span>
-                              {format(new Date(transacao.data), "dd 'de' MMM", { locale: ptBR })}
+                              {format(parseISO(transacao.data), "dd 'de' MMM", { locale: ptBR })}
                             </span>
                             {transacao.observacao && (
                               <>

@@ -11,6 +11,7 @@ import {
   Eye,
 } from 'lucide-react'
 import { format, parseISO, addMonths, startOfMonth } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { useCartoesStore, useTransacoesStore } from '../store'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CreditCardModal } from '../components/CreditCardModal'
@@ -81,19 +82,109 @@ function getTransacoesFaturaAtual(
   })
 }
 
+/**
+ * Encontra a fatura mais antiga não paga (fatura fechada pendente de pagamento)
+ * Retorna null se não houver fatura fechada pendente
+ */
+function getFaturaFechadaPendente(
+  lancamentos: Lancamento[],
+  cartaoId: string,
+  diaFechamento: number,
+  diaVencimento: number
+): {
+  mesFatura: Date
+  transacoes: Lancamento[]
+  total: number
+  vencida: boolean
+  dataVencimento: Date
+} | null {
+  const hoje = new Date()
+  const diaHoje = hoje.getDate()
+  const mesHoje = hoje.getMonth()
+  const anoHoje = hoje.getFullYear()
+
+  // Buscar todas as transações não pagas do cartão
+  const transacoesNaoPagas = lancamentos.filter(
+    (l) =>
+      l.cartao_id === cartaoId &&
+      l.forma_pagamento === 'credito' &&
+      l.status !== 'pago'
+  )
+
+  if (transacoesNaoPagas.length === 0) return null
+
+  // Agrupar por mês de fatura
+  const faturasPorMes = new Map<number, Lancamento[]>()
+
+  transacoesNaoPagas.forEach((t) => {
+    const mesFatura = calcularMesFatura(t.data, diaFechamento)
+    const key = mesFatura.getTime()
+    if (!faturasPorMes.has(key)) {
+      faturasPorMes.set(key, [])
+    }
+    faturasPorMes.get(key)!.push(t)
+  })
+
+  // Encontrar faturas que já fecharam (mês da fatura <= mês atual E dia > fechamento)
+  // Ou faturas de meses anteriores (que com certeza já fecharam)
+  const faturasFechadasPendentes: Array<{
+    mesFatura: Date
+    transacoes: Lancamento[]
+    total: number
+    dataVencimento: Date
+  }> = []
+
+  faturasPorMes.forEach((transacoes, timestamp) => {
+    const mesFatura = new Date(timestamp)
+    const mesFaturaMonth = mesFatura.getMonth()
+    const mesFaturaYear = mesFatura.getFullYear()
+
+    // A fatura fechou se:
+    // 1. É de um mês anterior ao atual, OU
+    // 2. É do mês atual E o dia de hoje > dia de fechamento
+    const faturaFechou =
+      mesFaturaYear < anoHoje ||
+      (mesFaturaYear === anoHoje && mesFaturaMonth < mesHoje) ||
+      (mesFaturaYear === anoHoje && mesFaturaMonth === mesHoje && diaHoje > diaFechamento)
+
+    if (faturaFechou) {
+      // Calcular data de vencimento desta fatura
+      const dataVencimento = new Date(mesFaturaYear, mesFaturaMonth, diaVencimento)
+
+      faturasFechadasPendentes.push({
+        mesFatura,
+        transacoes,
+        total: transacoes.reduce((sum, t) => sum + t.valor, 0),
+        dataVencimento,
+      })
+    }
+  })
+
+  if (faturasFechadasPendentes.length === 0) return null
+
+  // Ordenar por data de vencimento (mais antiga primeiro)
+  faturasFechadasPendentes.sort((a, b) => a.dataVencimento.getTime() - b.dataVencimento.getTime())
+
+  const faturaParaPagar = faturasFechadasPendentes[0]
+
+  // Verificar se está vencida
+  const vencida = hoje > faturaParaPagar.dataVencimento
+
+  return {
+    ...faturaParaPagar,
+    vencida,
+  }
+}
+
 export function CreditCards() {
   const cartoes = useCartoesStore((state) => state.cartoes)
   const deleteCartao = useCartoesStore((state) => state.deleteCartao)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
-  const getFaturasCartao = useTransacoesStore((state) => state.getFaturasCartao)
-  const marcarFaturaComoPaga = useTransacoesStore((state) => state.marcarFaturaComoPaga)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [cartaoToEdit, setCartaoToEdit] = useState<Cartao | undefined>()
   const [faturaDetailsCartaoId, setFaturaDetailsCartaoId] = useState<string | null>(null)
 
-  // Obter mês atual no formato YYYY-MM
-  const mesAtual = format(new Date(), 'yyyy-MM')
   const diaAtual = new Date().getDate()
 
   // Calcular estatísticas de cada cartão
@@ -109,19 +200,21 @@ export function CreditCards() {
 
       const totalUsandoLimite = comprasNaoPagas.reduce((sum, f) => sum + f.valor, 0)
 
-      // Fatura Atual: apenas transações do ciclo de faturamento atual
-      const transacoesFaturaAtual = getTransacoesFaturaAtual(
+      // Fatura em aberto (ciclo atual - ainda não fechou)
+      const transacoesFaturaEmAberto = getTransacoesFaturaAtual(
         lancamentos,
         cartao.id,
         cartao.dia_fechamento
       )
-      const totalFaturaAtual = transacoesFaturaAtual.reduce((sum, f) => sum + f.valor, 0)
+      const totalFaturaEmAberto = transacoesFaturaEmAberto.reduce((sum, f) => sum + f.valor, 0)
 
-      // Buscar faturas do mês atual para o botão "Pagar Fatura"
-      // (fatura que já fechou e precisa ser paga)
-      const faturasMesAtual = getFaturasCartao(cartao.id, mesAtual)
-      const faturasNaoPagasMesAtual = faturasMesAtual.filter((l) => l.status !== 'pago')
-      const totalFaturaMesAtual = faturasNaoPagasMesAtual.reduce((sum, f) => sum + f.valor, 0)
+      // Fatura fechada pendente de pagamento (já fechou, precisa pagar)
+      const faturaFechadaPendente = getFaturaFechadaPendente(
+        lancamentos,
+        cartao.id,
+        cartao.dia_fechamento,
+        cartao.dia_vencimento
+      )
 
       const parcelasPendentes = lancamentos.filter(
         (l) =>
@@ -136,24 +229,17 @@ export function CreditCards() {
       const limiteDisponivel = limite - totalUsandoLimite
       const percentualUsado = limite > 0 ? (totalUsandoLimite / limite) * 100 : 0
 
-      // Verificar se a fatura do mês atual está fechada (dia atual > dia de fechamento)
-      const faturaFechada = diaAtual > cartao.dia_fechamento
-      const temFaturaParaPagar = totalFaturaMesAtual > 0 && faturaFechada
-
       return {
         ...cartao,
-        totalFatura: totalFaturaAtual, // Fatura do ciclo atual apenas
+        totalFaturaEmAberto, // Fatura do ciclo atual (ainda não fechou)
         totalUsandoLimite, // Total usando o limite (TODAS as compras não pagas)
-        totalFaturaMesAtual, // Fatura fechada do mês para pagar
+        faturaFechadaPendente, // Fatura que já fechou e precisa pagar
         limiteDisponivel,
         percentualUsado,
         quantidadeParcelas: parcelasPendentes.length,
-        faturaFechada,
-        temFaturaParaPagar,
-        transacoesFaturaAtual, // Para mostrar no modal
       }
     })
-  }, [cartoes, lancamentos, mesAtual, diaAtual, getFaturasCartao])
+  }, [cartoes, lancamentos, diaAtual])
 
   const cartoesAtivos = useMemo(
     () => cartoesComEstatisticas.filter((c) => c.ativo),
@@ -184,11 +270,19 @@ export function CreditCards() {
   }
 
   const handlePagarFatura = async (cartao: typeof cartoesComEstatisticas[0]) => {
-    const confirmMessage = `Confirmar pagamento da fatura do cartão "${cartao.nome}"?\n\nValor: ${formatCurrency(cartao.totalFaturaMesAtual)}\n\nTodos os lançamentos desta fatura serão marcados como pagos e o limite será liberado.`
+    if (!cartao.faturaFechadaPendente) return
+
+    const { mesFatura, total, transacoes } = cartao.faturaFechadaPendente
+    const mesNome = format(mesFatura, "MMMM 'de' yyyy", { locale: ptBR })
+
+    const confirmMessage = `Confirmar pagamento da fatura de ${mesNome}?\n\nValor: ${formatCurrency(total)}\n\nTodos os ${transacoes.length} lançamentos desta fatura serão marcados como pagos e o limite será liberado.`
 
     if (window.confirm(confirmMessage)) {
       try {
-        await marcarFaturaComoPaga(cartao.id, mesAtual)
+        // Marcar todas as transações desta fatura como pagas
+        for (const transacao of transacoes) {
+          await useTransacoesStore.getState().updateLancamento(transacao.id, { status: 'pago' })
+        }
         alert('Fatura paga com sucesso! Limite liberado.')
       } catch (error) {
         console.error('Erro ao pagar fatura:', error)
@@ -283,7 +377,39 @@ export function CreditCards() {
             </div>
           </div>
 
-          {/* Fatura do ciclo atual */}
+          {/* Fatura Fechada (para pagar) */}
+          {cartao.faturaFechadaPendente && (
+            <div className={`pt-3 border-t space-y-2 ${cartao.faturaFechadaPendente.vencida ? 'border-red-500/50 bg-red-500/5 -mx-4 px-4 pb-3' : 'border-dark-700'}`}>
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-400">Fatura Fechada</span>
+                    {cartao.faturaFechadaPendente.vencida && (
+                      <span className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 rounded-full font-medium">
+                        VENCIDA
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {format(cartao.faturaFechadaPendente.mesFatura, "MMMM 'de' yyyy", { locale: ptBR })} • Vence {format(cartao.faturaFechadaPendente.dataVencimento, 'dd/MM', { locale: ptBR })}
+                  </p>
+                </div>
+                <span className={`text-lg font-bold ${cartao.faturaFechadaPendente.vencida ? 'text-red-400' : 'text-yellow-400'}`}>
+                  {formatCurrency(cartao.faturaFechadaPendente.total)}
+                </span>
+              </div>
+              <Button
+                onClick={() => handlePagarFatura(cartao)}
+                className={`w-full ${cartao.faturaFechadaPendente.vencida ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
+                size="sm"
+              >
+                <DollarSign size={14} className="mr-2" />
+                {cartao.faturaFechadaPendente.vencida ? 'Pagar Fatura Vencida' : 'Pagar Fatura'}
+              </Button>
+            </div>
+          )}
+
+          {/* Fatura em Aberto (ciclo atual) */}
           <div className="pt-3 border-t border-dark-700 space-y-2">
             <div className="flex justify-between items-center">
               <div>
@@ -292,7 +418,7 @@ export function CreditCards() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-lg font-bold text-primary-400">
-                  {formatCurrency(cartao.totalFatura)}
+                  {formatCurrency(cartao.totalFaturaEmAberto)}
                 </span>
                 {cartao.totalUsandoLimite > 0 && (
                   <button
@@ -305,12 +431,6 @@ export function CreditCards() {
                 )}
               </div>
             </div>
-            {/* Se há mais faturas pendentes além da atual */}
-            {cartao.totalUsandoLimite > cartao.totalFatura && (
-              <div className="text-xs text-gray-500">
-                + {formatCurrency(cartao.totalUsandoLimite - cartao.totalFatura)} em faturas futuras
-              </div>
-            )}
           </div>
 
           {/* Info de fechamento/vencimento */}
@@ -324,18 +444,6 @@ export function CreditCards() {
               <span>Vence dia {cartao.dia_vencimento}</span>
             </div>
           </div>
-
-          {/* Botão Pagar Fatura */}
-          {cartao.temFaturaParaPagar && (
-            <Button
-              onClick={() => handlePagarFatura(cartao)}
-              className="w-full bg-green-600 hover:bg-green-700 text-white"
-              size="sm"
-            >
-              <DollarSign size={14} className="mr-2" />
-              Pagar Fatura ({formatCurrency(cartao.totalFaturaMesAtual)})
-            </Button>
-          )}
 
           {/* Parcelas pendentes */}
           {cartao.quantidadeParcelas > 0 && (
