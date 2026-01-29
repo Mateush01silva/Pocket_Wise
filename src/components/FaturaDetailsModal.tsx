@@ -143,7 +143,7 @@ export function FaturaDetailsModal({
                 {/* Transações */}
                 <div className="space-y-2">
                   {transacoesDoMes
-                    .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+                    .sort((a, b) => parseISO(b.data).getTime() - parseISO(a.data).getTime())
                     .map((transacao) => (
                       <div
                         key={transacao.id}
