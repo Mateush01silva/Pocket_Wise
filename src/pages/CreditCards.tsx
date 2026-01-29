@@ -99,9 +99,6 @@ function getFaturaFechadaPendente(
   dataVencimento: Date
 } | null {
   const hoje = new Date()
-  const diaHoje = hoje.getDate()
-  const mesHoje = hoje.getMonth()
-  const anoHoje = hoje.getFullYear()
 
   // Buscar todas as transações não pagas do cartão
   const transacoesNaoPagas = lancamentos.filter(
@@ -139,13 +136,10 @@ function getFaturaFechadaPendente(
     const mesFaturaMonth = mesFatura.getMonth()
     const mesFaturaYear = mesFatura.getFullYear()
 
-    // A fatura fechou se:
-    // 1. É de um mês anterior ao atual, OU
-    // 2. É do mês atual E o dia de hoje > dia de fechamento
-    const faturaFechou =
-      mesFaturaYear < anoHoje ||
-      (mesFaturaYear === anoHoje && mesFaturaMonth < mesHoje) ||
-      (mesFaturaYear === anoHoje && mesFaturaMonth === mesHoje && diaHoje > diaFechamento)
+    // A fatura fechou se a data de fechamento já passou
+    // Calcula a data de fechamento desta fatura
+    const dataFechamento = new Date(mesFaturaYear, mesFaturaMonth, diaFechamento)
+    const faturaFechou = hoje > dataFechamento
 
     if (faturaFechou) {
       // Calcular data de vencimento desta fatura
