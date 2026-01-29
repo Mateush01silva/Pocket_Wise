@@ -350,14 +350,17 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         <Select
           label="Forma de Pagamento *"
           value={formData.forma_pagamento || 'dinheiro'}
-          onChange={(e) =>
+          onChange={(e) => {
+            const novaForma = e.target.value as any
             setFormData({
               ...formData,
-              forma_pagamento: e.target.value as any,
+              forma_pagamento: novaForma,
               cartao_id: undefined,
-              conta_id: undefined, // Limpar conta ao mudar forma de pagamento
+              conta_id: undefined,
+              // Auto-setar status para 'projetado' quando for crédito
+              status: novaForma === 'credito' ? 'projetado' : formData.status,
             })
-          }
+          }}
           options={[
             { value: 'dinheiro', label: 'Dinheiro' },
             { value: 'debito', label: 'Débito' },
