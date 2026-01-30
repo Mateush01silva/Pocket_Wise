@@ -1,4 +1,5 @@
-import { AlertTriangle, CheckCircle, TrendingUp, Bell } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { AlertTriangle, CheckCircle, TrendingUp, Bell, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card'
 import { useOrcamentosStore } from '../store'
 import { formatCurrency } from '../utils/currency'
@@ -10,10 +11,52 @@ interface BudgetAlertsCardProps {
   className?: string
 }
 
+// Chave do localStorage para alertas dismissados
+const DISMISSED_ALERTS_KEY = 'pocketwise-dismissed-alerts'
+
+// Função para obter alertas dismissados do localStorage
+function getDismissedAlerts(): Record<string, string[]> {
+  try {
+    const stored = localStorage.getItem(DISMISSED_ALERTS_KEY)
+    return stored ? JSON.parse(stored) : {}
+  } catch {
+    return {}
+  }
+}
+
+// Função para salvar alertas dismissados no localStorage
+function saveDismissedAlerts(alerts: Record<string, string[]>) {
+  try {
+    localStorage.setItem(DISMISSED_ALERTS_KEY, JSON.stringify(alerts))
+  } catch (e) {
+    console.error('Erro ao salvar alertas dismissados:', e)
+  }
+}
+
 export function BudgetAlertsCard({ orcamentoId, className }: BudgetAlertsCardProps) {
   const getCategoriasEmRisco = useOrcamentosStore((state) => state.getCategoriasEmRisco)
   const getProjecaoMensal = useOrcamentosStore((state) => state.getProjecaoMensal)
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
+
+  // Estado para alertas dismissados deste orçamento
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<string[]>([])
+
+  // Carregar alertas dismissados ao montar
+  useEffect(() => {
+    const allDismissed = getDismissedAlerts()
+    setDismissedAlertIds(allDismissed[orcamentoId] || [])
+  }, [orcamentoId])
+
+  // Função para dismissar um alerta
+  const handleDismissAlert = (alertId: string) => {
+    const newDismissedIds = [...dismissedAlertIds, alertId]
+    setDismissedAlertIds(newDismissedIds)
+
+    // Persistir no localStorage
+    const allDismissed = getDismissedAlerts()
+    allDismissed[orcamentoId] = newDismissedIds
+    saveDismissedAlerts(allDismissed)
+  }
 
   const categoriasEmRisco = getCategoriasEmRisco(orcamentoId) || []
   const projecao = getProjecaoMensal(orcamentoId)
@@ -96,9 +139,12 @@ export function BudgetAlertsCard({ orcamentoId, className }: BudgetAlertsCardPro
     })
   }
 
-  // Se não há alertas, mostrar mensagem positiva
-  if (alerts.length === 0) {
-    alerts.push({
+  // Filtrar alertas que foram dismissados pelo usuário
+  const visibleAlerts = alerts.filter((alert) => !dismissedAlertIds.includes(alert.id))
+
+  // Se não há alertas visíveis, mostrar mensagem positiva
+  if (visibleAlerts.length === 0) {
+    visibleAlerts.push({
       id: 'tudo-certo',
       tipo: 'sucesso',
       titulo: 'Tudo sob controle!',
@@ -117,16 +163,33 @@ export function BudgetAlertsCard({ orcamentoId, className }: BudgetAlertsCardPro
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {alerts.map((alert) => (
+        {visibleAlerts.map((alert) => (
           <div
             key={alert.id}
             className={cn(
-              'p-3 rounded-lg border',
+              'p-3 rounded-lg border relative group',
               alert.tipo === 'sucesso' && 'bg-green-500/10 border-green-500/30',
               alert.tipo === 'atencao' && 'bg-yellow-500/10 border-yellow-500/30',
               alert.tipo === 'critico' && 'bg-red-500/10 border-red-500/30'
             )}
           >
+            {/* Botão de fechar - apenas para alertas que não sejam "tudo-certo" */}
+            {alert.id !== 'tudo-certo' && (
+              <button
+                onClick={() => handleDismissAlert(alert.id)}
+                className={cn(
+                  'absolute top-2 right-2 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity',
+                  'hover:bg-dark-700/50',
+                  alert.tipo === 'sucesso' && 'text-green-400 hover:text-green-300',
+                  alert.tipo === 'atencao' && 'text-yellow-400 hover:text-yellow-300',
+                  alert.tipo === 'critico' && 'text-red-400 hover:text-red-300'
+                )}
+                title="Dispensar alerta"
+              >
+                <X size={14} />
+              </button>
+            )}
+
             <div className="flex items-start gap-3">
               <div
                 className={cn(
@@ -138,7 +201,7 @@ export function BudgetAlertsCard({ orcamentoId, className }: BudgetAlertsCardPro
               >
                 {alert.icon}
               </div>
-              <div className="flex-1">
+              <div className="flex-1 pr-4">
                 <p
                   className={cn(
                     'text-sm font-medium mb-1',
