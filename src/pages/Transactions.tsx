@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
-import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
 import { TransactionModal } from '../components/TransactionModal'
@@ -38,6 +38,8 @@ export function Transactions() {
   const [valorMin, setValorMin] = useState<string>('')
   const [valorMax, setValorMax] = useState<string>('')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [filterSubcategoria, setFilterSubcategoria] = useState<string>('all')
+  const [filtrarPorDataFatura, setFiltrarPorDataFatura] = useState(true) // Toggle: true = data fatura, false = data compra
 
   // Estado para atualização de transações antigas
   const [isUpdatingOldTransactions, setIsUpdatingOldTransactions] = useState(false)
@@ -56,11 +58,19 @@ export function Transactions() {
   const deleteLancamento = useTransacoesStore((state) => state.deleteLancamento)
   const marcarComoPago = useTransacoesStore((state) => state.marcarComoPago)
   const atualizarDataVencimentoFaturaAntigos = useTransacoesStore((state) => state.atualizarDataVencimentoFaturaAntigos)
+  const recalcularTodasDatasFatura = useTransacoesStore((state) => state.recalcularTodasDatasFatura)
 
   // Contar transações de crédito sem data_vencimento_fatura
   const transacoesSemFatura = useMemo(() => {
     return lancamentos.filter(
       l => l.cartao_id && l.forma_pagamento === 'credito' && !l.data_vencimento_fatura
+    ).length
+  }, [lancamentos])
+
+  // Contar total de transações de crédito
+  const totalTransacoesCredito = useMemo(() => {
+    return lancamentos.filter(
+      l => l.cartao_id && l.forma_pagamento === 'credito'
     ).length
   }, [lancamentos])
 
@@ -128,7 +138,7 @@ export function Transactions() {
       : <ArrowDown size={14} className="text-primary-400" />
   }, [sortField, sortOrder])
 
-  // Handler para atualizar transações antigas
+  // Handler para atualizar transações antigas (sem data de fatura)
   const handleAtualizarTransacoesAntigas = useCallback(async () => {
     setIsUpdatingOldTransactions(true)
     try {
@@ -142,6 +152,27 @@ export function Transactions() {
     }
   }, [atualizarDataVencimentoFaturaAntigos])
 
+  // Handler para recalcular TODAS as datas de fatura
+  const handleRecalcularTodasFaturas = useCallback(async () => {
+    if (!window.confirm('Isso vai recalcular a data de fatura de TODAS as transações de crédito. Continuar?')) {
+      return
+    }
+    setIsUpdatingOldTransactions(true)
+    try {
+      const { atualizados, erros } = await recalcularTodasDatasFatura()
+      if (erros.length > 0) {
+        alert(`${atualizados} transação(ões) corrigida(s).\n\nErros:\n${erros.join('\n')}`)
+      } else {
+        alert(`${atualizados} transação(ões) corrigida(s) com sucesso!`)
+      }
+    } catch (error) {
+      console.error('Erro ao recalcular:', error)
+      alert('Erro ao recalcular. Verifique o console.')
+    } finally {
+      setIsUpdatingOldTransactions(false)
+    }
+  }, [recalcularTodasDatasFatura])
+
   // Filter and search transactions
   const filteredLancamentos = useMemo(() => {
     let result = lancamentos.filter(lancamento => {
@@ -154,6 +185,9 @@ export function Transactions() {
       // Filter by category
       if (filterCategoria !== 'all' && lancamento.categoria_id !== filterCategoria) return false
 
+      // Filter by subcategory
+      if (filterSubcategoria !== 'all' && lancamento.subcategoria_id !== filterSubcategoria) return false
+
       // Filter by payment method
       if (filterFormaPagamento !== 'all' && lancamento.forma_pagamento !== filterFormaPagamento) return false
 
@@ -161,16 +195,19 @@ export function Transactions() {
       if (filterCartao !== 'all' && lancamento.cartao_id !== filterCartao) return false
 
       // Filter by date range (usando PeriodFilter)
-      // Para transações de crédito, usar data_vencimento_fatura (mês da fatura)
-      // Para outras transações, usar data normal
+      // Se toggle ativo: usa data_vencimento_fatura para crédito (mês que será pago)
+      // Se toggle desativado: usa data da compra sempre
       try {
         if (periodFilter.dataInicio && periodFilter.dataFim &&
             !isNaN(periodFilter.dataInicio.getTime()) && !isNaN(periodFilter.dataFim.getTime())) {
           const dataInicio = format(periodFilter.dataInicio, 'yyyy-MM-dd')
           const dataFim = format(periodFilter.dataFim, 'yyyy-MM-dd')
 
-          // Usar data_vencimento_fatura para cartão de crédito, senão usar data normal
-          const dataParaFiltro = lancamento.data_vencimento_fatura || lancamento.data
+          // Determinar qual data usar baseado no toggle
+          let dataParaFiltro = lancamento.data
+          if (filtrarPorDataFatura && lancamento.data_vencimento_fatura) {
+            dataParaFiltro = lancamento.data_vencimento_fatura
+          }
 
           if (dataParaFiltro < dataInicio) return false
           if (dataParaFiltro > dataFim) return false
@@ -238,7 +275,7 @@ export function Transactions() {
     })
 
     return result
-  }, [lancamentos, filterTipo, filterStatus, filterCategoria, filterFormaPagamento, filterCartao, periodFilter, valorMin, valorMax, searchTerm, sortField, sortOrder, getCategoryName])
+  }, [lancamentos, filterTipo, filterStatus, filterCategoria, filterSubcategoria, filterFormaPagamento, filterCartao, periodFilter, valorMin, valorMax, searchTerm, sortField, sortOrder, getCategoryName, filtrarPorDataFatura])
 
   // Limpar filtros avançados
   const clearAdvancedFilters = useCallback(() => {
@@ -261,11 +298,17 @@ export function Transactions() {
     return { totalReceitas, totalDespesas, saldo }
   }, [filteredLancamentos])
 
+  // Reset para página 1 quando filtros mudam
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, filterTipo, filterStatus, filterCategoria, filterSubcategoria, filterFormaPagamento, filterCartao, periodFilter, valorMin, valorMax, filtrarPorDataFatura])
+
   // Pagination
   const totalPages = Math.ceil(filteredLancamentos.length / itemsPerPage)
+  const safePage = Math.min(currentPage, Math.max(1, totalPages))
   const paginatedLancamentos = filteredLancamentos.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    (safePage - 1) * itemsPerPage,
+    safePage * itemsPerPage
   )
 
   // Select all checkbox
@@ -324,41 +367,66 @@ export function Transactions() {
         </Button>
       </div>
 
-      {/* Aviso de transações antigas sem data de fatura */}
-      {transacoesSemFatura > 0 && (
-        <Card className="border-yellow-500/50 bg-yellow-500/10">
+      {/* Aviso de transações de crédito - opções de correção */}
+      {totalTransacoesCredito > 0 && (
+        <Card className="border-blue-500/50 bg-blue-500/10">
           <CardContent className="py-4">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-yellow-400 shrink-0" />
+                <RefreshCw className="w-5 h-5 text-blue-400 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-yellow-400">
-                    {transacoesSemFatura} transação(ões) de crédito sem data de fatura
+                  <p className="text-sm font-medium text-blue-400">
+                    Ferramentas de correção de fatura ({totalTransacoesCredito} transações de crédito)
                   </p>
                   <p className="text-xs text-gray-400">
-                    Essas transações podem não aparecer corretamente ao filtrar por período.
-                    Clique para recalcular a data da fatura baseado no dia de fechamento do cartão.
+                    Se as transações estão aparecendo no mês errado, recalcule as datas de fatura.
+                    {transacoesSemFatura > 0 && (
+                      <span className="text-yellow-400"> • {transacoesSemFatura} sem data de fatura</span>
+                    )}
                   </p>
                 </div>
               </div>
-              <Button
-                onClick={handleAtualizarTransacoesAntigas}
-                disabled={isUpdatingOldTransactions}
-                size="sm"
-                className="shrink-0 gap-2"
-              >
-                {isUpdatingOldTransactions ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    Atualizando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4" />
-                    Corrigir
-                  </>
+              <div className="flex gap-2">
+                {transacoesSemFatura > 0 && (
+                  <Button
+                    onClick={handleAtualizarTransacoesAntigas}
+                    disabled={isUpdatingOldTransactions}
+                    size="sm"
+                    variant="secondary"
+                    className="shrink-0 gap-2"
+                  >
+                    {isUpdatingOldTransactions ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Processando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        Preencher Vazias
+                      </>
+                    )}
+                  </Button>
                 )}
-              </Button>
+                <Button
+                  onClick={handleRecalcularTodasFaturas}
+                  disabled={isUpdatingOldTransactions}
+                  size="sm"
+                  className="shrink-0 gap-2"
+                >
+                  {isUpdatingOldTransactions ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4" />
+                      Recalcular Todas
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -442,10 +510,10 @@ export function Transactions() {
           <div className="pt-2 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
               {/* Search */}
-              <div className="relative">
+              <div className="relative col-span-1 md:col-span-2 lg:col-span-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
-                  placeholder="Buscar por nome, descrição ou valor..."
+                  placeholder="Buscar categoria, descrição, valor..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -483,12 +551,27 @@ export function Transactions() {
               {/* Filter by Category */}
               <Select
                 value={filterCategoria}
-                onChange={(e) => setFilterCategoria(e.target.value)}
+                onChange={(e) => {
+                  setFilterCategoria(e.target.value)
+                  setFilterSubcategoria('all') // Reset subcategoria quando mudar categoria
+                }}
                 options={[
                   { value: 'all', label: 'Todas as categorias' },
                   ...categorias
                     .filter(c => !c.categoria_pai_id)
                     .map(cat => ({ value: cat.id, label: cat.nome })),
+                ]}
+              />
+
+              {/* Filter by Subcategory */}
+              <Select
+                value={filterSubcategoria}
+                onChange={(e) => setFilterSubcategoria(e.target.value)}
+                options={[
+                  { value: 'all', label: 'Todas subcategorias' },
+                  ...categorias
+                    .filter(c => c.categoria_pai_id && (filterCategoria === 'all' || c.categoria_pai_id === filterCategoria))
+                    .map(sub => ({ value: sub.id, label: sub.nome })),
                 ]}
               />
 
@@ -551,6 +634,36 @@ export function Transactions() {
                       value={valorMax}
                       onChange={(e) => setValorMax(e.target.value)}
                     />
+                  </div>
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-xs text-gray-500 mb-1">Filtrar transações de crédito por</label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setFiltrarPorDataFatura(true)}
+                        className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                          filtrarPorDataFatura
+                            ? 'border-primary-500 bg-primary-500/10 text-primary-400'
+                            : 'border-dark-600 text-gray-400 hover:border-dark-500'
+                        }`}
+                      >
+                        Data da Fatura
+                      </button>
+                      <button
+                        onClick={() => setFiltrarPorDataFatura(false)}
+                        className={`flex-1 px-3 py-2 text-sm rounded-lg border transition-colors ${
+                          !filtrarPorDataFatura
+                            ? 'border-primary-500 bg-primary-500/10 text-primary-400'
+                            : 'border-dark-600 text-gray-400 hover:border-dark-500'
+                        }`}
+                      >
+                        Data da Compra
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {filtrarPorDataFatura
+                        ? 'Mostra compras pelo mês que serão pagas'
+                        : 'Mostra compras pelo mês que foram feitas'}
+                    </p>
                   </div>
                 </div>
               </div>
