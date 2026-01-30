@@ -158,16 +158,19 @@ export function Transactions() {
         if (!isNaN(max) && lancamento.valor > max) return false
       }
 
-      // Search term (category name, observacao, or value)
+      // Search term (category name, subcategory name, observacao, or value)
       if (searchTerm) {
         const search = searchTerm.toLowerCase().trim()
         const catName = getCategoryName(lancamento.categoria_id).toLowerCase()
+        const subCatName = lancamento.subcategoria_id
+          ? getCategoryName(lancamento.subcategoria_id).toLowerCase()
+          : ''
         const obs = lancamento.observacao?.toLowerCase() || ''
         const valorStr = lancamento.valor.toString()
         const valorFormatado = formatCurrency(lancamento.valor).toLowerCase()
 
-        // Busca por texto ou valor
-        const matchesText = catName.includes(search) || obs.includes(search)
+        // Busca por texto (categoria, subcategoria, observação) ou valor
+        const matchesText = catName.includes(search) || subCatName.includes(search) || obs.includes(search)
         const matchesValue = valorStr.includes(search.replace(',', '.')) ||
                            valorFormatado.includes(search) ||
                            search.replace(/[^\d,.-]/g, '').replace(',', '.') === valorStr
@@ -289,6 +292,63 @@ export function Transactions() {
           Nova Transação
         </Button>
       </div>
+
+      {/* Transaction Summary - Moved to top */}
+      {filteredLancamentos.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Total Receitas</p>
+                  <p className="text-2xl font-bold text-green-400">
+                    {formatCurrency(totals.totalReceitas)}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
+                  <TrendingUp className="text-green-500" size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Total Despesas</p>
+                  <p className="text-2xl font-bold text-red-400">
+                    {formatCurrency(totals.totalDespesas)}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
+                  <TrendingDown className="text-red-500" size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Saldo</p>
+                  <p className={`text-2xl font-bold ${
+                    totals.saldo >= 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {formatCurrency(totals.saldo)}
+                  </p>
+                </div>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                  totals.saldo >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
+                }`}>
+                  <DollarSign className={totals.saldo >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Filters and Tabs */}
       <Card>
@@ -445,63 +505,6 @@ export function Transactions() {
           Clique nas colunas para ordenar • Clique na linha para editar
         </span>
       </div>
-
-      {/* Transaction Summary */}
-      {filteredLancamentos.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Total Receitas</p>
-                  <p className="text-2xl font-bold text-green-400">
-                    {formatCurrency(totals.totalReceitas)}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
-                  <TrendingUp className="text-green-500" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Total Despesas</p>
-                  <p className="text-2xl font-bold text-red-400">
-                    {formatCurrency(totals.totalDespesas)}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
-                  <TrendingDown className="text-red-500" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Saldo</p>
-                  <p className={`text-2xl font-bold ${
-                    totals.saldo >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}>
-                    {formatCurrency(totals.saldo)}
-                  </p>
-                </div>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                  totals.saldo >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
-                }`}>
-                  <DollarSign className={totals.saldo >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* Bulk Actions */}
       {selectedIds.length > 0 && (
