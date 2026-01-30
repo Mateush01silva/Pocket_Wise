@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { Plus, Copy, Calendar, Edit2, Trash2 } from 'lucide-react'
-import { format, startOfMonth } from 'date-fns'
+import { format, startOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -164,7 +164,7 @@ export function Budgets() {
   const handleDeleteOrcamento = async () => {
     if (!orcamentoAtual) return
 
-    const mesFormatado = format(new Date(mesAtual), 'MMMM yyyy', { locale: ptBR })
+    const mesFormatado = format(parseISO(mesAtual), 'MMMM yyyy', { locale: ptBR })
     const confirmacao = confirm(
       `Tem certeza que deseja excluir o orçamento de ${mesFormatado}?\n\n` +
       'Esta ação é IRREVERSÍVEL e irá apagar:\n' +
@@ -243,7 +243,7 @@ export function Budgets() {
 
             <div>
               <h2 className="text-xl font-semibold text-gray-100 mb-2">
-                Nenhum orçamento para {format(new Date(mesAtual), 'MMMM yyyy', { locale: ptBR })}
+                Nenhum orçamento para {format(parseISO(mesAtual), 'MMMM yyyy', { locale: ptBR })}
               </h2>
               <p className="text-gray-400">
                 Crie seu primeiro orçamento ou copie do mês anterior para começar a controlar seus

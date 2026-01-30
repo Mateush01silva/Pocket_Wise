@@ -394,12 +394,15 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
             throw new Error('Erro ao criar novo orçamento')
           }
 
-          // Copiar categorias budget
-          const categoriasBudgetAnterior = get().categoriasBudget.filter(
-            (cb) => cb.orcamento_id === orcamentoAnterior.id
-          )
+          // IMPORTANTE: Buscar categorias diretamente do banco de dados
+          // O estado local pode não ter as categorias do mês anterior se o usuário nunca selecionou esse mês
+          const { data: categoriasBudgetAnterior, error: errorCategorias } = await db.categoriasBudget.getAll(orcamentoAnterior.id)
 
-          if (categoriasBudgetAnterior.length > 0) {
+          if (errorCategorias) {
+            console.error('Erro ao buscar categorias do mês anterior:', errorCategorias)
+          }
+
+          if (categoriasBudgetAnterior && categoriasBudgetAnterior.length > 0) {
             await get().bulkCreateCategoriasBudget({
               orcamento_id: novoOrcamento.id,
               categorias: categoriasBudgetAnterior.map((cb) => ({
@@ -409,6 +412,9 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
               })),
             })
           }
+
+          // Recarregar as categorias budget do novo orçamento para o estado
+          await get().fetchCategoriasBudget(novoOrcamento.id)
 
           set({ isLoading: false })
           return novoOrcamento
