@@ -48,6 +48,9 @@ interface AssinaturasActions {
   removerLancamentosFuturos: (assinaturaId: string, apartirDe: string) => Promise<void>
   atualizarLancamentosFuturos: (assinaturaId: string, novoValor: number, apartirDe: string) => Promise<void>
   atualizarLancamentosFuturosCompleto: (assinaturaId: string, assinatura: Assinatura, apartirDe: string) => Promise<void>
+
+  // Sincronização de lançamentos
+  sincronizarLancamentosAssinaturas: (mesReferencia?: Date) => Promise<{ criados: number; assinaturas: string[] }>
 }
 
 type AssinaturasStore = AssinaturasState & AssinaturasActions
@@ -580,6 +583,105 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
         }
 
         console.log(`✅ ${lancamentosParaAtualizar.length} lançamentos atualizados com todos os campos`)
+      },
+
+      // Sincronizar lançamentos de assinaturas para um mês específico
+      // Gera lançamentos faltantes para assinaturas ativas
+      sincronizarLancamentosAssinaturas: async (mesReferencia = new Date()) => {
+        console.log(`🔄 Sincronizando lançamentos de assinaturas para:`, format(mesReferencia, 'MMMM yyyy'))
+
+        const assinaturas = get().assinaturas.filter(a => a.ativa)
+        const lancamentos = useTransacoesStore.getState().lancamentos
+        const createLancamento = useTransacoesStore.getState().createLancamento
+        const cartoes = useCartoesStore.getState().cartoes
+
+        let criados = 0
+        const assinaturasAtualizadas: string[] = []
+
+        for (const assinatura of assinaturas) {
+          // Calcular a data de cobrança para o mês de referência
+          const mesRef = mesReferencia.getMonth()
+          const anoRef = mesReferencia.getFullYear()
+
+          // Criar data de cobrança para o mês de referência
+          let dataCobranca = new Date(anoRef, mesRef, assinatura.dia_cobranca)
+
+          // Se o dia não existe no mês (ex: dia 31 em fevereiro), usar último dia
+          if (dataCobranca.getDate() !== assinatura.dia_cobranca) {
+            dataCobranca = new Date(anoRef, mesRef + 1, 0)
+          }
+
+          const dataCobrancaStr = format(dataCobranca, 'yyyy-MM-dd')
+
+          // Verificar se a assinatura já estava ativa nesta data
+          const primeiraCobranca = parseISO(assinatura.primeira_cobranca)
+          if (isBefore(dataCobranca, primeiraCobranca)) {
+            console.log(`⏭️ ${assinatura.nome}: Assinatura começou depois (${assinatura.primeira_cobranca})`)
+            continue
+          }
+
+          // Verificar se já existe lançamento para esta assinatura neste mês
+          const jaExiste = lancamentos.some(l =>
+            l.assinatura_id === assinatura.id &&
+            l.data.startsWith(format(mesReferencia, 'yyyy-MM'))
+          )
+
+          if (jaExiste) {
+            console.log(`✓ ${assinatura.nome}: Já existe lançamento para este mês`)
+            continue
+          }
+
+          // Gerar lançamento
+          const cartao = assinatura.cartao_id ? cartoes.find(c => c.id === assinatura.cartao_id) : null
+          const temCartao = !!assinatura.cartao_id
+          const formaPagamento = temCartao ? 'credito' : 'debito'
+
+          // Calcular data de vencimento da fatura se for cartão de crédito
+          let dataVencimentoFatura: string | null = null
+          if (cartao) {
+            const diaCompra = dataCobranca.getDate()
+            let mesVencimento = dataCobranca.getMonth()
+            let anoVencimento = dataCobranca.getFullYear()
+
+            if (diaCompra > cartao.dia_fechamento) {
+              mesVencimento += 1
+              if (mesVencimento > 11) {
+                mesVencimento = 0
+                anoVencimento += 1
+              }
+            }
+
+            const dataVenc = new Date(anoVencimento, mesVencimento, cartao.dia_vencimento)
+            dataVencimentoFatura = format(dataVenc, 'yyyy-MM-dd')
+          }
+
+          // Determinar status: se a data já passou, pode ser 'projetado' ou 'pendente'
+          const hoje = new Date()
+          const status = temCartao ? 'projetado' : (isBefore(dataCobranca, hoje) ? 'pendente' : 'projetado')
+
+          const lancamentoData: CreateLancamentoInput = {
+            family_id: assinatura.family_id || 'local-storage-family',
+            tipo: 'despesa',
+            data: dataCobrancaStr,
+            valor: assinatura.valor,
+            categoria_id: assinatura.categoria_id,
+            subcategoria_id: assinatura.subcategoria_id,
+            observacao: assinatura.nome,
+            forma_pagamento: formaPagamento,
+            cartao_id: assinatura.cartao_id || null,
+            data_vencimento_fatura: dataVencimentoFatura,
+            status: status,
+            assinatura_id: assinatura.id,
+          }
+
+          console.log(`➕ Criando lançamento para: ${assinatura.nome} em ${dataCobrancaStr}`)
+          await createLancamento(lancamentoData)
+          criados++
+          assinaturasAtualizadas.push(assinatura.nome)
+        }
+
+        console.log(`✅ Sincronização concluída: ${criados} lançamentos criados`)
+        return { criados, assinaturas: assinaturasAtualizadas }
       },
     }))
   )

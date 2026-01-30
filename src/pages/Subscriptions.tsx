@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Plus, Filter, Calendar } from 'lucide-react'
+import { useEffect, useState, useCallback } from 'react'
+import { Plus, Filter, Calendar, RefreshCw } from 'lucide-react'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { SubscriptionCard } from '../components/SubscriptionCard'
@@ -16,6 +16,7 @@ export function Subscriptions() {
   const [cancelingAssinatura, setCancelingAssinatura] = useState<AssinaturaComDetalhes | null>(null)
   const [showInactive, setShowInactive] = useState(true) // Mostrar inativas por padrão
   const [sortBy, setSortBy] = useState<'nome' | 'valor' | 'proxima_cobranca'>('nome')
+  const [isSyncing, setIsSyncing] = useState(false)
 
   const initialize = useAssinaturasStore((state) => state.initialize)
   const initialized = useAssinaturasStore((state) => state.initialized)
@@ -24,6 +25,7 @@ export function Subscriptions() {
   const getSummary = useAssinaturasStore((state) => state.getSummary)
   const cancelarAssinatura = useAssinaturasStore((state) => state.cancelarAssinatura)
   const deleteAssinatura = useAssinaturasStore((state) => state.deleteAssinatura)
+  const sincronizarLancamentosAssinaturas = useAssinaturasStore((state) => state.sincronizarLancamentosAssinaturas)
 
   useEffect(() => {
     if (!initialized) {
@@ -83,6 +85,24 @@ export function Subscriptions() {
     setEditingAssinatura(undefined)
   }
 
+  // Sincronizar lançamentos do mês atual
+  const handleSyncSubscriptions = useCallback(async () => {
+    setIsSyncing(true)
+    try {
+      const resultado = await sincronizarLancamentosAssinaturas(new Date())
+      if (resultado.criados > 0) {
+        alert(`${resultado.criados} lançamento(s) criado(s) para:\n${resultado.assinaturas.join('\n')}`)
+      } else {
+        alert('Todos os lançamentos de assinaturas já estão sincronizados para este mês!')
+      }
+    } catch (error) {
+      console.error('Erro ao sincronizar:', error)
+      alert('Erro ao sincronizar lançamentos. Verifique o console.')
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [sincronizarLancamentosAssinaturas])
+
   if (isLoading && !initialized) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -99,10 +119,21 @@ export function Subscriptions() {
           <h1 className="text-3xl font-bold text-gray-100">Assinaturas</h1>
           <p className="text-gray-400 mt-1">Gerencie suas assinaturas recorrentes</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus className="w-5 h-5 mr-2" />
-          Nova Assinatura
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            variant="secondary"
+            onClick={handleSyncSubscriptions}
+            disabled={isSyncing}
+            title="Gera os lançamentos de assinaturas para o mês atual"
+          >
+            <RefreshCw className={`w-5 h-5 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Sincronizando...' : 'Sincronizar Mês'}
+          </Button>
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus className="w-5 h-5 mr-2" />
+            Nova Assinatura
+          </Button>
+        </div>
       </div>
 
       {/* Estatísticas */}
