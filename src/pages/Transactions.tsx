@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
-import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign } from 'lucide-react'
+import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
 import { TransactionModal } from '../components/TransactionModal'
@@ -9,6 +9,9 @@ import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Lancamento } from '../types'
+
+type SortField = 'data' | 'categoria' | 'valor' | 'status' | 'forma_pagamento'
+type SortOrder = 'asc' | 'desc'
 
 export function Transactions() {
   const [searchParams] = useSearchParams()
@@ -27,7 +30,14 @@ export function Transactions() {
   })
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
+  const itemsPerPage = 15
+
+  // Novos estados para ordenação e filtro de valor
+  const [sortField, setSortField] = useState<SortField>('data')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
+  const [valorMin, setValorMin] = useState<string>('')
+  const [valorMax, setValorMax] = useState<string>('')
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
   // Aplicar filtros de query params na inicialização
   useEffect(() => {
@@ -86,46 +96,121 @@ export function Transactions() {
     return translations[method] || method
   }, [])
 
-  // Filter and search transactions - sem useMemo para evitar loops
-  const filteredLancamentos = lancamentos.filter(lancamento => {
-    // Filter by type
-    if (filterTipo !== 'all' && lancamento.tipo !== filterTipo) return false
+  // Função para ordenar transações
+  const handleSort = useCallback((field: SortField) => {
+    if (sortField === field) {
+      // Inverte a ordem se clicar na mesma coluna
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortOrder(field === 'data' ? 'desc' : 'asc') // Data começa desc, outros asc
+    }
+  }, [sortField])
 
-    // Filter by status
-    if (filterStatus !== 'all' && lancamento.status !== filterStatus) return false
+  // Componente de ícone de ordenação
+  const SortIcon = useCallback(({ field }: { field: SortField }) => {
+    if (sortField !== field) {
+      return <ArrowUpDown size={14} className="text-gray-600" />
+    }
+    return sortOrder === 'asc'
+      ? <ArrowUp size={14} className="text-primary-400" />
+      : <ArrowDown size={14} className="text-primary-400" />
+  }, [sortField, sortOrder])
 
-    // Filter by category
-    if (filterCategoria !== 'all' && lancamento.categoria_id !== filterCategoria) return false
+  // Filter and search transactions
+  const filteredLancamentos = useMemo(() => {
+    let result = lancamentos.filter(lancamento => {
+      // Filter by type
+      if (filterTipo !== 'all' && lancamento.tipo !== filterTipo) return false
 
-    // Filter by payment method
-    if (filterFormaPagamento !== 'all' && lancamento.forma_pagamento !== filterFormaPagamento) return false
+      // Filter by status
+      if (filterStatus !== 'all' && lancamento.status !== filterStatus) return false
 
-    // Filter by card
-    if (filterCartao !== 'all' && lancamento.cartao_id !== filterCartao) return false
+      // Filter by category
+      if (filterCategoria !== 'all' && lancamento.categoria_id !== filterCategoria) return false
 
-    // Filter by date range (usando PeriodFilter)
-    try {
-      if (periodFilter.dataInicio && periodFilter.dataFim &&
-          !isNaN(periodFilter.dataInicio.getTime()) && !isNaN(periodFilter.dataFim.getTime())) {
-        const dataInicio = format(periodFilter.dataInicio, 'yyyy-MM-dd')
-        const dataFim = format(periodFilter.dataFim, 'yyyy-MM-dd')
-        if (lancamento.data < dataInicio) return false
-        if (lancamento.data > dataFim) return false
+      // Filter by payment method
+      if (filterFormaPagamento !== 'all' && lancamento.forma_pagamento !== filterFormaPagamento) return false
+
+      // Filter by card
+      if (filterCartao !== 'all' && lancamento.cartao_id !== filterCartao) return false
+
+      // Filter by date range (usando PeriodFilter)
+      try {
+        if (periodFilter.dataInicio && periodFilter.dataFim &&
+            !isNaN(periodFilter.dataInicio.getTime()) && !isNaN(periodFilter.dataFim.getTime())) {
+          const dataInicio = format(periodFilter.dataInicio, 'yyyy-MM-dd')
+          const dataFim = format(periodFilter.dataFim, 'yyyy-MM-dd')
+          if (lancamento.data < dataInicio) return false
+          if (lancamento.data > dataFim) return false
+        }
+      } catch {
+        // Se houver erro na formatação de data, ignorar o filtro de período
       }
-    } catch {
-      // Se houver erro na formatação de data, ignorar o filtro de período
-    }
 
-    // Search term (category name or observacao)
-    if (searchTerm) {
-      const catName = getCategoryName(lancamento.categoria_id).toLowerCase()
-      const obs = lancamento.observacao?.toLowerCase() || ''
-      const search = searchTerm.toLowerCase()
-      if (!catName.includes(search) && !obs.includes(search)) return false
-    }
+      // Filter by value range
+      if (valorMin) {
+        const min = parseFloat(valorMin.replace(',', '.'))
+        if (!isNaN(min) && lancamento.valor < min) return false
+      }
+      if (valorMax) {
+        const max = parseFloat(valorMax.replace(',', '.'))
+        if (!isNaN(max) && lancamento.valor > max) return false
+      }
 
-    return true
-  }).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+      // Search term (category name, observacao, or value)
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase().trim()
+        const catName = getCategoryName(lancamento.categoria_id).toLowerCase()
+        const obs = lancamento.observacao?.toLowerCase() || ''
+        const valorStr = lancamento.valor.toString()
+        const valorFormatado = formatCurrency(lancamento.valor).toLowerCase()
+
+        // Busca por texto ou valor
+        const matchesText = catName.includes(search) || obs.includes(search)
+        const matchesValue = valorStr.includes(search.replace(',', '.')) ||
+                           valorFormatado.includes(search) ||
+                           search.replace(/[^\d,.-]/g, '').replace(',', '.') === valorStr
+
+        if (!matchesText && !matchesValue) return false
+      }
+
+      return true
+    })
+
+    // Ordenar
+    result.sort((a, b) => {
+      let comparison = 0
+
+      switch (sortField) {
+        case 'data':
+          comparison = parseISO(a.data).getTime() - parseISO(b.data).getTime()
+          break
+        case 'valor':
+          comparison = a.valor - b.valor
+          break
+        case 'categoria':
+          comparison = getCategoryName(a.categoria_id).localeCompare(getCategoryName(b.categoria_id))
+          break
+        case 'status':
+          comparison = (a.status || '').localeCompare(b.status || '')
+          break
+        case 'forma_pagamento':
+          comparison = a.forma_pagamento.localeCompare(b.forma_pagamento)
+          break
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison
+    })
+
+    return result
+  }, [lancamentos, filterTipo, filterStatus, filterCategoria, filterFormaPagamento, filterCartao, periodFilter, valorMin, valorMax, searchTerm, sortField, sortOrder, getCategoryName])
+
+  // Limpar filtros avançados
+  const clearAdvancedFilters = useCallback(() => {
+    setValorMin('')
+    setValorMax('')
+  }, [])
 
   // Calculate totals for filtered transactions
   const totals = useMemo(() => {
@@ -229,12 +314,28 @@ export function Transactions() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
-                  placeholder="Buscar..."
+                  placeholder="Buscar por nome, descrição ou valor..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
               </div>
+
+              {/* Toggle filtros avançados */}
+              <button
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
+                  showAdvancedFilters || valorMin || valorMax
+                    ? 'border-primary-500 bg-primary-500/10 text-primary-400'
+                    : 'border-dark-600 text-gray-400 hover:border-dark-500'
+                }`}
+              >
+                <Filter size={16} />
+                <span className="text-sm">Filtros</span>
+                {(valorMin || valorMax) && (
+                  <span className="w-2 h-2 rounded-full bg-primary-500" />
+                )}
+              </button>
 
               {/* Filter by Status */}
               <Select
@@ -286,6 +387,44 @@ export function Transactions() {
               />
             </div>
 
+            {/* Filtros Avançados */}
+            {showAdvancedFilters && (
+              <div className="pt-4 border-t border-dark-700">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-gray-300">Filtros Avançados</h4>
+                  {(valorMin || valorMax) && (
+                    <button
+                      onClick={clearAdvancedFilters}
+                      className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
+                    >
+                      <X size={12} />
+                      Limpar
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Valor Mínimo</label>
+                    <Input
+                      type="text"
+                      placeholder="Ex: 100"
+                      value={valorMin}
+                      onChange={(e) => setValorMin(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Valor Máximo</label>
+                    <Input
+                      type="text"
+                      placeholder="Ex: 500"
+                      value={valorMax}
+                      onChange={(e) => setValorMax(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Filtro de Período */}
             <div className="pt-2 border-t border-dark-700">
               <PeriodFilter value={periodFilter} onChange={setPeriodFilter} />
@@ -293,6 +432,19 @@ export function Transactions() {
           </div>
         </div>
       </Card>
+
+      {/* Contador de resultados */}
+      <div className="flex items-center justify-between text-sm text-gray-500">
+        <span>
+          {filteredLancamentos.length} transação(ões) encontrada(s)
+          {filteredLancamentos.length !== lancamentos.length && (
+            <span className="text-gray-600"> de {lancamentos.length} total</span>
+          )}
+        </span>
+        <span className="text-xs">
+          Clique nas colunas para ordenar • Clique na linha para editar
+        </span>
+      </div>
 
       {/* Transaction Summary */}
       {filteredLancamentos.length > 0 && (
@@ -399,13 +551,53 @@ export function Transactions() {
                       className="w-4 h-4 rounded border-dark-600 bg-dark-800 text-primary-500 focus:ring-primary-500"
                     />
                   </th>
-                  <th className="text-left p-4 text-sm font-medium text-gray-400">Data</th>
-                  <th className="text-left p-4 text-sm font-medium text-gray-400">Categoria</th>
+                  <th
+                    className="text-left p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-gray-200 select-none"
+                    onClick={() => handleSort('data')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Data
+                      <SortIcon field="data" />
+                    </div>
+                  </th>
+                  <th
+                    className="text-left p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-gray-200 select-none"
+                    onClick={() => handleSort('categoria')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Categoria
+                      <SortIcon field="categoria" />
+                    </div>
+                  </th>
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Descrição</th>
-                  <th className="text-left p-4 text-sm font-medium text-gray-400">Forma Pgto</th>
+                  <th
+                    className="text-left p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-gray-200 select-none"
+                    onClick={() => handleSort('forma_pagamento')}
+                  >
+                    <div className="flex items-center gap-2">
+                      Forma Pgto
+                      <SortIcon field="forma_pagamento" />
+                    </div>
+                  </th>
                   <th className="text-left p-4 text-sm font-medium text-gray-400">Cartão</th>
-                  <th className="text-right p-4 text-sm font-medium text-gray-400">Valor</th>
-                  <th className="text-center p-4 text-sm font-medium text-gray-400">Status</th>
+                  <th
+                    className="text-right p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-gray-200 select-none"
+                    onClick={() => handleSort('valor')}
+                  >
+                    <div className="flex items-center gap-2 justify-end">
+                      Valor
+                      <SortIcon field="valor" />
+                    </div>
+                  </th>
+                  <th
+                    className="text-center p-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-gray-200 select-none"
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className="flex items-center gap-2 justify-center">
+                      Status
+                      <SortIcon field="status" />
+                    </div>
+                  </th>
                   <th className="text-center p-4 text-sm font-medium text-gray-400 w-20">Ações</th>
                 </tr>
               </thead>
