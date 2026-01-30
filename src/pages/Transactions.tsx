@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
-import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
 import { TransactionModal } from '../components/TransactionModal'
@@ -56,11 +56,19 @@ export function Transactions() {
   const deleteLancamento = useTransacoesStore((state) => state.deleteLancamento)
   const marcarComoPago = useTransacoesStore((state) => state.marcarComoPago)
   const atualizarDataVencimentoFaturaAntigos = useTransacoesStore((state) => state.atualizarDataVencimentoFaturaAntigos)
+  const recalcularTodasDatasFatura = useTransacoesStore((state) => state.recalcularTodasDatasFatura)
 
   // Contar transações de crédito sem data_vencimento_fatura
   const transacoesSemFatura = useMemo(() => {
     return lancamentos.filter(
       l => l.cartao_id && l.forma_pagamento === 'credito' && !l.data_vencimento_fatura
+    ).length
+  }, [lancamentos])
+
+  // Contar total de transações de crédito
+  const totalTransacoesCredito = useMemo(() => {
+    return lancamentos.filter(
+      l => l.cartao_id && l.forma_pagamento === 'credito'
     ).length
   }, [lancamentos])
 
@@ -128,7 +136,7 @@ export function Transactions() {
       : <ArrowDown size={14} className="text-primary-400" />
   }, [sortField, sortOrder])
 
-  // Handler para atualizar transações antigas
+  // Handler para atualizar transações antigas (sem data de fatura)
   const handleAtualizarTransacoesAntigas = useCallback(async () => {
     setIsUpdatingOldTransactions(true)
     try {
@@ -141,6 +149,27 @@ export function Transactions() {
       setIsUpdatingOldTransactions(false)
     }
   }, [atualizarDataVencimentoFaturaAntigos])
+
+  // Handler para recalcular TODAS as datas de fatura
+  const handleRecalcularTodasFaturas = useCallback(async () => {
+    if (!window.confirm('Isso vai recalcular a data de fatura de TODAS as transações de crédito. Continuar?')) {
+      return
+    }
+    setIsUpdatingOldTransactions(true)
+    try {
+      const { atualizados, erros } = await recalcularTodasDatasFatura()
+      if (erros.length > 0) {
+        alert(`${atualizados} transação(ões) corrigida(s).\n\nErros:\n${erros.join('\n')}`)
+      } else {
+        alert(`${atualizados} transação(ões) corrigida(s) com sucesso!`)
+      }
+    } catch (error) {
+      console.error('Erro ao recalcular:', error)
+      alert('Erro ao recalcular. Verifique o console.')
+    } finally {
+      setIsUpdatingOldTransactions(false)
+    }
+  }, [recalcularTodasDatasFatura])
 
   // Filter and search transactions
   const filteredLancamentos = useMemo(() => {
@@ -324,41 +353,66 @@ export function Transactions() {
         </Button>
       </div>
 
-      {/* Aviso de transações antigas sem data de fatura */}
-      {transacoesSemFatura > 0 && (
-        <Card className="border-yellow-500/50 bg-yellow-500/10">
+      {/* Aviso de transações de crédito - opções de correção */}
+      {totalTransacoesCredito > 0 && (
+        <Card className="border-blue-500/50 bg-blue-500/10">
           <CardContent className="py-4">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <div className="flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-yellow-400 shrink-0" />
+                <RefreshCw className="w-5 h-5 text-blue-400 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-yellow-400">
-                    {transacoesSemFatura} transação(ões) de crédito sem data de fatura
+                  <p className="text-sm font-medium text-blue-400">
+                    Ferramentas de correção de fatura ({totalTransacoesCredito} transações de crédito)
                   </p>
                   <p className="text-xs text-gray-400">
-                    Essas transações podem não aparecer corretamente ao filtrar por período.
-                    Clique para recalcular a data da fatura baseado no dia de fechamento do cartão.
+                    Se as transações estão aparecendo no mês errado, recalcule as datas de fatura.
+                    {transacoesSemFatura > 0 && (
+                      <span className="text-yellow-400"> • {transacoesSemFatura} sem data de fatura</span>
+                    )}
                   </p>
                 </div>
               </div>
-              <Button
-                onClick={handleAtualizarTransacoesAntigas}
-                disabled={isUpdatingOldTransactions}
-                size="sm"
-                className="shrink-0 gap-2"
-              >
-                {isUpdatingOldTransactions ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    Atualizando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="w-4 h-4" />
-                    Corrigir
-                  </>
+              <div className="flex gap-2">
+                {transacoesSemFatura > 0 && (
+                  <Button
+                    onClick={handleAtualizarTransacoesAntigas}
+                    disabled={isUpdatingOldTransactions}
+                    size="sm"
+                    variant="secondary"
+                    className="shrink-0 gap-2"
+                  >
+                    {isUpdatingOldTransactions ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Processando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        Preencher Vazias
+                      </>
+                    )}
+                  </Button>
                 )}
-              </Button>
+                <Button
+                  onClick={handleRecalcularTodasFaturas}
+                  disabled={isUpdatingOldTransactions}
+                  size="sm"
+                  className="shrink-0 gap-2"
+                >
+                  {isUpdatingOldTransactions ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4" />
+                      Recalcular Todas
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

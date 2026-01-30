@@ -40,6 +40,7 @@ interface TransacoesActions {
 
   // Manutenção
   atualizarDataVencimentoFaturaAntigos: () => Promise<number>
+  recalcularTodasDatasFatura: () => Promise<{ atualizados: number; erros: string[] }>
 
   // Queries
   getLancamentosPorCategoria: (categoriaId: string) => Lancamento[]
@@ -443,6 +444,41 @@ export const useTransacoesStore = create<TransacoesStore>()(
 
       console.log(`${atualizados} transações atualizadas com data de vencimento da fatura`)
       return atualizados
+    },
+
+    // Recalcular data_vencimento_fatura de TODAS as transações de crédito
+    recalcularTodasDatasFatura: async () => {
+      const { lancamentos, calcularDataVencimentoFatura, updateLancamento } = get()
+      let atualizados = 0
+      const erros: string[] = []
+
+      // Filtrar TODAS as transações de crédito com cartão
+      const transacoesCredito = lancamentos.filter(
+        (l) => l.cartao_id && l.forma_pagamento === 'credito'
+      )
+
+      console.log(`Recalculando data de fatura para ${transacoesCredito.length} transações de crédito`)
+
+      for (const transacao of transacoesCredito) {
+        const dataVencimentoCorreta = calcularDataVencimentoFatura(transacao.cartao_id!, transacao.data)
+
+        if (!dataVencimentoCorreta) {
+          erros.push(`Transação ${transacao.id}: cartão não encontrado`)
+          continue
+        }
+
+        // Só atualiza se estiver diferente
+        if (transacao.data_vencimento_fatura !== dataVencimentoCorreta) {
+          console.log(`Corrigindo: ${transacao.observacao || 'Sem descrição'} - ${transacao.data}`)
+          console.log(`  Antes: ${transacao.data_vencimento_fatura} → Depois: ${dataVencimentoCorreta}`)
+
+          await updateLancamento(transacao.id, { data_vencimento_fatura: dataVencimentoCorreta })
+          atualizados++
+        }
+      }
+
+      console.log(`${atualizados} transações corrigidas`)
+      return { atualizados, erros }
     },
   }))
 )
