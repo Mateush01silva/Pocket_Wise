@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
-import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X } from 'lucide-react'
+import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, AlertTriangle, RefreshCw } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
 import { TransactionModal } from '../components/TransactionModal'
@@ -39,6 +39,9 @@ export function Transactions() {
   const [valorMax, setValorMax] = useState<string>('')
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
+  // Estado para atualização de transações antigas
+  const [isUpdatingOldTransactions, setIsUpdatingOldTransactions] = useState(false)
+
   // Aplicar filtros de query params na inicialização
   useEffect(() => {
     const categoriaParam = searchParams.get('categoria')
@@ -52,6 +55,14 @@ export function Transactions() {
   const cartoes = useCartoesStore((state) => state.cartoes)
   const deleteLancamento = useTransacoesStore((state) => state.deleteLancamento)
   const marcarComoPago = useTransacoesStore((state) => state.marcarComoPago)
+  const atualizarDataVencimentoFaturaAntigos = useTransacoesStore((state) => state.atualizarDataVencimentoFaturaAntigos)
+
+  // Contar transações de crédito sem data_vencimento_fatura
+  const transacoesSemFatura = useMemo(() => {
+    return lancamentos.filter(
+      l => l.cartao_id && l.forma_pagamento === 'credito' && !l.data_vencimento_fatura
+    ).length
+  }, [lancamentos])
 
   // Stable callbacks
   const handleOpenModal = useCallback(() => {
@@ -117,6 +128,20 @@ export function Transactions() {
       : <ArrowDown size={14} className="text-primary-400" />
   }, [sortField, sortOrder])
 
+  // Handler para atualizar transações antigas
+  const handleAtualizarTransacoesAntigas = useCallback(async () => {
+    setIsUpdatingOldTransactions(true)
+    try {
+      const atualizados = await atualizarDataVencimentoFaturaAntigos()
+      alert(`${atualizados} transação(ões) atualizada(s) com sucesso!`)
+    } catch (error) {
+      console.error('Erro ao atualizar transações:', error)
+      alert('Erro ao atualizar transações. Verifique o console.')
+    } finally {
+      setIsUpdatingOldTransactions(false)
+    }
+  }, [atualizarDataVencimentoFaturaAntigos])
+
   // Filter and search transactions
   const filteredLancamentos = useMemo(() => {
     let result = lancamentos.filter(lancamento => {
@@ -136,13 +161,19 @@ export function Transactions() {
       if (filterCartao !== 'all' && lancamento.cartao_id !== filterCartao) return false
 
       // Filter by date range (usando PeriodFilter)
+      // Para transações de crédito, usar data_vencimento_fatura (mês da fatura)
+      // Para outras transações, usar data normal
       try {
         if (periodFilter.dataInicio && periodFilter.dataFim &&
             !isNaN(periodFilter.dataInicio.getTime()) && !isNaN(periodFilter.dataFim.getTime())) {
           const dataInicio = format(periodFilter.dataInicio, 'yyyy-MM-dd')
           const dataFim = format(periodFilter.dataFim, 'yyyy-MM-dd')
-          if (lancamento.data < dataInicio) return false
-          if (lancamento.data > dataFim) return false
+
+          // Usar data_vencimento_fatura para cartão de crédito, senão usar data normal
+          const dataParaFiltro = lancamento.data_vencimento_fatura || lancamento.data
+
+          if (dataParaFiltro < dataInicio) return false
+          if (dataParaFiltro > dataFim) return false
         }
       } catch {
         // Se houver erro na formatação de data, ignorar o filtro de período
@@ -158,16 +189,19 @@ export function Transactions() {
         if (!isNaN(max) && lancamento.valor > max) return false
       }
 
-      // Search term (category name, observacao, or value)
+      // Search term (category name, subcategory name, observacao, or value)
       if (searchTerm) {
         const search = searchTerm.toLowerCase().trim()
         const catName = getCategoryName(lancamento.categoria_id).toLowerCase()
+        const subCatName = lancamento.subcategoria_id
+          ? getCategoryName(lancamento.subcategoria_id).toLowerCase()
+          : ''
         const obs = lancamento.observacao?.toLowerCase() || ''
         const valorStr = lancamento.valor.toString()
         const valorFormatado = formatCurrency(lancamento.valor).toLowerCase()
 
-        // Busca por texto ou valor
-        const matchesText = catName.includes(search) || obs.includes(search)
+        // Busca por texto (categoria, subcategoria, observação) ou valor
+        const matchesText = catName.includes(search) || subCatName.includes(search) || obs.includes(search)
         const matchesValue = valorStr.includes(search.replace(',', '.')) ||
                            valorFormatado.includes(search) ||
                            search.replace(/[^\d,.-]/g, '').replace(',', '.') === valorStr
@@ -289,6 +323,103 @@ export function Transactions() {
           Nova Transação
         </Button>
       </div>
+
+      {/* Aviso de transações antigas sem data de fatura */}
+      {transacoesSemFatura > 0 && (
+        <Card className="border-yellow-500/50 bg-yellow-500/10">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-yellow-400">
+                    {transacoesSemFatura} transação(ões) de crédito sem data de fatura
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Essas transações podem não aparecer corretamente ao filtrar por período.
+                    Clique para recalcular a data da fatura baseado no dia de fechamento do cartão.
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={handleAtualizarTransacoesAntigas}
+                disabled={isUpdatingOldTransactions}
+                size="sm"
+                className="shrink-0 gap-2"
+              >
+                {isUpdatingOldTransactions ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Atualizando...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Corrigir
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Transaction Summary - Moved to top */}
+      {filteredLancamentos.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Total Receitas</p>
+                  <p className="text-2xl font-bold text-green-400">
+                    {formatCurrency(totals.totalReceitas)}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
+                  <TrendingUp className="text-green-500" size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Total Despesas</p>
+                  <p className="text-2xl font-bold text-red-400">
+                    {formatCurrency(totals.totalDespesas)}
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
+                  <TrendingDown className="text-red-500" size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Saldo</p>
+                  <p className={`text-2xl font-bold ${
+                    totals.saldo >= 0 ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {formatCurrency(totals.saldo)}
+                  </p>
+                </div>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                  totals.saldo >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
+                }`}>
+                  <DollarSign className={totals.saldo >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Filters and Tabs */}
       <Card>
@@ -446,63 +577,6 @@ export function Transactions() {
         </span>
       </div>
 
-      {/* Transaction Summary */}
-      {filteredLancamentos.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Total Receitas</p>
-                  <p className="text-2xl font-bold text-green-400">
-                    {formatCurrency(totals.totalReceitas)}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
-                  <TrendingUp className="text-green-500" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Total Despesas</p>
-                  <p className="text-2xl font-bold text-red-400">
-                    {formatCurrency(totals.totalDespesas)}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
-                  <TrendingDown className="text-red-500" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Saldo</p>
-                  <p className={`text-2xl font-bold ${
-                    totals.saldo >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}>
-                    {formatCurrency(totals.saldo)}
-                  </p>
-                </div>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                  totals.saldo >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
-                }`}>
-                  <DollarSign className={totals.saldo >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       {/* Bulk Actions */}
       {selectedIds.length > 0 && (
         <Card>
@@ -636,6 +710,11 @@ export function Transactions() {
                         <p className="text-sm text-gray-300 hover:text-primary-400 transition-colors">
                           {format(parseISO(lancamento.data), "dd 'de' MMM, yyyy", { locale: ptBR })}
                         </p>
+                        {lancamento.data_vencimento_fatura && lancamento.forma_pagamento === 'credito' && (
+                          <p className="text-xs text-secondary-400 mt-1">
+                            Fatura: {format(parseISO(lancamento.data_vencimento_fatura), "MMM/yyyy", { locale: ptBR })}
+                          </p>
+                        )}
                       </td>
                       <td className="p-4">
                         <div className="hover:text-primary-400 transition-colors">

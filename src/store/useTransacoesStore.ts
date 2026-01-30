@@ -38,6 +38,9 @@ interface TransacoesActions {
   // Cálculos
   calcularDataVencimentoFatura: (cartaoId: string, dataTransacao: string) => string | null
 
+  // Manutenção
+  atualizarDataVencimentoFaturaAntigos: () => Promise<number>
+
   // Queries
   getLancamentosPorCategoria: (categoriaId: string) => Lancamento[]
   getLancamentosPorCartao: (cartaoId: string) => Lancamento[]
@@ -415,6 +418,31 @@ export const useTransacoesStore = create<TransacoesStore>()(
     clearFilters: () => {
       set({ filters: {} })
       get().fetchLancamentos()
+    },
+
+    // Atualizar transações antigas de cartão de crédito que não têm data_vencimento_fatura
+    atualizarDataVencimentoFaturaAntigos: async () => {
+      const { lancamentos, calcularDataVencimentoFatura, updateLancamento } = get()
+      let atualizados = 0
+
+      // Filtrar transações de crédito sem data_vencimento_fatura
+      const transacoesSemVencimento = lancamentos.filter(
+        (l) => l.cartao_id && l.forma_pagamento === 'credito' && !l.data_vencimento_fatura
+      )
+
+      console.log(`Encontradas ${transacoesSemVencimento.length} transações de crédito sem data de vencimento`)
+
+      for (const transacao of transacoesSemVencimento) {
+        const dataVencimento = calcularDataVencimentoFatura(transacao.cartao_id!, transacao.data)
+
+        if (dataVencimento) {
+          await updateLancamento(transacao.id, { data_vencimento_fatura: dataVencimento })
+          atualizados++
+        }
+      }
+
+      console.log(`${atualizados} transações atualizadas com data de vencimento da fatura`)
+      return atualizados
     },
   }))
 )
