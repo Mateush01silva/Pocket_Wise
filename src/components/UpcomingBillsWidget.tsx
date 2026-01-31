@@ -98,7 +98,7 @@ export function UpcomingBillsWidget() {
             <h2 className="text-lg font-semibold text-gray-100">Contas a Pagar</h2>
           </div>
           <button
-            onClick={() => navigate('/app/transacoes')}
+            onClick={() => navigate('/app/transacoes?status=pendente&tipo=despesa')}
             className="text-sm text-primary-400 hover:text-primary-300 transition-colors"
           >
             Ver todas
@@ -142,6 +142,12 @@ export function UpcomingBillsWidget() {
                     +{billsByStatus.overdue.length - 3} contas vencidas
                   </p>
                 )}
+                <button
+                  onClick={() => navigate('/app/transacoes?status=pendente&tipo=despesa&vencidas=true')}
+                  className="w-full mt-2 text-xs text-red-400 hover:text-red-300 transition-colors py-1"
+                >
+                  Ver todas as vencidas
+                </button>
               </div>
             </div>
           )}
