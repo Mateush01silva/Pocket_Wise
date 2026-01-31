@@ -104,6 +104,42 @@ export function CashFlow() {
     }
   }, [dailyBalances, saldoInicialContas])
 
+  // Calcular escala do eixo Y para melhor visualização
+  // Usa escala relativa ao invés de começar do zero
+  const yAxisDomain = useMemo(() => {
+    if (dailyBalances.length === 0) return [0, 100]
+
+    const saldos = dailyBalances.map(d => d.saldo)
+    const minSaldo = Math.min(...saldos)
+    const maxSaldo = Math.max(...saldos)
+    const range = maxSaldo - minSaldo
+
+    // Se a variação é muito pequena em relação aos valores (< 10%), usar escala relativa
+    const avgSaldo = (maxSaldo + minSaldo) / 2
+    const variationPercent = avgSaldo !== 0 ? (range / Math.abs(avgSaldo)) * 100 : 100
+
+    if (variationPercent < 20 && Math.abs(avgSaldo) > 1000) {
+      // Usar escala relativa com padding de 20% da variação
+      const padding = Math.max(range * 0.2, Math.abs(avgSaldo) * 0.05)
+      const yMin = minSaldo - padding
+      const yMax = maxSaldo + padding
+
+      // Garantir que zero seja incluído se os valores cruzam zero
+      if (minSaldo < 0 && maxSaldo > 0) {
+        return [yMin, yMax]
+      }
+
+      return [yMin, yMax]
+    }
+
+    // Caso contrário, incluir zero para dar contexto
+    if (minSaldo >= 0) {
+      return [0, maxSaldo * 1.1]
+    }
+
+    return [minSaldo * 1.1, maxSaldo * 1.1]
+  }, [dailyBalances])
+
   // Custom tooltip para o gráfico
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -286,6 +322,8 @@ export function CashFlow() {
                     stroke="#9CA3AF"
                     style={{ fontSize: '12px' }}
                     tickFormatter={(value) => formatCurrency(value)}
+                    domain={yAxisDomain}
+                    allowDataOverflow={false}
                   />
                   <Tooltip content={<CustomTooltip />} />
                   <ReferenceLine y={0} stroke="#EF4444" strokeDasharray="3 3" />

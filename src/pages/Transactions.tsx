@@ -47,8 +47,35 @@ export function Transactions() {
   // Aplicar filtros de query params na inicialização
   useEffect(() => {
     const categoriaParam = searchParams.get('categoria')
+    const statusParam = searchParams.get('status')
+    const tipoParam = searchParams.get('tipo')
+    const vencidasParam = searchParams.get('vencidas')
+
     if (categoriaParam) {
       setFilterCategoria(categoriaParam)
+    }
+
+    if (statusParam && ['pago', 'pendente', 'projetado'].includes(statusParam)) {
+      setFilterStatus(statusParam as 'pago' | 'pendente' | 'projetado')
+    }
+
+    if (tipoParam && ['receita', 'despesa'].includes(tipoParam)) {
+      setFilterTipo(tipoParam as 'receita' | 'despesa')
+    }
+
+    // Se vencidas=true, configurar filtro de período para mostrar contas vencidas
+    if (vencidasParam === 'true') {
+      // Mostrar todas as transações até ontem (vencidas)
+      const hoje = new Date()
+      hoje.setHours(0, 0, 0, 0)
+      const ontem = new Date(hoje)
+      ontem.setDate(ontem.getDate() - 1)
+
+      setPeriodFilter({
+        tipo: 'range-custom',
+        dataInicio: new Date(2000, 0, 1), // Data bem antiga para pegar tudo
+        dataFim: ontem,
+      })
     }
   }, [searchParams])
 

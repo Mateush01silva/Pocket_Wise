@@ -1,47 +1,14 @@
 # Melhorias Pendentes - Pocket Wise
 
-Este arquivo documenta melhorias identificadas pelo usuário que ainda precisam ser implementadas.
-
----
-
-## 1. Dashboard - Contas a Pagar Vencidas - Filtro Automático
-
-**Problema:** No Dashboard, quando o usuário clica em "Ver todas" nas Contas a Pagar Vencidas, a página de Transações abre sem nenhum filtro aplicado. Deveria abrir já filtrado para mostrar apenas as contas vencidas.
-
-**Solução sugerida:**
-- Passar parâmetros de filtro via URL ou state quando navegar
-- Ex: `/transacoes?status=pendente&vencidas=true` ou usar React Router state
-- Na página de Transações, ler esses parâmetros e aplicar o filtro automaticamente
-
-**Arquivos:**
-- `src/pages/Dashboard.tsx` (onde está o link "Ver todas")
-- `src/pages/Transacoes.tsx` (para aplicar o filtro)
-
----
-
-## 2. Gráfico de Evolução de Saldo - Escala Inadequada
-
-**Problema:** O gráfico de evolução de saldo mostra uma "linha reta" quando o patrimônio é alto (~190k) mas as variações mensais são baixas (~10k de gastos, ~13k de receitas). A escala não permite visualizar as mudanças.
-
-**Soluções sugeridas:**
-
-### Opção A: Escala Relativa
-- Usar escala relativa que começa próximo ao valor mínimo do período
-- Ex: Se saldo varia entre 180k e 195k, o gráfico mostra apenas essa faixa
-
-### Opção B: Gráfico de Variação
-- Mostrar um gráfico separado com as variações (delta) em vez do valor absoluto
-- Ex: Mostrar +3k, -2k, +5k ao invés de 190k, 188k, 193k
-
-### Opção C: Dual Axis
-- Mostrar o saldo acumulado em um eixo e as variações em outro
-
-**Arquivos relacionados:**
-- Componente de gráfico de evolução de saldo (verificar em `src/components/`)
+Este arquivo documenta melhorias identificadas pelo usuário. Todas as melhorias foram implementadas!
 
 ---
 
 ## Resolvidos
+
+### Sessão 3
+- [x] **Dashboard - Contas a Pagar Vencidas** - Ao clicar "Ver todas" no widget de contas a pagar, agora abre a página de transações já filtrada por despesas pendentes. Adicionado também botão "Ver todas as vencidas" na seção de contas vencidas que filtra apenas as vencidas (`UpcomingBillsWidget.tsx`, `Transactions.tsx`)
+- [x] **Gráfico de Evolução de Saldo - Escala** - Implementada escala dinâmica no gráfico de fluxo de caixa. Quando a variação é pequena em relação ao patrimônio (< 20%), o gráfico usa escala relativa ao invés de começar do zero, permitindo visualizar melhor as variações (`CashFlow.tsx`)
 
 ### Sessão 2
 - [x] **Modal de edição de orçamento** - Aumentada a largura do modal para `5xl`, layout de 2 colunas (receitas/despesas) em telas grandes, adicionada busca/filtro de categorias (`BudgetPlanningModal.tsx`, `Modal.tsx`)
