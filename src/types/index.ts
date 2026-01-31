@@ -484,6 +484,7 @@ export interface SimulacaoCompra {
 // =====================================================
 
 export interface EnvelopeDigital {
+  id: string  // ID da CategoriaBudget para permitir edição direta
   categoria: Categoria
   valor_orcado: number
   valor_gasto: number
