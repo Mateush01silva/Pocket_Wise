@@ -39,9 +39,6 @@ export function CategoryTransactionsModal({
 
   const updateCategoriaBudget = useOrcamentosStore((state) => state.updateCategoriaBudget)
 
-  const percentualUsado = valorOrcado > 0 ? (valorGasto / valorOrcado) * 100 : 0
-  const valorDisponivel = valorOrcado - valorGasto
-
   const getSubcategoriaNome = (subcategoriaId: string | null | undefined) => {
     if (!subcategoriaId) return null
     const subcat = subcategorias.find(s => s.id === subcategoriaId)
