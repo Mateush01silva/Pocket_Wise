@@ -335,6 +335,7 @@ export function gerarEnvelopesDigitais(
       .slice(0, 3)
 
     return {
+      id: catBudget.id,  // ID da CategoriaBudget para permitir edição
       categoria,
       valor_orcado: catBudget.valor_orcado,
       valor_gasto: valorGasto,

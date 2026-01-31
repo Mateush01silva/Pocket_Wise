@@ -509,6 +509,7 @@ export function Budgets() {
           mesReferencia={orcamentoAtual.mes_referencia}
           valorOrcado={selectedEnvelope.valor_orcado}
           valorGasto={selectedEnvelope.valor_gasto}
+          categoriaBudgetId={selectedEnvelope.id}
         />
       )}
     </div>
