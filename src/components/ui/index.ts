@@ -18,6 +18,9 @@ export { Modal } from './Modal'
 export { Tabs } from './Tabs'
 export type { TabsProps, TabItem } from './Tabs'
 
+export { LearningTooltip, LearningTooltipMenu } from './LearningTooltip'
+export type { LearningContent } from './LearningTooltip'
+
 // Re-export DateRangeFilter from parent components folder
 export { DateRangeFilter, getDefaultDateRange, getDateRangeFromPreset, saveDateRangeToStorage } from '../DateRangeFilter'
 export type { DateRange, DateRangePreset } from '../DateRangeFilter'

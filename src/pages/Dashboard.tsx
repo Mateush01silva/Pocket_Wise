@@ -15,6 +15,8 @@ import { format, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
 import { useNavigate } from 'react-router-dom'
+import { LearningTooltip } from '../components/ui/LearningTooltip'
+import { learningContent } from '../lib/learningContent'
 
 export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -228,94 +230,104 @@ export function Dashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {/* Receitas do Período */}
-        <Card hover>
-          <CardContent>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex-1">
-                <p className="text-sm text-gray-400 mb-1">Receitas</p>
-                <p className="text-2xl font-bold text-gray-100">{formatCurrency(receitas)}</p>
+        <LearningTooltip content={learningContent.receitas} position="bottom">
+          <Card hover>
+            <CardContent>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-400 mb-1">Receitas</p>
+                  <p className="text-2xl font-bold text-gray-100">{formatCurrency(receitas)}</p>
+                </div>
+                <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-6 h-6 text-green-400" />
+                </div>
               </div>
-              <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
-                <TrendingUp className="w-6 h-6 text-green-400" />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500">
-              {receitas > 0 ? 'Recebido e a receber' : 'Nenhuma receita'}
-            </p>
-          </CardContent>
-        </Card>
+              <p className="text-xs text-gray-500">
+                {receitas > 0 ? 'Recebido e a receber' : 'Nenhuma receita'}
+              </p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
 
         {/* Despesas do Período */}
-        <Card hover>
-          <CardContent>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex-1">
-                <p className="text-sm text-gray-400 mb-1">Despesas</p>
-                <p className="text-2xl font-bold text-gray-100">{formatCurrency(despesas)}</p>
+        <LearningTooltip content={learningContent.despesas} position="bottom">
+          <Card hover>
+            <CardContent>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-400 mb-1">Despesas</p>
+                  <p className="text-2xl font-bold text-gray-100">{formatCurrency(despesas)}</p>
+                </div>
+                <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
+                  <TrendingDown className="w-6 h-6 text-red-400" />
+                </div>
               </div>
-              <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
-                <TrendingDown className="w-6 h-6 text-red-400" />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500">
-              {despesas > 0 ? 'Pago e a pagar' : 'Nenhuma despesa'}
-            </p>
-          </CardContent>
-        </Card>
+              <p className="text-xs text-gray-500">
+                {despesas > 0 ? 'Pago e a pagar' : 'Nenhuma despesa'}
+              </p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
 
         {/* Saldo REAL (apenas pagas até hoje) */}
-        <Card hover className="ring-2 ring-primary-500/20">
-          <CardContent>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex-1">
-                <p className="text-sm text-gray-400 mb-1">Saldo Real</p>
-                <p className="text-2xl font-bold text-gray-100">{formatCurrency(saldoReal)}</p>
+        <LearningTooltip content={learningContent.saldoReal} position="bottom">
+          <Card hover className="ring-2 ring-primary-500/20">
+            <CardContent>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-400 mb-1">Saldo Real</p>
+                  <p className="text-2xl font-bold text-gray-100">{formatCurrency(saldoReal)}</p>
+                </div>
+                <div className={`w-12 h-12 rounded-lg ${saldoReal >= 0 ? 'bg-blue-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
+                  <DollarSign className={`w-6 h-6 ${saldoReal >= 0 ? 'text-blue-400' : 'text-red-400'}`} />
+                </div>
               </div>
-              <div className={`w-12 h-12 rounded-lg ${saldoReal >= 0 ? 'bg-blue-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
-                <DollarSign className={`w-6 h-6 ${saldoReal >= 0 ? 'text-blue-400' : 'text-red-400'}`} />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500">
-              Apenas transações pagas
-            </p>
-          </CardContent>
-        </Card>
+              <p className="text-xs text-gray-500">
+                Apenas transações pagas
+              </p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
 
         {/* Saldo Projetado */}
-        <Card hover>
-          <CardContent>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex-1">
-                <p className="text-sm text-gray-400 mb-1">Saldo Projetado</p>
-                <p className="text-2xl font-bold text-gray-100">{formatCurrency(saldo)}</p>
+        <LearningTooltip content={learningContent.saldoProjetado} position="bottom">
+          <Card hover>
+            <CardContent>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-400 mb-1">Saldo Projetado</p>
+                  <p className="text-2xl font-bold text-gray-100">{formatCurrency(saldo)}</p>
+                </div>
+                <div className={`w-12 h-12 rounded-lg ${saldo >= 0 ? 'bg-primary-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
+                  <Wallet className={`w-6 h-6 ${saldo >= 0 ? 'text-primary-400' : 'text-red-400'}`} />
+                </div>
               </div>
-              <div className={`w-12 h-12 rounded-lg ${saldo >= 0 ? 'bg-primary-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
-                <Wallet className={`w-6 h-6 ${saldo >= 0 ? 'text-primary-400' : 'text-red-400'}`} />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500">
-              Incluindo pendentes
-            </p>
-          </CardContent>
-        </Card>
+              <p className="text-xs text-gray-500">
+                Incluindo pendentes
+              </p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
 
         {/* Próximas Faturas */}
-        <Card hover>
-          <CardContent>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex-1">
-                <p className="text-sm text-gray-400 mb-1">Próximas Faturas</p>
-                <p className="text-2xl font-bold text-gray-100">{formatCurrency(faturasCartaoAtuais)}</p>
+        <LearningTooltip content={learningContent.proximasFaturas} position="bottom">
+          <Card hover>
+            <CardContent>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex-1">
+                  <p className="text-sm text-gray-400 mb-1">Próximas Faturas</p>
+                  <p className="text-2xl font-bold text-gray-100">{formatCurrency(faturasCartaoAtuais)}</p>
+                </div>
+                <div className="w-12 h-12 rounded-lg bg-secondary-500/10 flex items-center justify-center shrink-0">
+                  <CreditCard className="w-6 h-6 text-secondary-400" />
+                </div>
               </div>
-              <div className="w-12 h-12 rounded-lg bg-secondary-500/10 flex items-center justify-center shrink-0">
-                <CreditCard className="w-6 h-6 text-secondary-400" />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500">
-              {faturasCartaoAtuais > 0 ? 'Total não pago' : 'Nenhuma fatura'}
-            </p>
-          </CardContent>
-        </Card>
+              <p className="text-xs text-gray-500">
+                {faturasCartaoAtuais > 0 ? 'Total não pago' : 'Nenhuma fatura'}
+              </p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
       </div>
 
       {/* Bank Accounts Widget - Saldo em Contas */}
@@ -325,150 +337,156 @@ export function Dashboard() {
       {orcamentoAtual && projecao && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Budget Health Card */}
-          <Card hover>
-            <CardContent>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Saúde Financeira</p>
-                  <p className="text-lg font-semibold text-gray-100">
-                    {format(new Date(orcamentoAtual.mes_referencia), 'MMMM yyyy', { locale: ptBR })}
-                  </p>
+          <LearningTooltip content={learningContent.saudeFinanceira} position="bottom">
+            <Card hover>
+              <CardContent>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-sm text-gray-400 mb-1">Saúde Financeira</p>
+                    <p className="text-lg font-semibold text-gray-100">
+                      {format(new Date(orcamentoAtual.mes_referencia), 'MMMM yyyy', { locale: ptBR })}
+                    </p>
+                  </div>
+                  <HealthIndicator saude={projecao.saude} size="lg" showLabel={false} />
                 </div>
-                <HealthIndicator saude={projecao.saude} size="lg" showLabel={false} />
-              </div>
 
-              <div className="space-y-3 pt-3 border-t border-dark-700">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Orçamento usado:</span>
-                  <span className="font-medium text-gray-200">
-                    {projecao.percentual_orcamento_usado.toFixed(1)}%
-                  </span>
+                <div className="space-y-3 pt-3 border-t border-dark-700">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Orçamento usado:</span>
+                    <span className="font-medium text-gray-200">
+                      {projecao.percentual_orcamento_usado.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Mês decorrido:</span>
+                    <span className="font-medium text-gray-200">
+                      {projecao.percentual_mes_decorrido.toFixed(1)}%
+                    </span>
+                  </div>
+                  {projecao.saude === 'saudavel' && (
+                    <div className="pt-2">
+                      <p className="text-xs text-green-400">✓ Gastos dentro do esperado</p>
+                    </div>
+                  )}
+                  {projecao.saude === 'atencao' && (
+                    <div className="pt-2">
+                      <p className="text-xs text-yellow-400">⚠ Atenção aos gastos</p>
+                    </div>
+                  )}
+                  {projecao.saude === 'critico' && (
+                    <div className="pt-2">
+                      <p className="text-xs text-red-400">⚠ Gastos acima do planejado</p>
+                    </div>
+                  )}
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Mês decorrido:</span>
-                  <span className="font-medium text-gray-200">
-                    {projecao.percentual_mes_decorrido.toFixed(1)}%
-                  </span>
-                </div>
-                {projecao.saude === 'saudavel' && (
-                  <div className="pt-2">
-                    <p className="text-xs text-green-400">✓ Gastos dentro do esperado</p>
-                  </div>
-                )}
-                {projecao.saude === 'atencao' && (
-                  <div className="pt-2">
-                    <p className="text-xs text-yellow-400">⚠ Atenção aos gastos</p>
-                  </div>
-                )}
-                {projecao.saude === 'critico' && (
-                  <div className="pt-2">
-                    <p className="text-xs text-red-400">⚠ Gastos acima do planejado</p>
-                  </div>
-                )}
-              </div>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full mt-4"
-                onClick={() => navigate('/budgets')}
-              >
-                Ver Orçamento Completo
-              </Button>
-            </CardContent>
-          </Card>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full mt-4"
+                  onClick={() => navigate('/budgets')}
+                >
+                  Ver Orçamento Completo
+                </Button>
+              </CardContent>
+            </Card>
+          </LearningTooltip>
 
           {/* Projected Balance Card */}
-          <Card hover>
-            <CardContent>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-400 mb-1">Saldo Projetado Fim do Mês</p>
-                  <p className="text-2xl font-bold text-gray-100">
-                    {formatCurrency(projecao.saldo_projetado_fim_mes)}
-                  </p>
-                </div>
-                <div className={`w-12 h-12 rounded-lg ${
-                  projecao.saldo_projetado_fim_mes >= orcamentoAtual.meta_poupanca
-                    ? 'bg-green-500/10'
-                    : 'bg-yellow-500/10'
-                } flex items-center justify-center shrink-0`}>
-                  <Wallet className={`w-6 h-6 ${
+          <LearningTooltip content={learningContent.saldoProjetadoFimMes} position="bottom">
+            <Card hover>
+              <CardContent>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-400 mb-1">Saldo Projetado Fim do Mês</p>
+                    <p className="text-2xl font-bold text-gray-100">
+                      {formatCurrency(projecao.saldo_projetado_fim_mes)}
+                    </p>
+                  </div>
+                  <div className={`w-12 h-12 rounded-lg ${
                     projecao.saldo_projetado_fim_mes >= orcamentoAtual.meta_poupanca
-                      ? 'text-green-400'
-                      : 'text-yellow-400'
-                  }`} />
+                      ? 'bg-green-500/10'
+                      : 'bg-yellow-500/10'
+                  } flex items-center justify-center shrink-0`}>
+                    <Wallet className={`w-6 h-6 ${
+                      projecao.saldo_projetado_fim_mes >= orcamentoAtual.meta_poupanca
+                        ? 'text-green-400'
+                        : 'text-yellow-400'
+                    }`} />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2 pt-3 border-t border-dark-700">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Meta de poupança:</span>
-                  <span className="font-medium text-gray-200">
-                    {formatCurrency(orcamentoAtual.meta_poupanca)}
-                  </span>
+                <div className="space-y-2 pt-3 border-t border-dark-700">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Meta de poupança:</span>
+                    <span className="font-medium text-gray-200">
+                      {formatCurrency(orcamentoAtual.meta_poupanca)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Diferença:</span>
+                    <span className={`font-medium ${
+                      projecao.saldo_projetado_fim_mes >= orcamentoAtual.meta_poupanca
+                        ? 'text-green-400'
+                        : 'text-yellow-400'
+                    }`}>
+                      {formatCurrency(projecao.saldo_projetado_fim_mes - orcamentoAtual.meta_poupanca)}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Diferença:</span>
-                  <span className={`font-medium ${
-                    projecao.saldo_projetado_fim_mes >= orcamentoAtual.meta_poupanca
-                      ? 'text-green-400'
-                      : 'text-yellow-400'
-                  }`}>
-                    {formatCurrency(projecao.saldo_projetado_fim_mes - orcamentoAtual.meta_poupanca)}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </LearningTooltip>
 
           {/* Envelopes at Risk Card */}
-          <Card hover>
-            <CardContent>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Envelopes Digitais</p>
-                  <p className="text-2xl font-bold text-gray-100">{envelopes.length}</p>
-                </div>
-                <div className="w-12 h-12 rounded-lg bg-primary-500/10 flex items-center justify-center shrink-0">
-                  <Package className="w-6 h-6 text-primary-400" />
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-3 border-t border-dark-700">
-                {envelopesCriticos.length > 0 && (
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-red-400" />
-                      <span className="text-red-400">Estourados:</span>
-                    </div>
-                    <span className="font-medium text-red-400">{envelopesCriticos.length}</span>
+          <LearningTooltip content={learningContent.envelopesDigitais} position="bottom">
+            <Card hover>
+              <CardContent>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-sm text-gray-400 mb-1">Envelopes Digitais</p>
+                    <p className="text-2xl font-bold text-gray-100">{envelopes.length}</p>
                   </div>
-                )}
-                {envelopesEmRisco.length > 0 && (
-                  <div className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4 text-yellow-400" />
-                      <span className="text-yellow-400">Em risco (≥80%):</span>
-                    </div>
-                    <span className="font-medium text-yellow-400">{envelopesEmRisco.length}</span>
+                  <div className="w-12 h-12 rounded-lg bg-primary-500/10 flex items-center justify-center shrink-0">
+                    <Package className="w-6 h-6 text-primary-400" />
                   </div>
-                )}
-                {envelopesCriticos.length === 0 && envelopesEmRisco.length === 0 && (
-                  <p className="text-sm text-green-400">✓ Todos os envelopes saudáveis</p>
-                )}
-              </div>
+                </div>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full mt-4"
-                onClick={() => navigate('/app/envelopes')}
-              >
-                Ver Todos os Envelopes
-              </Button>
-            </CardContent>
-          </Card>
+                <div className="space-y-2 pt-3 border-t border-dark-700">
+                  {envelopesCriticos.length > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-red-400" />
+                        <span className="text-red-400">Estourados:</span>
+                      </div>
+                      <span className="font-medium text-red-400">{envelopesCriticos.length}</span>
+                    </div>
+                  )}
+                  {envelopesEmRisco.length > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                        <span className="text-yellow-400">Em risco (≥80%):</span>
+                      </div>
+                      <span className="font-medium text-yellow-400">{envelopesEmRisco.length}</span>
+                    </div>
+                  )}
+                  {envelopesCriticos.length === 0 && envelopesEmRisco.length === 0 && (
+                    <p className="text-sm text-green-400">✓ Todos os envelopes saudáveis</p>
+                  )}
+                </div>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full mt-4"
+                  onClick={() => navigate('/app/envelopes')}
+                >
+                  Ver Todos os Envelopes
+                </Button>
+              </CardContent>
+            </Card>
+          </LearningTooltip>
         </div>
       )}
 
