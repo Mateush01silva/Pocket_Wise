@@ -1,6 +1,8 @@
 import { Card, CardContent } from './ui/Card'
 import { TrendingUp, Calendar, DollarSign, Award } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
+import { LearningTooltip } from './ui/LearningTooltip'
+import { learningContent } from '../lib/learningContent'
 import type { AssinaturasSummary } from '../types'
 
 interface SubscriptionStatsProps {
@@ -11,49 +13,55 @@ export function SubscriptionStats({ summary }: SubscriptionStatsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Total Assinaturas */}
-      <Card>
-        <CardContent className="flex items-center gap-4 p-6">
-          <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
-            <Calendar className="w-6 h-6 text-blue-400" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-gray-400">Assinaturas Ativas</p>
-            <p className="text-2xl font-bold text-gray-100">
-              {summary.total_assinaturas_ativas}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <LearningTooltip content={learningContent.assinaturasAtivas} position="bottom">
+        <Card>
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
+              <Calendar className="w-6 h-6 text-blue-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm text-gray-400">Assinaturas Ativas</p>
+              <p className="text-2xl font-bold text-gray-100">
+                {summary.total_assinaturas_ativas}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </LearningTooltip>
 
       {/* Custo Mensal */}
-      <Card>
-        <CardContent className="flex items-center gap-4 p-6">
-          <div className="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center shrink-0">
-            <DollarSign className="w-6 h-6 text-green-400" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-gray-400">Custo Mensal</p>
-            <p className="text-2xl font-bold text-gray-100">
-              {formatCurrency(summary.total_mensal)}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <LearningTooltip content={learningContent.assinaturasTotalMensal} position="bottom">
+        <Card>
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center shrink-0">
+              <DollarSign className="w-6 h-6 text-green-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm text-gray-400">Custo Mensal</p>
+              <p className="text-2xl font-bold text-gray-100">
+                {formatCurrency(summary.total_mensal)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </LearningTooltip>
 
       {/* Custo Anual */}
-      <Card>
-        <CardContent className="flex items-center gap-4 p-6">
-          <div className="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center shrink-0">
-            <TrendingUp className="w-6 h-6 text-purple-400" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-gray-400">Custo Anual</p>
-            <p className="text-2xl font-bold text-gray-100">
-              {formatCurrency(summary.total_anual)}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <LearningTooltip content={learningContent.assinaturasTotalAnual} position="bottom">
+        <Card>
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center shrink-0">
+              <TrendingUp className="w-6 h-6 text-purple-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm text-gray-400">Custo Anual</p>
+              <p className="text-2xl font-bold text-gray-100">
+                {formatCurrency(summary.total_anual)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </LearningTooltip>
 
       {/* Mais Cara */}
       <Card>

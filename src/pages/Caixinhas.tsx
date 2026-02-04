@@ -7,6 +7,8 @@ import { formatCurrency } from '../utils/currency'
 import { format, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
+import { LearningTooltip } from '../components/ui/LearningTooltip'
+import { learningContent } from '../lib/learningContent'
 import type { Caixinha } from '../types'
 
 export function Caixinhas() {
@@ -95,53 +97,59 @@ export function Caixinhas() {
         {/* Summary Cards */}
         {summary && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">Total Guardado</p>
-                    <p className="text-2xl font-bold text-primary-400">
-                      {formatCurrency(summary.total_guardado)}
-                    </p>
+            <LearningTooltip content={learningContent.caixinhaTotalGuardado} position="bottom">
+              <Card>
+                <CardContent className="py-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-400 mb-1">Total Guardado</p>
+                      <p className="text-2xl font-bold text-primary-400">
+                        {formatCurrency(summary.total_guardado)}
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center">
+                      <PiggyBank className="text-primary-500" size={24} />
+                    </div>
                   </div>
-                  <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center">
-                    <PiggyBank className="text-primary-500" size={24} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </LearningTooltip>
 
-            <Card>
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">Meta Total</p>
-                    <p className="text-2xl font-bold text-blue-400">
-                      {formatCurrency(summary.total_metas)}
-                    </p>
+            <LearningTooltip content={learningContent.caixinhaMetaTotal} position="bottom">
+              <Card>
+                <CardContent className="py-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-400 mb-1">Meta Total</p>
+                      <p className="text-2xl font-bold text-blue-400">
+                        {formatCurrency(summary.total_metas)}
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center">
+                      <Target className="text-blue-500" size={24} />
+                    </div>
                   </div>
-                  <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center">
-                    <Target className="text-blue-500" size={24} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </LearningTooltip>
 
-            <Card>
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">Progresso Médio</p>
-                    <p className="text-2xl font-bold text-green-400">
-                      {summary.progresso_geral.toFixed(1)}%
-                    </p>
+            <LearningTooltip content={learningContent.caixinhaProgressoGeral} position="bottom">
+              <Card>
+                <CardContent className="py-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-400 mb-1">Progresso Médio</p>
+                      <p className="text-2xl font-bold text-green-400">
+                        {summary.progresso_geral.toFixed(1)}%
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
+                      <TrendingUp className="text-green-500" size={24} />
+                    </div>
                   </div>
-                  <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
-                    <TrendingUp className="text-green-500" size={24} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </LearningTooltip>
 
             <Card>
               <CardContent className="py-4">
