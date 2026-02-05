@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, Filter, Calendar, RefreshCw } from 'lucide-react'
+import { Plus, Filter, Calendar, RefreshCw, RotateCcw } from 'lucide-react'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { SubscriptionCard } from '../components/SubscriptionCard'
@@ -17,6 +17,7 @@ export function Subscriptions() {
   const [showInactive, setShowInactive] = useState(true) // Mostrar inativas por padrão
   const [sortBy, setSortBy] = useState<'nome' | 'valor' | 'proxima_cobranca'>('nome')
   const [isSyncing, setIsSyncing] = useState(false)
+  const [isRegenerating, setIsRegenerating] = useState(false)
 
   const initialize = useAssinaturasStore((state) => state.initialize)
   const initialized = useAssinaturasStore((state) => state.initialized)
@@ -26,6 +27,7 @@ export function Subscriptions() {
   const cancelarAssinatura = useAssinaturasStore((state) => state.cancelarAssinatura)
   const deleteAssinatura = useAssinaturasStore((state) => state.deleteAssinatura)
   const sincronizarLancamentosAssinaturas = useAssinaturasStore((state) => state.sincronizarLancamentosAssinaturas)
+  const regenerarTodosLancamentosAssinaturas = useAssinaturasStore((state) => state.regenerarTodosLancamentosAssinaturas)
 
   useEffect(() => {
     if (!initialized) {
@@ -103,6 +105,33 @@ export function Subscriptions() {
     }
   }, [sincronizarLancamentosAssinaturas])
 
+  // Regenerar todos os lançamentos de assinaturas (corrige faturas)
+  const handleRegenerateLancamentos = useCallback(async () => {
+    const confirmacao = window.confirm(
+      'Isso vai REMOVER todos os lançamentos PROJETADOS das assinaturas ativas e gerar novamente com as datas de fatura corrigidas.\n\n' +
+      'Lançamentos já pagos ou pendentes NÃO serão afetados.\n\n' +
+      'Deseja continuar?'
+    )
+    if (!confirmacao) return
+
+    setIsRegenerating(true)
+    try {
+      const resultado = await regenerarTodosLancamentosAssinaturas()
+      alert(
+        `Regeneração concluída!\n\n` +
+        `• ${resultado.removidos} lançamentos removidos\n` +
+        `• ${resultado.criados} lançamentos criados\n` +
+        `• ${resultado.assinaturas.length} assinatura(s) processada(s):\n` +
+        `  ${resultado.assinaturas.join(', ')}`
+      )
+    } catch (error) {
+      console.error('Erro ao regenerar:', error)
+      alert('Erro ao regenerar lançamentos. Verifique o console.')
+    } finally {
+      setIsRegenerating(false)
+    }
+  }, [regenerarTodosLancamentosAssinaturas])
+
   if (isLoading && !initialized) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -121,9 +150,19 @@ export function Subscriptions() {
         </div>
         <div className="flex gap-3">
           <Button
+            variant="ghost"
+            onClick={handleRegenerateLancamentos}
+            disabled={isRegenerating || isSyncing}
+            title="Remove lançamentos projetados e regenera com datas de fatura corrigidas"
+            className="text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
+          >
+            <RotateCcw className={`w-5 h-5 mr-2 ${isRegenerating ? 'animate-spin' : ''}`} />
+            {isRegenerating ? 'Regenerando...' : 'Regenerar Faturas'}
+          </Button>
+          <Button
             variant="secondary"
             onClick={handleSyncSubscriptions}
-            disabled={isSyncing}
+            disabled={isSyncing || isRegenerating}
             title="Gera os lançamentos de assinaturas para o mês atual"
           >
             <RefreshCw className={`w-5 h-5 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />

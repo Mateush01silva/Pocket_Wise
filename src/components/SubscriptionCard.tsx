@@ -1,4 +1,4 @@
-import { Calendar, Edit2, Trash2, Ban, TrendingUp } from 'lucide-react'
+import { Calendar, Edit2, Trash2, Ban, TrendingUp, Clock } from 'lucide-react'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
 import { formatCurrency } from '../utils/currency'
@@ -71,6 +71,14 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
                 </span>
               </div>
             )}
+
+            {/* Data de cadastro */}
+            <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+              <Clock className="w-3 h-3" />
+              <span>
+                Cadastrada em {format(parseISO(assinatura.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+              </span>
+            </div>
           </div>
         </div>
 

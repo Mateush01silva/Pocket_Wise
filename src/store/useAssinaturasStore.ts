@@ -51,6 +51,9 @@ interface AssinaturasActions {
 
   // Sincronização de lançamentos
   sincronizarLancamentosAssinaturas: (mesReferencia?: Date) => Promise<{ criados: number; assinaturas: string[] }>
+
+  // Regenerar todos os lançamentos de assinaturas
+  regenerarTodosLancamentosAssinaturas: () => Promise<{ removidos: number; criados: number; assinaturas: string[] }>
 }
 
 type AssinaturasStore = AssinaturasState & AssinaturasActions
@@ -421,7 +424,13 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
         const temCartao = !!assinatura.cartao_id
         const formaPagamento = temCartao ? 'credito' : 'debito'
 
-        let dataCobranca = calcularProximaCobranca(assinatura.dia_cobranca, dataReferencia, assinatura.frequencia)
+        // CORREÇÃO: Usar a primeira_cobranca como base real, não pular para o futuro
+        // A primeira cobrança deve acontecer no mês/ano da primeira_cobranca, no dia_cobranca
+        let dataCobranca = setDate(dataReferencia, assinatura.dia_cobranca)
+        // Se o dia do mês não existe (ex: dia 31 em fevereiro), usar último dia do mês
+        if (dataCobranca.getDate() !== assinatura.dia_cobranca) {
+          dataCobranca = new Date(dataCobranca.getFullYear(), dataCobranca.getMonth() + 1, 0)
+        }
         let count = 0
 
         while (count < mesesFuturos) {
@@ -682,6 +691,51 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
 
         console.log(`✅ Sincronização concluída: ${criados} lançamentos criados`)
         return { criados, assinaturas: assinaturasAtualizadas }
+      },
+
+      // Regenerar TODOS os lançamentos de assinaturas ativas
+      // Remove os lançamentos projetados e gera novamente com a lógica corrigida
+      regenerarTodosLancamentosAssinaturas: async () => {
+        console.log('🔄 Regenerando todos os lançamentos de assinaturas...')
+
+        const assinaturas = get().assinaturas.filter(a => a.ativa)
+        const lancamentos = useTransacoesStore.getState().lancamentos
+        const deleteLancamento = useTransacoesStore.getState().deleteLancamento
+        const gerarLancamentosFuturos = get().gerarLancamentosFuturos
+
+        let removidos = 0
+        let criados = 0
+        const assinaturasProcessadas: string[] = []
+
+        for (const assinatura of assinaturas) {
+          console.log(`📋 Processando: ${assinatura.nome}`)
+
+          // 1. Encontrar e remover todos os lançamentos PROJETADOS desta assinatura
+          const lancamentosParaRemover = lancamentos.filter(
+            (l) => l.assinatura_id === assinatura.id && l.status === 'projetado'
+          )
+
+          console.log(`  🗑️ Removendo ${lancamentosParaRemover.length} lançamentos projetados`)
+
+          for (const lancamento of lancamentosParaRemover) {
+            await deleteLancamento(lancamento.id)
+            removidos++
+          }
+
+          // 2. Gerar novamente os lançamentos futuros com a lógica corrigida
+          console.log(`  ➕ Gerando novos lançamentos...`)
+          await gerarLancamentosFuturos(assinatura, 12)
+          criados += 12
+
+          assinaturasProcessadas.push(assinatura.nome)
+        }
+
+        console.log(`✅ Regeneração concluída:`)
+        console.log(`   - ${removidos} lançamentos removidos`)
+        console.log(`   - ${criados} lançamentos criados`)
+        console.log(`   - ${assinaturasProcessadas.length} assinaturas processadas`)
+
+        return { removidos, criados, assinaturas: assinaturasProcessadas }
       },
     }))
   )
