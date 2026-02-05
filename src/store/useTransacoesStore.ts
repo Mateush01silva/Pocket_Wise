@@ -460,16 +460,29 @@ export const useTransacoesStore = create<TransacoesStore>()(
       console.log(`Recalculando data de fatura para ${transacoesCredito.length} transações de crédito`)
 
       for (const transacao of transacoesCredito) {
-        const dataVencimentoCorreta = calcularDataVencimentoFatura(transacao.cartao_id!, transacao.data)
+        // Calcular a data de vencimento base (primeira fatura)
+        const dataVencimentoBase = calcularDataVencimentoFatura(transacao.cartao_id!, transacao.data)
 
-        if (!dataVencimentoCorreta) {
+        if (!dataVencimentoBase) {
           erros.push(`Transação ${transacao.id}: cartão não encontrado`)
           continue
+        }
+
+        // Se é uma parcela, adicionar (parcela_atual - 1) meses à data base
+        // Ex: Parcela 1/3 = data base, Parcela 2/3 = +1 mês, Parcela 3/3 = +2 meses
+        let dataVencimentoCorreta = dataVencimentoBase
+        if (transacao.parcela_atual && transacao.parcela_atual > 1) {
+          const mesesAdicionais = transacao.parcela_atual - 1
+          dataVencimentoCorreta = format(
+            addMonths(parseISO(dataVencimentoBase), mesesAdicionais),
+            'yyyy-MM-dd'
+          )
         }
 
         // Só atualiza se estiver diferente
         if (transacao.data_vencimento_fatura !== dataVencimentoCorreta) {
           console.log(`Corrigindo: ${transacao.observacao || 'Sem descrição'} - ${transacao.data}`)
+          console.log(`  Parcela: ${transacao.parcela_atual || 'N/A'}/${transacao.parcela_total || 'N/A'}`)
           console.log(`  Antes: ${transacao.data_vencimento_fatura} → Depois: ${dataVencimentoCorreta}`)
 
           await updateLancamento(transacao.id, { data_vencimento_fatura: dataVencimentoCorreta })
