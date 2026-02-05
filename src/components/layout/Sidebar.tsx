@@ -74,57 +74,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
       </div>
 
-      {/* Learning Mode Toggle */}
-      <div className="px-4 pt-4">
-        <button
-          onClick={toggleLearningMode}
-          className={cn(
-            "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300",
-            isLearningMode
-              ? "bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 shadow-lg shadow-amber-500/10"
-              : "bg-dark-800/50 border border-dark-700/50 hover:bg-dark-800 hover:border-dark-600"
-          )}
-        >
-          <div className={cn(
-            "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300",
-            isLearningMode
-              ? "bg-gradient-to-br from-amber-400 to-orange-500"
-              : "bg-dark-700"
-          )}>
-            <GraduationCap className={cn(
-              "w-4 h-4 transition-colors",
-              isLearningMode ? "text-white" : "text-gray-400"
-            )} />
-          </div>
-          <div className="flex-1 text-left">
-            <p className={cn(
-              "text-sm font-medium transition-colors",
-              isLearningMode ? "text-amber-300" : "text-gray-400"
-            )}>
-              Modo Aprendizagem
-            </p>
-            <p className="text-xs text-gray-500">
-              {isLearningMode ? "Ativo - passe o mouse" : "Desativado"}
-            </p>
-          </div>
-          <div className={cn(
-            "w-10 h-5 rounded-full transition-all duration-300 relative",
-            isLearningMode ? "bg-amber-500" : "bg-dark-600"
-          )}>
-            <div className={cn(
-              "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-md transition-all duration-300",
-              isLearningMode ? "left-5" : "left-0.5"
-            )} />
-          </div>
-        </button>
-
-        {isLearningMode && (
-          <p className="text-xs text-amber-400/70 mt-2 px-2 animate-pulse">
-            Passe o mouse sobre os elementos para aprender
-          </p>
-        )}
-      </div>
-
       {/* Navigation */}
       <nav className="flex-1 p-4 overflow-y-auto">
         <ul className="space-y-2">
@@ -164,17 +113,50 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </ul>
       </nav>
 
-      {/* User info */}
-      <div className="p-4 border-t border-dark-700/50">
-        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-dark-800/50">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-secondary-400 flex items-center justify-center">
-            <span className="text-sm font-semibold text-white">U</span>
+      {/* Footer: User info + Learning Mode */}
+      <div className="p-4 border-t border-dark-700/50 space-y-3">
+        {/* User info */}
+        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-dark-800/50">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-secondary-400 flex items-center justify-center shrink-0">
+            <span className="text-xs font-semibold text-white">U</span>
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-200 truncate">Usuário</p>
             <p className="text-xs text-gray-500 truncate">Plano Free</p>
           </div>
         </div>
+
+        {/* Learning Mode Toggle - Compact */}
+        <button
+          onClick={toggleLearningMode}
+          className={cn(
+            "w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200",
+            isLearningMode
+              ? "bg-amber-500/10 border border-amber-500/20"
+              : "bg-dark-800/30 hover:bg-dark-800/50"
+          )}
+          title={isLearningMode ? "Desativar modo de aprendizagem" : "Ativar modo de aprendizagem"}
+        >
+          <GraduationCap className={cn(
+            "w-4 h-4 shrink-0",
+            isLearningMode ? "text-amber-400" : "text-gray-500"
+          )} />
+          <span className={cn(
+            "text-xs flex-1 text-left",
+            isLearningMode ? "text-amber-400" : "text-gray-500"
+          )}>
+            Modo Aprendizagem
+          </span>
+          <div className={cn(
+            "w-7 h-4 rounded-full transition-all duration-200 relative shrink-0",
+            isLearningMode ? "bg-amber-500" : "bg-dark-600"
+          )}>
+            <div className={cn(
+              "absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all duration-200",
+              isLearningMode ? "left-3.5" : "left-0.5"
+            )} />
+          </div>
+        </button>
       </div>
     </aside>
   )
