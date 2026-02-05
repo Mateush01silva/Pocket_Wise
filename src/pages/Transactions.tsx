@@ -50,6 +50,7 @@ export function Transactions() {
     const statusParam = searchParams.get('status')
     const tipoParam = searchParams.get('tipo')
     const vencidasParam = searchParams.get('vencidas')
+    const periodoParam = searchParams.get('periodo')
 
     if (categoriaParam) {
       setFilterCategoria(categoriaParam)
@@ -63,8 +64,16 @@ export function Transactions() {
       setFilterTipo(tipoParam as 'receita' | 'despesa')
     }
 
+    // Se periodo=todos, mostrar todas as transações (sem filtro de data)
+    if (periodoParam === 'todos') {
+      setPeriodFilter({
+        tipo: 'range-custom',
+        dataInicio: new Date(2000, 0, 1),
+        dataFim: new Date(2100, 11, 31),
+      })
+    }
     // Se vencidas=true, configurar filtro de período para mostrar contas vencidas
-    if (vencidasParam === 'true') {
+    else if (vencidasParam === 'true') {
       // Mostrar todas as transações até ontem (vencidas)
       const hoje = new Date()
       hoje.setHours(0, 0, 0, 0)
