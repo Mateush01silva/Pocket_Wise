@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Card, CardContent } from './ui'
-import { AlertCircle, Clock, Calendar, CheckCircle, TrendingUp, TrendingDown } from 'lucide-react'
+import { AlertCircle, Clock, Calendar, CheckCircle, TrendingUp, TrendingDown, Check } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
 import { format, isToday, isThisWeek, isPast, addDays } from 'date-fns'
@@ -21,7 +21,20 @@ interface UpcomingItem {
 export function UpcomingBillsWidget() {
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
+  const marcarComoPago = useTransacoesStore((state) => state.marcarComoPago)
   const navigate = useNavigate()
+  const [loadingIds, setLoadingIds] = useState<string[]>([])
+
+  // Handler para marcar como pago
+  const handleMarcarComoPago = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setLoadingIds(prev => [...prev, id])
+    try {
+      await marcarComoPago(id)
+    } finally {
+      setLoadingIds(prev => prev.filter(i => i !== id))
+    }
+  }
 
   // Calcular itens pendentes - APENAS transações que não são cartão de crédito
   // Cartão de crédito já vai para a fatura e não precisa de lembrete manual
@@ -137,30 +150,50 @@ export function UpcomingBillsWidget() {
     )
   }
 
-  // Renderizar item
-  const renderItem = (item: UpcomingItem, colorClass: string) => (
-    <div
-      key={item.id}
-      className="flex items-center justify-between text-sm bg-dark-900/50 p-2 rounded"
-    >
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        {item.tipo === 'despesa' ? (
-          <TrendingDown className={`w-3.5 h-3.5 ${colorClass} shrink-0`} />
-        ) : (
-          <TrendingUp className={`w-3.5 h-3.5 ${colorClass} shrink-0`} />
-        )}
-        <div className="flex-1 min-w-0">
-          <p className="text-gray-300 font-medium truncate">{item.descricao}</p>
-          <p className="text-xs text-gray-500">
-            {format(item.data, "dd/MM", { locale: ptBR })} • {getFormaPagamentoLabel(item.forma_pagamento)}
-          </p>
+  // Renderizar item com botão de marcar como pago
+  const renderItem = (item: UpcomingItem, colorClass: string) => {
+    const isLoading = loadingIds.includes(item.id)
+    return (
+      <div
+        key={item.id}
+        className="flex items-center gap-2 text-sm bg-dark-900/50 p-2 rounded group"
+      >
+        {/* Botão de marcar como pago */}
+        <button
+          onClick={(e) => handleMarcarComoPago(item.id, e)}
+          disabled={isLoading}
+          title={item.tipo === 'receita' ? 'Marcar como recebido' : 'Marcar como pago'}
+          className="w-6 h-6 rounded-full border-2 border-gray-600 hover:border-green-400 hover:bg-green-400/20 flex items-center justify-center transition-all shrink-0 group-hover:border-green-500"
+        >
+          {isLoading ? (
+            <div className="w-3 h-3 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Check className="w-3 h-3 text-gray-600 group-hover:text-green-400" />
+          )}
+        </button>
+
+        {/* Info */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {item.tipo === 'despesa' ? (
+            <TrendingDown className={`w-3.5 h-3.5 ${colorClass} shrink-0`} />
+          ) : (
+            <TrendingUp className={`w-3.5 h-3.5 ${colorClass} shrink-0`} />
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-gray-300 font-medium truncate">{item.descricao}</p>
+            <p className="text-xs text-gray-500">
+              {format(item.data, "dd/MM", { locale: ptBR })} • {getFormaPagamentoLabel(item.forma_pagamento)}
+            </p>
+          </div>
         </div>
+
+        {/* Valor */}
+        <span className={`${colorClass} font-semibold ml-2 whitespace-nowrap`}>
+          {item.tipo === 'receita' ? '+' : '-'}{formatCurrency(item.valor)}
+        </span>
       </div>
-      <span className={`${colorClass} font-semibold ml-2 whitespace-nowrap`}>
-        {item.tipo === 'receita' ? '+' : '-'}{formatCurrency(item.valor)}
-      </span>
-    </div>
-  )
+    )
+  }
 
   return (
     <Card className={despesasByStatus.overdue.length > 0 ? 'border border-red-500/30' : ''}>
@@ -174,7 +207,7 @@ export function UpcomingBillsWidget() {
             </div>
           </div>
           <button
-            onClick={() => navigate('/app/transacoes?status=pendente')}
+            onClick={() => navigate('/app/transacoes?status=pendente&periodo=todos')}
             className="text-xs text-primary-400 hover:text-primary-300 transition-colors"
           >
             Ver todas

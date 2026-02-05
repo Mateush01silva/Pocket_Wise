@@ -78,6 +78,7 @@ export function Envelopes() {
   }
 
   // Filtrar transações do envelope selecionado
+  // Inclui 'pago' e 'projetado' para corresponder ao cálculo de valor_gasto
   const getEnvelopeTransactions = (envelope: EnvelopeDigital | null) => {
     if (!envelope || !orcamentoAtual) return []
 
@@ -87,7 +88,7 @@ export function Envelopes() {
         l.categoria_id === envelope.categoria.id &&
         l.tipo === 'despesa' &&
         l.data.substring(0, 7) === anoMes &&
-        l.status === 'pago'
+        (l.status === 'pago' || l.status === 'projetado')
     ).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
   }
 
