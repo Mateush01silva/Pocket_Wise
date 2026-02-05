@@ -150,16 +150,6 @@ export function Subscriptions() {
         </div>
         <div className="flex gap-3">
           <Button
-            variant="ghost"
-            onClick={handleRegenerateLancamentos}
-            disabled={isRegenerating || isSyncing}
-            title="Remove lançamentos projetados e regenera com datas de fatura corrigidas"
-            className="text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
-          >
-            <RotateCcw className={`w-5 h-5 mr-2 ${isRegenerating ? 'animate-spin' : ''}`} />
-            {isRegenerating ? 'Regenerando...' : 'Regenerar Faturas'}
-          </Button>
-          <Button
             variant="secondary"
             onClick={handleSyncSubscriptions}
             disabled={isSyncing || isRegenerating}
@@ -210,8 +200,21 @@ export function Subscriptions() {
             </div>
 
             {/* Contador */}
-            <div className="ml-auto text-sm text-gray-400">
-              {assinaturasFiltradas.length} assinatura(s)
+            <div className="ml-auto flex items-center gap-4">
+              <span className="text-sm text-gray-400">
+                {assinaturasFiltradas.length} assinatura(s)
+              </span>
+
+              {/* Regenerar Faturas - botão discreto */}
+              <button
+                onClick={handleRegenerateLancamentos}
+                disabled={isRegenerating || isSyncing}
+                title="Corrigir datas de fatura de todas as assinaturas"
+                className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded transition-colors disabled:opacity-50"
+              >
+                <RotateCcw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
+                {isRegenerating ? 'Corrigindo...' : 'Corrigir Faturas'}
+              </button>
             </div>
           </div>
         </CardContent>
