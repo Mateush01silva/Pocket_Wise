@@ -6,6 +6,8 @@ import { useTransacoesStore, useCategoriasStore } from '../store'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts'
+import { LearningTooltip } from '../components/ui/LearningTooltip'
+import { learningContent } from '../lib/learningContent'
 
 interface MonthlyData {
   receitas: number
@@ -178,86 +180,90 @@ export function ComparativeReports() {
       {/* Summary Comparison Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Receitas */}
-        <Card>
-          <CardContent>
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="w-5 h-5 text-green-400" />
-              <h3 className="text-sm font-semibold text-gray-300">Receitas</h3>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">{format(mes1, 'MMM/yy', { locale: ptBR })}</span>
-                <span className="text-sm font-medium text-gray-300">{formatCurrency(mes1Data.receitas)}</span>
+        <LearningTooltip content={learningContent.relatorioComparativo} position="bottom">
+          <Card>
+            <CardContent>
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingUp className="w-5 h-5 text-green-400" />
+                <h3 className="text-sm font-semibold text-gray-300">Receitas</h3>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">{format(mes2, 'MMM/yy', { locale: ptBR })}</span>
-                <span className="text-sm font-medium text-gray-300">{formatCurrency(mes2Data.receitas)}</span>
-              </div>
-              <div className="pt-2 border-t border-dark-700">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400">Variação</span>
-                  <div className="flex items-center gap-1">
-                    {mes2Data.receitas > mes1Data.receitas ? (
-                      <ArrowUpRight className="w-4 h-4 text-green-400" />
-                    ) : mes2Data.receitas < mes1Data.receitas ? (
-                      <ArrowDownRight className="w-4 h-4 text-red-400" />
-                    ) : (
-                      <MinusCircle className="w-4 h-4 text-gray-400" />
-                    )}
-                    <span className={`text-sm font-semibold ${
-                      mes2Data.receitas > mes1Data.receitas ? 'text-green-400' :
-                      mes2Data.receitas < mes1Data.receitas ? 'text-red-400' :
-                      'text-gray-400'
-                    }`}>
-                      {formatCurrency(Math.abs(mes2Data.receitas - mes1Data.receitas))}
-                    </span>
+                  <span className="text-xs text-gray-500">{format(mes1, 'MMM/yy', { locale: ptBR })}</span>
+                  <span className="text-sm font-medium text-gray-300">{formatCurrency(mes1Data.receitas)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">{format(mes2, 'MMM/yy', { locale: ptBR })}</span>
+                  <span className="text-sm font-medium text-gray-300">{formatCurrency(mes2Data.receitas)}</span>
+                </div>
+                <div className="pt-2 border-t border-dark-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Variação</span>
+                    <div className="flex items-center gap-1">
+                      {mes2Data.receitas > mes1Data.receitas ? (
+                        <ArrowUpRight className="w-4 h-4 text-green-400" />
+                      ) : mes2Data.receitas < mes1Data.receitas ? (
+                        <ArrowDownRight className="w-4 h-4 text-red-400" />
+                      ) : (
+                        <MinusCircle className="w-4 h-4 text-gray-400" />
+                      )}
+                      <span className={`text-sm font-semibold ${
+                        mes2Data.receitas > mes1Data.receitas ? 'text-green-400' :
+                        mes2Data.receitas < mes1Data.receitas ? 'text-red-400' :
+                        'text-gray-400'
+                      }`}>
+                        {formatCurrency(Math.abs(mes2Data.receitas - mes1Data.receitas))}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
 
         {/* Despesas */}
-        <Card>
-          <CardContent>
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingDown className="w-5 h-5 text-red-400" />
-              <h3 className="text-sm font-semibold text-gray-300">Despesas</h3>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">{format(mes1, 'MMM/yy', { locale: ptBR })}</span>
-                <span className="text-sm font-medium text-gray-300">{formatCurrency(mes1Data.despesas)}</span>
+        <LearningTooltip content={learningContent.relatorioVariacao} position="bottom">
+          <Card>
+            <CardContent>
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingDown className="w-5 h-5 text-red-400" />
+                <h3 className="text-sm font-semibold text-gray-300">Despesas</h3>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">{format(mes2, 'MMM/yy', { locale: ptBR })}</span>
-                <span className="text-sm font-medium text-gray-300">{formatCurrency(mes2Data.despesas)}</span>
-              </div>
-              <div className="pt-2 border-t border-dark-700">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400">Variação</span>
-                  <div className="flex items-center gap-1">
-                    {mes2Data.despesas > mes1Data.despesas ? (
-                      <ArrowUpRight className="w-4 h-4 text-red-400" />
-                    ) : mes2Data.despesas < mes1Data.despesas ? (
-                      <ArrowDownRight className="w-4 h-4 text-green-400" />
-                    ) : (
-                      <MinusCircle className="w-4 h-4 text-gray-400" />
-                    )}
-                    <span className={`text-sm font-semibold ${
-                      mes2Data.despesas > mes1Data.despesas ? 'text-red-400' :
-                      mes2Data.despesas < mes1Data.despesas ? 'text-green-400' :
-                      'text-gray-400'
-                    }`}>
-                      {formatCurrency(Math.abs(mes2Data.despesas - mes1Data.despesas))}
-                    </span>
+                  <span className="text-xs text-gray-500">{format(mes1, 'MMM/yy', { locale: ptBR })}</span>
+                  <span className="text-sm font-medium text-gray-300">{formatCurrency(mes1Data.despesas)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">{format(mes2, 'MMM/yy', { locale: ptBR })}</span>
+                  <span className="text-sm font-medium text-gray-300">{formatCurrency(mes2Data.despesas)}</span>
+                </div>
+                <div className="pt-2 border-t border-dark-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Variação</span>
+                    <div className="flex items-center gap-1">
+                      {mes2Data.despesas > mes1Data.despesas ? (
+                        <ArrowUpRight className="w-4 h-4 text-red-400" />
+                      ) : mes2Data.despesas < mes1Data.despesas ? (
+                        <ArrowDownRight className="w-4 h-4 text-green-400" />
+                      ) : (
+                        <MinusCircle className="w-4 h-4 text-gray-400" />
+                      )}
+                      <span className={`text-sm font-semibold ${
+                        mes2Data.despesas > mes1Data.despesas ? 'text-red-400' :
+                        mes2Data.despesas < mes1Data.despesas ? 'text-green-400' :
+                        'text-gray-400'
+                      }`}>
+                        {formatCurrency(Math.abs(mes2Data.despesas - mes1Data.despesas))}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
 
         {/* Saldo */}
         <Card>

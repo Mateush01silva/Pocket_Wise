@@ -6,6 +6,8 @@ import { useTransacoesStore, useContasBancariasStore } from '../store'
 import { format, addDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
+import { LearningTooltip } from '../components/ui/LearningTooltip'
+import { learningContent } from '../lib/learningContent'
 
 type ViewPeriod = '7d' | '15d' | '30d' | '60d' | '90d'
 
@@ -247,59 +249,69 @@ export function CashFlow() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card hover>
-          <CardContent>
-            <p className="text-sm text-gray-400 mb-1">Saldo Inicial</p>
-            <p className="text-2xl font-bold text-gray-100">
-              {formatCurrency(saldoInicialContas)}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">Hoje</p>
-          </CardContent>
-        </Card>
+        <LearningTooltip content={learningContent.fluxoSaldoInicial} position="bottom">
+          <Card hover>
+            <CardContent>
+              <p className="text-sm text-gray-400 mb-1">Saldo Inicial</p>
+              <p className="text-2xl font-bold text-gray-100">
+                {formatCurrency(saldoInicialContas)}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Hoje</p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
 
-        <Card hover>
-          <CardContent>
-            <p className="text-sm text-gray-400 mb-1">Total Receitas</p>
-            <p className="text-2xl font-bold text-green-400">
-              {formatCurrency(stats.totalReceitas)}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">No período</p>
-          </CardContent>
-        </Card>
+        <LearningTooltip content={learningContent.fluxoTotalReceitas} position="bottom">
+          <Card hover>
+            <CardContent>
+              <p className="text-sm text-gray-400 mb-1">Total Receitas</p>
+              <p className="text-2xl font-bold text-green-400">
+                {formatCurrency(stats.totalReceitas)}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">No período</p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
 
-        <Card hover>
-          <CardContent>
-            <p className="text-sm text-gray-400 mb-1">Total Despesas</p>
-            <p className="text-2xl font-bold text-red-400">
-              {formatCurrency(stats.totalDespesas)}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">No período</p>
-          </CardContent>
-        </Card>
+        <LearningTooltip content={learningContent.fluxoTotalDespesas} position="bottom">
+          <Card hover>
+            <CardContent>
+              <p className="text-sm text-gray-400 mb-1">Total Despesas</p>
+              <p className="text-2xl font-bold text-red-400">
+                {formatCurrency(stats.totalDespesas)}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">No período</p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
 
-        <Card hover>
-          <CardContent>
-            <p className="text-sm text-gray-400 mb-1">Saldo Final</p>
-            <p className={`text-2xl font-bold ${stats.saldoFinal >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
-              {formatCurrency(stats.saldoFinal)}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              Ao final do período
-            </p>
-          </CardContent>
-        </Card>
+        <LearningTooltip content={learningContent.fluxoSaldoFinal} position="bottom">
+          <Card hover>
+            <CardContent>
+              <p className="text-sm text-gray-400 mb-1">Saldo Final</p>
+              <p className={`text-2xl font-bold ${stats.saldoFinal >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
+                {formatCurrency(stats.saldoFinal)}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Ao final do período
+              </p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
 
-        <Card hover className={stats.menorSaldo < 0 ? 'border-2 border-red-500/30' : ''}>
-          <CardContent>
-            <p className="text-sm text-gray-400 mb-1">Menor Saldo</p>
-            <p className={`text-2xl font-bold ${stats.menorSaldo >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {formatCurrency(stats.menorSaldo)}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {stats.menorSaldo < 0 ? 'Atenção!' : 'No período'}
-            </p>
-          </CardContent>
-        </Card>
+        <LearningTooltip content={learningContent.fluxoMenorSaldo} position="bottom">
+          <Card hover className={stats.menorSaldo < 0 ? 'border-2 border-red-500/30' : ''}>
+            <CardContent>
+              <p className="text-sm text-gray-400 mb-1">Menor Saldo</p>
+              <p className={`text-2xl font-bold ${stats.menorSaldo >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {formatCurrency(stats.menorSaldo)}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                {stats.menorSaldo < 0 ? 'Atenção!' : 'No período'}
+              </p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
       </div>
 
       {/* Cash Flow Chart */}

@@ -13,6 +13,8 @@ import { useTransacoesStore, useCartoesStore, useOrcamentosStore } from '../stor
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui'
 import { formatCurrency } from '../utils/currency'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { LearningTooltip } from '../components/ui/LearningTooltip'
+import { learningContent } from '../lib/learningContent'
 import type { OrcamentoMensal } from '../types'
 
 export function Projections() {
@@ -156,82 +158,90 @@ export function Projections() {
 
       {/* Cards de Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400 mb-1">Saldo Próximo Mês</p>
-                <p
-                  className={`text-2xl font-bold ${
-                    totais.proximoMes >= 0 ? 'text-green-400' : 'text-red-400'
+        <LearningTooltip content={learningContent.projecaoSaldoProximoMes} position="bottom">
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Saldo Próximo Mês</p>
+                  <p
+                    className={`text-2xl font-bold ${
+                      totais.proximoMes >= 0 ? 'text-green-400' : 'text-red-400'
+                    }`}
+                  >
+                    {formatCurrency(totais.proximoMes)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Projeção do saldo</p>
+                </div>
+                <div
+                  className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    totais.proximoMes >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
                   }`}
                 >
-                  {formatCurrency(totais.proximoMes)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">Projeção do saldo</p>
+                  {totais.proximoMes >= 0 ? (
+                    <TrendingUp className="text-green-500" size={24} />
+                  ) : (
+                    <TrendingDown className="text-red-500" size={24} />
+                  )}
+                </div>
               </div>
-              <div
-                className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                  totais.proximoMes >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
-                }`}
-              >
-                {totais.proximoMes >= 0 ? (
-                  <TrendingUp className="text-green-500" size={24} />
-                ) : (
-                  <TrendingDown className="text-red-500" size={24} />
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
 
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400 mb-1">Parcelas Pendentes</p>
-                <p className="text-2xl font-bold text-primary-400">
-                  {formatCurrency(totais.totalParcelas)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">Total não pago</p>
+        <LearningTooltip content={learningContent.projecaoParcelasPendentes} position="bottom">
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Parcelas Pendentes</p>
+                  <p className="text-2xl font-bold text-primary-400">
+                    {formatCurrency(totais.totalParcelas)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Total não pago</p>
+                </div>
+                <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center">
+                  <CreditCard className="text-primary-500" size={24} />
+                </div>
               </div>
-              <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center">
-                <CreditCard className="text-primary-500" size={24} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
 
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400 mb-1">Próximos 3 Meses</p>
-                <p className="text-2xl font-bold text-yellow-400">
-                  {formatCurrency(totais.compromissosProximos3Meses)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">Parcelas a vencer</p>
+        <LearningTooltip content={learningContent.projecaoProximos3Meses} position="bottom">
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Próximos 3 Meses</p>
+                  <p className="text-2xl font-bold text-yellow-400">
+                    {formatCurrency(totais.compromissosProximos3Meses)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Parcelas a vencer</p>
+                </div>
+                <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center">
+                  <Calendar className="text-yellow-500" size={24} />
+                </div>
               </div>
-              <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center">
-                <Calendar className="text-yellow-500" size={24} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
 
-        <Card>
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400 mb-1">Parcelamentos Ativos</p>
-                <p className="text-2xl font-bold text-gray-100">{totais.gruposAtivos}</p>
+        <LearningTooltip content={learningContent.projecaoParcelamentosAtivos} position="bottom">
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Parcelamentos Ativos</p>
+                  <p className="text-2xl font-bold text-gray-100">{totais.gruposAtivos}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center">
+                  <Target className="text-blue-500" size={24} />
+                </div>
               </div>
-              <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center">
-                <Target className="text-blue-500" size={24} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
       </div>
 
       {/* Gráfico de Projeção */}
