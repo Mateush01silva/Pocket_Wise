@@ -421,7 +421,13 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
         const temCartao = !!assinatura.cartao_id
         const formaPagamento = temCartao ? 'credito' : 'debito'
 
-        let dataCobranca = calcularProximaCobranca(assinatura.dia_cobranca, dataReferencia, assinatura.frequencia)
+        // CORREÇÃO: Usar a primeira_cobranca como base real, não pular para o futuro
+        // A primeira cobrança deve acontecer no mês/ano da primeira_cobranca, no dia_cobranca
+        let dataCobranca = setDate(dataReferencia, assinatura.dia_cobranca)
+        // Se o dia do mês não existe (ex: dia 31 em fevereiro), usar último dia do mês
+        if (dataCobranca.getDate() !== assinatura.dia_cobranca) {
+          dataCobranca = new Date(dataCobranca.getFullYear(), dataCobranca.getMonth() + 1, 0)
+        }
         let count = 0
 
         while (count < mesesFuturos) {
