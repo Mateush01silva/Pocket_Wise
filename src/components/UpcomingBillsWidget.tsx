@@ -1,19 +1,21 @@
 import { useMemo } from 'react'
 import { Card, CardContent } from './ui'
-import { AlertCircle, Clock, Calendar, CheckCircle } from 'lucide-react'
+import { AlertCircle, Clock, Calendar, CheckCircle, TrendingUp, TrendingDown } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
-import { format, isToday, isThisWeek, isPast } from 'date-fns'
+import { format, isToday, isThisWeek, isPast, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useNavigate } from 'react-router-dom'
 
-interface UpcomingBill {
+interface UpcomingItem {
   id: string
   descricao: string
   valor: number
   data: Date
   categoria_nome: string
-  status: 'overdue' | 'today' | 'this_week' | 'this_month'
+  tipo: 'despesa' | 'receita'
+  status: 'overdue' | 'today' | 'this_week' | 'upcoming'
+  forma_pagamento: string
 }
 
 export function UpcomingBillsWidget() {
@@ -21,18 +23,34 @@ export function UpcomingBillsWidget() {
   const categorias = useCategoriasStore((state) => state.categorias)
   const navigate = useNavigate()
 
-  // Calcular contas a pagar (despesas pendentes ou projetadas)
-  const upcomingBills = useMemo((): UpcomingBill[] => {
+  // Calcular itens pendentes - APENAS transações que não são cartão de crédito
+  // Cartão de crédito já vai para a fatura e não precisa de lembrete manual
+  const upcomingItems = useMemo((): UpcomingItem[] => {
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    const proximos15Dias = addDays(hoje, 15)
+
     return lancamentos
-      .filter(l =>
-        l.tipo === 'despesa' &&
-        (l.status === 'pendente' || l.status === 'projetado')
-      )
+      .filter(l => {
+        // Excluir cartão de crédito - esses vão para a fatura automaticamente
+        if (l.forma_pagamento === 'credito') return false
+
+        // Apenas pendentes ou projetados
+        if (l.status !== 'pendente' && l.status !== 'projetado') return false
+
+        // Despesas OU receitas (receitas para lembrar de conferir se recebeu)
+        const dataLancamento = new Date(l.data)
+        dataLancamento.setHours(0, 0, 0, 0)
+
+        // Mostrar: vencidos, hoje, esta semana, ou próximos 15 dias
+        return dataLancamento <= proximos15Dias
+      })
       .map(l => {
         const dataLancamento = new Date(l.data)
+        dataLancamento.setHours(0, 0, 0, 0)
         const categoria = categorias.find(c => c.id === l.categoria_id)
 
-        let status: 'overdue' | 'today' | 'this_week' | 'this_month' = 'this_month'
+        let status: 'overdue' | 'today' | 'this_week' | 'upcoming' = 'upcoming'
 
         if (isPast(dataLancamento) && !isToday(dataLancamento)) {
           status = 'overdue'
@@ -48,200 +66,218 @@ export function UpcomingBillsWidget() {
           valor: l.valor,
           data: dataLancamento,
           categoria_nome: categoria?.nome || 'Sem categoria',
+          tipo: l.tipo,
           status,
+          forma_pagamento: l.forma_pagamento,
         }
       })
-      .sort((a, b) => a.data.getTime() - b.data.getTime())
+      .sort((a, b) => {
+        // Ordenar: vencidos primeiro, depois por data
+        if (a.status === 'overdue' && b.status !== 'overdue') return -1
+        if (a.status !== 'overdue' && b.status === 'overdue') return 1
+        return a.data.getTime() - b.data.getTime()
+      })
   }, [lancamentos, categorias])
 
-  // Agrupar por status
-  const billsByStatus = useMemo(() => {
-    return {
-      overdue: upcomingBills.filter(b => b.status === 'overdue'),
-      today: upcomingBills.filter(b => b.status === 'today'),
-      this_week: upcomingBills.filter(b => b.status === 'this_week'),
-      this_month: upcomingBills.filter(b => b.status === 'this_month'),
+  // Separar despesas e receitas
+  const despesas = useMemo(() => upcomingItems.filter(i => i.tipo === 'despesa'), [upcomingItems])
+  const receitas = useMemo(() => upcomingItems.filter(i => i.tipo === 'receita'), [upcomingItems])
+
+  // Agrupar despesas por status
+  const despesasByStatus = useMemo(() => ({
+    overdue: despesas.filter(b => b.status === 'overdue'),
+    today: despesas.filter(b => b.status === 'today'),
+    this_week: despesas.filter(b => b.status === 'this_week'),
+    upcoming: despesas.filter(b => b.status === 'upcoming'),
+  }), [despesas])
+
+  // Agrupar receitas por status
+  const receitasByStatus = useMemo(() => ({
+    overdue: receitas.filter(b => b.status === 'overdue'),
+    today: receitas.filter(b => b.status === 'today'),
+    this_week: receitas.filter(b => b.status === 'this_week'),
+    upcoming: receitas.filter(b => b.status === 'upcoming'),
+  }), [receitas])
+
+  const totalDespesasVencidas = despesasByStatus.overdue.reduce((sum, b) => sum + b.valor, 0)
+  const totalReceitasPendentes = receitas.filter(r => r.status === 'overdue' || r.status === 'today').reduce((sum, b) => sum + b.valor, 0)
+
+  // Helper para nome da forma de pagamento
+  const getFormaPagamentoLabel = (fp: string) => {
+    const labels: Record<string, string> = {
+      'pix': 'PIX',
+      'dinheiro': 'Dinheiro',
+      'debito': 'Débito',
+      'boleto': 'Boleto',
+      'transferencia': 'Transferência',
     }
-  }, [upcomingBills])
+    return labels[fp] || fp
+  }
 
-  const totalOverdue = billsByStatus.overdue.reduce((sum, b) => sum + b.valor, 0)
-  const totalToday = billsByStatus.today.reduce((sum, b) => sum + b.valor, 0)
-  const totalThisWeek = billsByStatus.this_week.reduce((sum, b) => sum + b.valor, 0)
-
-  // Se não há contas, mostrar mensagem positiva
-  if (upcomingBills.length === 0) {
+  // Se não há nada pendente, mostrar mensagem positiva
+  if (upcomingItems.length === 0) {
     return (
       <Card>
         <CardContent>
           <div className="flex items-center gap-3 mb-4">
             <CheckCircle className="w-5 h-5 text-green-400" />
-            <h2 className="text-lg font-semibold text-gray-100">Contas a Pagar</h2>
+            <h2 className="text-lg font-semibold text-gray-100">Lembretes</h2>
           </div>
-          <div className="text-center py-8">
-            <div className="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-3">
-              <CheckCircle className="w-8 h-8 text-green-400" />
+          <div className="text-center py-6">
+            <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-3">
+              <CheckCircle className="w-6 h-6 text-green-400" />
             </div>
             <p className="text-green-400 font-medium">Tudo em dia!</p>
-            <p className="text-sm text-gray-500 mt-1">Você não tem contas pendentes</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Nenhum pagamento ou recebimento pendente
+            </p>
           </div>
         </CardContent>
       </Card>
     )
   }
 
+  // Renderizar item
+  const renderItem = (item: UpcomingItem, colorClass: string) => (
+    <div
+      key={item.id}
+      className="flex items-center justify-between text-sm bg-dark-900/50 p-2 rounded"
+    >
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        {item.tipo === 'despesa' ? (
+          <TrendingDown className={`w-3.5 h-3.5 ${colorClass} shrink-0`} />
+        ) : (
+          <TrendingUp className={`w-3.5 h-3.5 ${colorClass} shrink-0`} />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-gray-300 font-medium truncate">{item.descricao}</p>
+          <p className="text-xs text-gray-500">
+            {format(item.data, "dd/MM", { locale: ptBR })} • {getFormaPagamentoLabel(item.forma_pagamento)}
+          </p>
+        </div>
+      </div>
+      <span className={`${colorClass} font-semibold ml-2 whitespace-nowrap`}>
+        {item.tipo === 'receita' ? '+' : '-'}{formatCurrency(item.valor)}
+      </span>
+    </div>
+  )
+
   return (
-    <Card className={billsByStatus.overdue.length > 0 ? 'border-2 border-red-500/30' : ''}>
+    <Card className={despesasByStatus.overdue.length > 0 ? 'border border-red-500/30' : ''}>
       <CardContent>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <AlertCircle className={`w-5 h-5 ${billsByStatus.overdue.length > 0 ? 'text-red-400' : 'text-yellow-400'}`} />
-            <h2 className="text-lg font-semibold text-gray-100">Contas a Pagar</h2>
+            <AlertCircle className={`w-5 h-5 ${despesasByStatus.overdue.length > 0 ? 'text-red-400' : 'text-amber-400'}`} />
+            <div>
+              <h2 className="text-lg font-semibold text-gray-100">Lembretes</h2>
+              <p className="text-xs text-gray-500">Pagamentos e recebimentos manuais</p>
+            </div>
           </div>
           <button
-            onClick={() => navigate('/app/transacoes?status=pendente&tipo=despesa')}
-            className="text-sm text-primary-400 hover:text-primary-300 transition-colors"
+            onClick={() => navigate('/app/transacoes?status=pendente')}
+            className="text-xs text-primary-400 hover:text-primary-300 transition-colors"
           >
             Ver todas
           </button>
         </div>
 
-        <div className="space-y-4">
-          {/* Vencidas */}
-          {billsByStatus.overdue.length > 0 && (
+        <div className="space-y-3">
+          {/* Despesas Vencidas - URGENTE */}
+          {despesasByStatus.overdue.length > 0 && (
             <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-red-400" />
-                  <span className="text-sm font-semibold text-red-400">
-                    Vencidas ({billsByStatus.overdue.length})
+                  <span className="text-xs font-semibold text-red-400 uppercase">
+                    Pagar! ({despesasByStatus.overdue.length})
                   </span>
                 </div>
                 <span className="text-sm font-bold text-red-400">
-                  {formatCurrency(totalOverdue)}
+                  {formatCurrency(totalDespesasVencidas)}
                 </span>
               </div>
-              <div className="space-y-2 mt-2">
-                {billsByStatus.overdue.slice(0, 3).map((bill) => (
-                  <div
-                    key={bill.id}
-                    className="flex items-center justify-between text-sm bg-dark-900/50 p-2 rounded"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-gray-300 font-medium truncate">{bill.descricao}</p>
-                      <p className="text-xs text-gray-500">
-                        {format(bill.data, "dd 'de' MMM", { locale: ptBR })}
-                      </p>
-                    </div>
-                    <span className="text-red-400 font-semibold ml-2">
-                      {formatCurrency(bill.valor)}
-                    </span>
-                  </div>
-                ))}
-                {billsByStatus.overdue.length > 3 && (
-                  <p className="text-xs text-gray-500 text-center">
-                    +{billsByStatus.overdue.length - 3} contas vencidas
+              <div className="space-y-1.5">
+                {despesasByStatus.overdue.slice(0, 3).map((item) => renderItem(item, 'text-red-400'))}
+                {despesasByStatus.overdue.length > 3 && (
+                  <p className="text-xs text-gray-500 text-center pt-1">
+                    +{despesasByStatus.overdue.length - 3} vencidas
                   </p>
                 )}
-                <button
-                  onClick={() => navigate('/app/transacoes?status=pendente&tipo=despesa&vencidas=true')}
-                  className="w-full mt-2 text-xs text-red-400 hover:text-red-300 transition-colors py-1"
-                >
-                  Ver todas as vencidas
-                </button>
               </div>
             </div>
           )}
 
-          {/* Hoje */}
-          {billsByStatus.today.length > 0 && (
+          {/* Receitas para conferir - vencidas ou hoje */}
+          {(receitasByStatus.overdue.length > 0 || receitasByStatus.today.length > 0) && (
+            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-semibold text-emerald-400 uppercase">
+                    Conferir recebimento
+                  </span>
+                </div>
+                <span className="text-sm font-bold text-emerald-400">
+                  {formatCurrency(totalReceitasPendentes)}
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {[...receitasByStatus.overdue, ...receitasByStatus.today].slice(0, 3).map((item) =>
+                  renderItem(item, 'text-emerald-400')
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Verifique se já recebeu e marque como pago
+              </p>
+            </div>
+          )}
+
+          {/* Despesas de Hoje */}
+          {despesasByStatus.today.length > 0 && (
             <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-orange-400" />
-                  <span className="text-sm font-semibold text-orange-400">
-                    Hoje ({billsByStatus.today.length})
+                  <span className="text-xs font-semibold text-orange-400 uppercase">
+                    Pagar Hoje ({despesasByStatus.today.length})
                   </span>
                 </div>
-                <span className="text-sm font-bold text-orange-400">
-                  {formatCurrency(totalToday)}
-                </span>
               </div>
-              <div className="space-y-2 mt-2">
-                {billsByStatus.today.slice(0, 3).map((bill) => (
-                  <div
-                    key={bill.id}
-                    className="flex items-center justify-between text-sm bg-dark-900/50 p-2 rounded"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-gray-300 font-medium truncate">{bill.descricao}</p>
-                      <p className="text-xs text-gray-500">{bill.categoria_nome}</p>
-                    </div>
-                    <span className="text-orange-400 font-semibold ml-2">
-                      {formatCurrency(bill.valor)}
-                    </span>
-                  </div>
-                ))}
-                {billsByStatus.today.length > 3 && (
-                  <p className="text-xs text-gray-500 text-center">
-                    +{billsByStatus.today.length - 3} contas hoje
-                  </p>
-                )}
+              <div className="space-y-1.5">
+                {despesasByStatus.today.slice(0, 3).map((item) => renderItem(item, 'text-orange-400'))}
               </div>
             </div>
           )}
 
           {/* Esta semana */}
-          {billsByStatus.this_week.length > 0 && (
+          {despesasByStatus.this_week.length > 0 && (
             <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-yellow-400" />
-                  <span className="text-sm font-semibold text-yellow-400">
-                    Esta semana ({billsByStatus.this_week.length})
+                  <span className="text-xs font-semibold text-yellow-400 uppercase">
+                    Esta semana ({despesasByStatus.this_week.length})
                   </span>
                 </div>
-                <span className="text-sm font-bold text-yellow-400">
-                  {formatCurrency(totalThisWeek)}
-                </span>
               </div>
-              <div className="space-y-2 mt-2">
-                {billsByStatus.this_week.slice(0, 3).map((bill) => (
-                  <div
-                    key={bill.id}
-                    className="flex items-center justify-between text-sm bg-dark-900/50 p-2 rounded"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-gray-300 font-medium truncate">{bill.descricao}</p>
-                      <p className="text-xs text-gray-500">
-                        {format(bill.data, "dd 'de' MMM", { locale: ptBR })}
-                      </p>
-                    </div>
-                    <span className="text-yellow-400 font-semibold ml-2">
-                      {formatCurrency(bill.valor)}
-                    </span>
-                  </div>
-                ))}
-                {billsByStatus.this_week.length > 3 && (
-                  <p className="text-xs text-gray-500 text-center">
-                    +{billsByStatus.this_week.length - 3} contas esta semana
+              <div className="space-y-1.5">
+                {despesasByStatus.this_week.slice(0, 3).map((item) => renderItem(item, 'text-yellow-400'))}
+                {despesasByStatus.this_week.length > 3 && (
+                  <p className="text-xs text-gray-500 text-center pt-1">
+                    +{despesasByStatus.this_week.length - 3} esta semana
                   </p>
                 )}
               </div>
             </div>
           )}
 
-          {/* Este mês (resumo) */}
-          {billsByStatus.this_month.length > 0 && (
-            <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-blue-400" />
-                  <span className="text-sm font-semibold text-blue-400">
-                    Mais tarde este mês
-                  </span>
-                </div>
-                <span className="text-sm text-blue-400">
-                  {billsByStatus.this_month.length} conta{billsByStatus.this_month.length !== 1 ? 's' : ''}
+          {/* Próximos dias (resumo) */}
+          {(despesasByStatus.upcoming.length > 0 || receitasByStatus.this_week.length > 0 || receitasByStatus.upcoming.length > 0) && (
+            <div className="p-2 bg-dark-800/50 rounded-lg">
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>Próximos 15 dias</span>
+                <span>
+                  {despesasByStatus.upcoming.length + receitasByStatus.this_week.length + receitasByStatus.upcoming.length} itens
                 </span>
               </div>
             </div>

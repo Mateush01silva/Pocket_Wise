@@ -381,83 +381,48 @@ export function Transactions() {
   }, [deleteLancamento])
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
+      {/* Botão flutuante Nova Transação */}
+      <button
+        onClick={handleOpenModal}
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-full shadow-lg shadow-primary-500/30 transition-all hover:scale-105"
+      >
+        <Plus className="w-5 h-5" />
+        Nova Transação
+      </button>
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-100 mb-2">Transações</h1>
           <p className="text-gray-400">Gerencie todas as suas receitas e despesas</p>
         </div>
-        <Button onClick={handleOpenModal} className="gap-2">
-          <Plus className="w-5 h-5" />
-          Nova Transação
-        </Button>
+        {/* Ferramentas de correção de fatura - compacto */}
+        {totalTransacoesCredito > 0 && (
+          <div className="flex items-center gap-2">
+            {transacoesSemFatura > 0 && (
+              <button
+                onClick={handleAtualizarTransacoesAntigas}
+                disabled={isUpdatingOldTransactions}
+                title={`Preencher ${transacoesSemFatura} transações sem data de fatura`}
+                className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isUpdatingOldTransactions ? 'animate-spin' : ''}`} />
+                Preencher Vazias
+              </button>
+            )}
+            <button
+              onClick={handleRecalcularTodasFaturas}
+              disabled={isUpdatingOldTransactions}
+              title="Recalcular datas de fatura de todas as transações de crédito"
+              className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isUpdatingOldTransactions ? 'animate-spin' : ''}`} />
+              Recalcular Faturas
+            </button>
+          </div>
+        )}
       </div>
-
-      {/* Aviso de transações de crédito - opções de correção */}
-      {totalTransacoesCredito > 0 && (
-        <Card className="border-blue-500/50 bg-blue-500/10">
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-3">
-                <RefreshCw className="w-5 h-5 text-blue-400 shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-blue-400">
-                    Ferramentas de correção de fatura ({totalTransacoesCredito} transações de crédito)
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Se as transações estão aparecendo no mês errado, recalcule as datas de fatura.
-                    {transacoesSemFatura > 0 && (
-                      <span className="text-yellow-400"> • {transacoesSemFatura} sem data de fatura</span>
-                    )}
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {transacoesSemFatura > 0 && (
-                  <Button
-                    onClick={handleAtualizarTransacoesAntigas}
-                    disabled={isUpdatingOldTransactions}
-                    size="sm"
-                    variant="secondary"
-                    className="shrink-0 gap-2"
-                  >
-                    {isUpdatingOldTransactions ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        Processando...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4" />
-                        Preencher Vazias
-                      </>
-                    )}
-                  </Button>
-                )}
-                <Button
-                  onClick={handleRecalcularTodasFaturas}
-                  disabled={isUpdatingOldTransactions}
-                  size="sm"
-                  className="shrink-0 gap-2"
-                >
-                  {isUpdatingOldTransactions ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      Processando...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4" />
-                      Recalcular Todas
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Transaction Summary - Moved to top */}
       {filteredLancamentos.length > 0 && (
