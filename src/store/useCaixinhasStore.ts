@@ -302,6 +302,7 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
         const { data, error } = await transacoesCaixinhasService.createTransacao(input)
 
         if (error) {
+          console.error('Erro ao criar transação de caixinha:', error.message)
           set({ error: error.message })
           return null
         }

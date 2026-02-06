@@ -349,18 +349,27 @@ export const transacoesCaixinhasService = {
       }
     }
 
+    // Construir objeto de inserção
+    // destino_mes_referencia pode não existir na tabela ainda (requer migration 013)
+    const insertData: Record<string, unknown> = {
+      caixinha_id: input.caixinha_id,
+      realizado_por: currentUser.id,
+      valor: input.valor,
+      tipo: input.tipo,
+      descricao: input.descricao || null,
+      origem_mes_referencia: input.origem_mes_referencia || null,
+    }
+
+    // Adicionar destino_mes_referencia apenas se fornecido
+    // Isso permite que a aplicação funcione mesmo sem a coluna no banco
+    if (input.destino_mes_referencia) {
+      insertData.destino_mes_referencia = input.destino_mes_referencia
+    }
+
     const { data, error } = await supabase
       // @ts-ignore
       .from('transacoes_caixinhas')
-      .insert({
-        caixinha_id: input.caixinha_id,
-        realizado_por: currentUser.id,
-        valor: input.valor,
-        tipo: input.tipo,
-        descricao: input.descricao || null,
-        origem_mes_referencia: input.origem_mes_referencia || null,
-        destino_mes_referencia: input.destino_mes_referencia || null,
-      })
+      .insert(insertData)
       .select()
       .single()
 
