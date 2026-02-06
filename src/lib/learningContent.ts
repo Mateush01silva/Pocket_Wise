@@ -26,14 +26,14 @@ export const learningContent = {
     dicaPratica: 'Categorize suas despesas corretamente para identificar onde você pode economizar. Gastos pequenos somados fazem grande diferença!',
   } as LearningContent,
 
-  saldoReal: {
-    titulo: 'Saldo Real',
-    descricao: 'O dinheiro que você realmente tem disponível AGORA. Considera apenas transações que já foram efetivamente pagas ou recebidas, excluindo valores pendentes ou futuros.',
-    comoFunciona: 'Soma todas as receitas já recebidas e subtrai todas as despesas já pagas, desde o início dos seus registros até hoje. É o seu "dinheiro no bolso".',
-    comoCalculado: 'Receitas (status="pago") - Despesas (status="pago") até a data de hoje',
-    exemplo: 'Se você recebeu R$ 5.000 de salário e já pagou R$ 3.000 em contas, seu saldo real é R$ 2.000, mesmo que tenha mais contas para pagar.',
-    porqueImportante: 'O Saldo Real mostra quanto você pode gastar hoje sem entrar no vermelho. Usar o saldo projetado para decisões de compra pode causar problemas se as receitas atrasarem.',
-    dicaPratica: 'Antes de fazer uma compra grande, sempre verifique o Saldo Real, não o Projetado. Isso evita surpresas desagradáveis!',
+  saldoNasContas: {
+    titulo: 'Saldo nas Contas',
+    descricao: 'O dinheiro que você realmente tem disponível AGORA nas suas contas bancárias. É a soma dos saldos de todas as suas contas correntes, poupanças e carteiras digitais.',
+    comoFunciona: 'Soma os saldos atuais de todas as suas contas bancárias cadastradas e ativas. Esse é o dinheiro "real" que você tem disponível.',
+    comoCalculado: 'Soma dos saldos de todas as contas ativas',
+    exemplo: 'Se você tem R$ 2.000 na conta corrente, R$ 3.000 na poupança e R$ 500 no Nubank, seu saldo nas contas é R$ 5.500.',
+    porqueImportante: 'Esse é o dinheiro que você realmente pode usar agora. Diferente do saldo projetado que inclui transações futuras, esse é o valor concreto disponível.',
+    dicaPratica: 'Antes de fazer uma compra grande, verifique o saldo nas contas, não o saldo projetado. Mantenha os saldos das contas sempre atualizados!',
   } as LearningContent,
 
   saldoProjetado: {
