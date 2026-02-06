@@ -239,3 +239,52 @@ export function calcularSaldoAcumuladoNaoAlocado(
 
   return { totalDisponivel, mesesComSaldo }
 }
+
+/**
+ * Interface para retiradas de caixinhas destinadas a um mês específico
+ */
+export interface RetiradaCaixinhaParaOrcamento {
+  caixinha_id: string
+  caixinha_nome: string
+  caixinha_icone: string | null
+  valor: number
+  descricao: string | null
+}
+
+/**
+ * Obtém todas as retiradas de caixinhas que são destinadas a compor o orçamento de um mês específico
+ * @param transacoesCaixinhas - Todas as transações de caixinhas
+ * @param caixinhas - Lista de caixinhas para obter nomes e ícones
+ * @param mesReferencia - Mês no formato YYYY-MM
+ * @returns Lista de retiradas com detalhes da caixinha
+ */
+export function getRetiradasCaixinhasParaMes(
+  transacoesCaixinhas: TransacaoCaixinha[],
+  caixinhas: Array<{ id: string; nome: string; icone: string | null }>,
+  mesReferencia: string
+): {
+  retiradas: RetiradaCaixinhaParaOrcamento[]
+  totalRetiradas: number
+} {
+  // Filtrar retiradas que têm destino_mes_referencia correspondente ao mês
+  const retiradasDoMes = transacoesCaixinhas.filter((t) => {
+    if (t.tipo !== 'retirada' || !t.destino_mes_referencia) return false
+    return t.destino_mes_referencia.startsWith(mesReferencia)
+  })
+
+  // Mapear para incluir detalhes da caixinha
+  const retiradas: RetiradaCaixinhaParaOrcamento[] = retiradasDoMes.map((t) => {
+    const caixinha = caixinhas.find((c) => c.id === t.caixinha_id)
+    return {
+      caixinha_id: t.caixinha_id,
+      caixinha_nome: caixinha?.nome || 'Caixinha',
+      caixinha_icone: caixinha?.icone || null,
+      valor: t.valor,
+      descricao: t.descricao,
+    }
+  })
+
+  const totalRetiradas = retiradas.reduce((sum, r) => sum + r.valor, 0)
+
+  return { retiradas, totalRetiradas }
+}

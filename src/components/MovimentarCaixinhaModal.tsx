@@ -91,14 +91,15 @@ export function MovimentarCaixinhaModal({
       }
 
       // Criar transação na caixinha
-      // Para depósitos, incluir origem_mes_referencia para rastrear de qual mês vem o saldo
+      // Para depósitos: origem_mes_referencia = de qual mês vem o saldo
+      // Para retiradas: destino_mes_referencia = para qual mês compor orçamento
       const result = await createTransacao({
         caixinha_id: caixinha.id,
         valor,
         tipo: tipo as TransacaoCaixinhaTipo,
         descricao: descricaoFinal,
-        // Para depósitos, registrar o mês de origem do saldo
         origem_mes_referencia: isDeposito ? `${mesOrigem}-01` : undefined,
+        destino_mes_referencia: !isDeposito ? `${mesDestino}-01` : undefined,
       })
 
       if (!result) {
