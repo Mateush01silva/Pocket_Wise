@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { useLearningModeStore } from '../../store/useLearningModeStore'
+import { useUserPreferencesStore } from '../../store/useUserPreferencesStore'
 import { LearningTooltipMenu } from '../ui/LearningTooltip'
 import { learningContent } from '../../lib/learningContent'
 
@@ -53,6 +54,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
   const isLearningMode = useLearningModeStore((state) => state.isEnabled)
   const toggleLearningMode = useLearningModeStore((state) => state.toggleLearningMode)
+  const userName = useUserPreferencesStore((state) => state.nome)
+  const userAvatar = useUserPreferencesStore((state) => state.avatarUrl)
 
   return (
     <aside className={cn(
@@ -116,11 +119,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       <div className="p-4 border-t border-dark-700/50 space-y-3">
         {/* User info */}
         <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-dark-800/50">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-secondary-400 flex items-center justify-center shrink-0">
-            <span className="text-xs font-semibold text-white">U</span>
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-secondary-400 flex items-center justify-center shrink-0 overflow-hidden">
+            {userAvatar ? (
+              <img src={userAvatar} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xs font-semibold text-white">
+                {userName.charAt(0).toUpperCase()}
+              </span>
+            )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-200 truncate">Usuário</p>
+            <p className="text-sm font-medium text-gray-200 truncate">{userName}</p>
             <p className="text-xs text-gray-500 truncate">Plano Free</p>
           </div>
         </div>
