@@ -16,6 +16,7 @@ import { useCartoesStore, useTransacoesStore } from '../store'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CreditCardModal } from '../components/CreditCardModal'
 import { FaturaDetailsModal } from '../components/FaturaDetailsModal'
+import { PagarFaturaModal } from '../components/PagarFaturaModal'
 import { formatCurrency } from '../utils/currency'
 import type { Cartao, Lancamento } from '../types'
 
@@ -178,6 +179,7 @@ export function CreditCards() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [cartaoToEdit, setCartaoToEdit] = useState<Cartao | undefined>()
   const [faturaDetailsCartaoId, setFaturaDetailsCartaoId] = useState<string | null>(null)
+  const [pagarFaturaCartao, setPagarFaturaCartao] = useState<typeof cartoesComEstatisticas[0] | null>(null)
 
   const diaAtual = new Date().getDate()
 
@@ -263,26 +265,14 @@ export function CreditCards() {
     }
   }
 
-  const handlePagarFatura = async (cartao: typeof cartoesComEstatisticas[0]) => {
+  const handlePagarFatura = (cartao: typeof cartoesComEstatisticas[0]) => {
     if (!cartao.faturaFechadaPendente) return
+    setPagarFaturaCartao(cartao)
+  }
 
-    const { mesFatura, total, transacoes } = cartao.faturaFechadaPendente
-    const mesNome = format(mesFatura, "MMMM 'de' yyyy", { locale: ptBR })
-
-    const confirmMessage = `Confirmar pagamento da fatura de ${mesNome}?\n\nValor: ${formatCurrency(total)}\n\nTodos os ${transacoes.length} lançamentos desta fatura serão marcados como pagos e o limite será liberado.`
-
-    if (window.confirm(confirmMessage)) {
-      try {
-        // Marcar todas as transações desta fatura como pagas
-        for (const transacao of transacoes) {
-          await useTransacoesStore.getState().updateLancamento(transacao.id, { status: 'pago' })
-        }
-        alert('Fatura paga com sucesso! Limite liberado.')
-      } catch (error) {
-        console.error('Erro ao pagar fatura:', error)
-        alert('Erro ao pagar fatura. Tente novamente.')
-      }
-    }
+  const handlePagarFaturaSuccess = () => {
+    setPagarFaturaCartao(null)
+    // O saldo da conta será atualizado automaticamente pelo trigger do banco
   }
 
   const handleCloseModal = () => {
@@ -604,6 +594,16 @@ export function CreditCards() {
         )
       })()}
 
+      {/* Modal de Pagamento de Fatura */}
+      {pagarFaturaCartao && pagarFaturaCartao.faturaFechadaPendente && (
+        <PagarFaturaModal
+          isOpen={true}
+          onClose={() => setPagarFaturaCartao(null)}
+          cartaoNome={pagarFaturaCartao.nome}
+          fatura={pagarFaturaCartao.faturaFechadaPendente}
+          onSuccess={handlePagarFaturaSuccess}
+        />
+      )}
     </div>
   )
 }
