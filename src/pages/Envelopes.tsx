@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
-import { Filter, TrendingDown, AlertCircle } from 'lucide-react'
-import { format, startOfMonth } from 'date-fns'
+import { Filter, TrendingDown, AlertCircle, Plus, Copy, Calendar, Edit2, Trash2, Wallet } from 'lucide-react'
+import { format, startOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -9,10 +9,13 @@ import { EnvelopeCard } from '../components/EnvelopeCard'
 import { CategoryTransactionsModal } from '../components/CategoryTransactionsModal'
 import { MonthYearSelector } from '../components/MonthYearSelector'
 import { DetectorEstouro } from '../components/DetectorEstouro'
+import { BudgetPlanningModal } from '../components/BudgetPlanningModal'
+import { HealthIndicator } from '../components/HealthIndicator'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useTransacoesStore } from '../store/useTransacoesStore'
 import { useCategoriasStore } from '../store/useCategoriasStore'
 import { formatCurrency } from '../utils/currency'
+import { cn } from '../lib/cn'
 import type { EnvelopeDigital } from '../types'
 
 type FiltroCategoria = 'todas' | 'essencial' | 'importante' | 'desejavel' | 'estouradas' | 'em_risco'
@@ -24,9 +27,11 @@ export function Envelopes() {
   const [filtro, setFiltro] = useState<FiltroCategoria>('todas')
   const [ordenacao, setOrdenacao] = useState<OrdenacaoCategoria>('percentual_desc')
   const [selectedEnvelope, setSelectedEnvelope] = useState<EnvelopeDigital | null>(null)
-  const isMounted = useRef(true) // Track if component is mounted
+  const [isPlanningModalOpen, setIsPlanningModalOpen] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+  const isMounted = useRef(true)
 
-  // Use selectors for each store value/function to keep identities stable
+  // Store selectors
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
   const getCategoriasBudgetComDados = useOrcamentosStore((state) => state.getCategoriasBudgetComDados)
   const isLoading = useOrcamentosStore((state) => state.isLoading)
@@ -35,6 +40,10 @@ export function Envelopes() {
   const getEnvelopesDigitais = useOrcamentosStore((state) => state.getEnvelopesDigitais)
   const getOrcamentoDoMes = useOrcamentosStore((state) => state.getOrcamentoDoMes)
   const setOrcamentoAtual = useOrcamentosStore((state) => state.setOrcamentoAtual)
+  const getProjecaoMensal = useOrcamentosStore((state) => state.getProjecaoMensal)
+  const copiarOrcamentoMesAnterior = useOrcamentosStore((state) => state.copiarOrcamentoMesAnterior)
+  const createOrcamento = useOrcamentosStore((state) => state.createOrcamento)
+  const deleteOrcamento = useOrcamentosStore((state) => state.deleteOrcamento)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
 
@@ -76,6 +85,70 @@ export function Envelopes() {
   const handleCloseModal = () => {
     setSelectedEnvelope(null)
   }
+
+  // Funções de orçamento
+  const handleCopiarMesAnterior = async () => {
+    if (isMounted.current) setIsCreating(true)
+    try {
+      const novoOrcamento = await copiarOrcamentoMesAnterior(mesAtual)
+      if (novoOrcamento && isMounted.current) {
+        setOrcamentoAtual(novoOrcamento)
+      }
+    } finally {
+      if (isMounted.current) setIsCreating(false)
+    }
+  }
+
+  const handleCriarDoZero = async () => {
+    if (isMounted.current) setIsCreating(true)
+    try {
+      const novoOrcamento = await createOrcamento({
+        family_id: 'local-storage-family',
+        mes_referencia: mesAtual,
+        meta_poupanca: 0,
+        meta_poupanca_percentual: null,
+        dia_inicio_ciclo: 1,
+        metodo_calculo: 'conservador',
+        status: 'ativo',
+      })
+      if (novoOrcamento && isMounted.current) {
+        setOrcamentoAtual(novoOrcamento)
+        setIsPlanningModalOpen(true) // Abre o modal para configurar
+      }
+    } catch (error) {
+      console.error('Erro ao criar orçamento:', error)
+      alert('Erro ao criar orçamento. Tente novamente.')
+    } finally {
+      if (isMounted.current) setIsCreating(false)
+    }
+  }
+
+  const handleDeleteOrcamento = async () => {
+    if (!orcamentoAtual) return
+
+    const mesFormatado = format(parseISO(mesAtual), 'MMMM yyyy', { locale: ptBR })
+    const confirmacao = confirm(
+      `Tem certeza que deseja excluir o orçamento de ${mesFormatado}?\n\n` +
+      'Esta ação é IRREVERSÍVEL e irá apagar:\n' +
+      '• Todas as categorias orçadas\n' +
+      '• Todos os envelopes digitais\n\n' +
+      'As transações não serão afetadas.'
+    )
+
+    if (!confirmacao) return
+
+    try {
+      await deleteOrcamento(orcamentoAtual.id)
+      setOrcamentoAtual(null)
+      alert(`Orçamento de ${mesFormatado} excluído com sucesso!`)
+    } catch (error) {
+      console.error('Erro ao deletar orçamento:', error)
+      alert('Erro ao excluir orçamento. Tente novamente.')
+    }
+  }
+
+  // Projeção do orçamento
+  const projecao = orcamentoAtual ? getProjecaoMensal(orcamentoAtual.id) : null
 
   // Filtrar transações do envelope selecionado
   // Inclui 'pago' e 'projetado' para corresponder ao cálculo de valor_gasto
@@ -127,17 +200,30 @@ export function Envelopes() {
         </div>
 
         <Card className="max-w-2xl mx-auto">
-          <CardContent className="py-12 text-center">
-            <AlertCircle className="mx-auto mb-4 text-gray-500" size={48} />
-            <h2 className="text-xl font-semibold text-gray-100 mb-2">
-              Nenhum orçamento para {format(new Date(mesAtual), 'MMMM yyyy', { locale: ptBR })}
-            </h2>
-            <p className="text-gray-400 mb-6">
-              Crie um orçamento para ver seus envelopes digitais
-            </p>
-            <Button onClick={() => window.location.href = '/budgets'}>
-              Ir para Orçamentos
-            </Button>
+          <CardContent className="py-12 text-center space-y-6">
+            <div className="w-16 h-16 bg-primary-500/10 rounded-full flex items-center justify-center mx-auto">
+              <Calendar className="text-primary-500" size={32} />
+            </div>
+
+            <div>
+              <h2 className="text-xl font-semibold text-gray-100 mb-2">
+                Nenhum orçamento para {format(parseISO(mesAtual), 'MMMM yyyy', { locale: ptBR })}
+              </h2>
+              <p className="text-gray-400">
+                Crie seu orçamento para começar a controlar seus gastos com envelopes digitais
+              </p>
+            </div>
+
+            <div className="flex gap-3 justify-center">
+              <Button onClick={handleCopiarMesAnterior} isLoading={isCreating} disabled={isCreating}>
+                <Copy size={16} className="mr-2" />
+                Copiar Mês Anterior
+              </Button>
+              <Button variant="ghost" onClick={handleCriarDoZero} isLoading={isCreating} disabled={isCreating}>
+                <Plus size={16} className="mr-2" />
+                Criar do Zero
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -183,28 +269,109 @@ export function Envelopes() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-100 mb-2">Envelopes Digitais</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold text-gray-100 mb-2">Envelopes Digitais</h1>
 
-        {/* Seletor de Mês e Ano */}
-        <div className="flex items-center gap-3 mt-2">
-          <MonthYearSelector
-            value={mesAtual}
-            onChange={setMesAtual}
-            hasData={!!orcamentoAtual}
-          />
-          {mesAtual !== mesRealAtual && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCurrentMonth}
-              className="text-xs"
-            >
-              Hoje
-            </Button>
-          )}
+          {/* Seletor de Mês e Ano */}
+          <div className="flex items-center gap-3">
+            <MonthYearSelector
+              value={mesAtual}
+              onChange={setMesAtual}
+              hasData={!!orcamentoAtual}
+            />
+            {mesAtual !== mesRealAtual && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCurrentMonth}
+                className="text-xs"
+              >
+                Hoje
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Botões de ação */}
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsPlanningModalOpen(true)}
+          >
+            <Edit2 size={16} className="mr-2" />
+            Editar Orçamento
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDeleteOrcamento}
+            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+          >
+            <Trash2 size={16} className="mr-2" />
+            Excluir
+          </Button>
         </div>
       </div>
+
+      {/* Resumo do Orçamento - Projeção */}
+      {projecao && (
+        <Card>
+          <CardContent className="py-4">
+            <div className="flex flex-wrap items-center gap-6">
+              {/* Saúde */}
+              <div className="flex items-center gap-3">
+                <HealthIndicator saude={projecao.saude} size="sm" />
+                <div>
+                  <p className="text-xs text-gray-500">Saúde Financeira</p>
+                  <p className="text-sm font-medium text-gray-200 capitalize">{projecao.saude}</p>
+                </div>
+              </div>
+
+              {/* Saldo Atual */}
+              <div>
+                <p className="text-xs text-gray-500">Saldo Atual</p>
+                <p className={cn('text-lg font-bold', projecao.saldo_atual >= 0 ? 'text-green-400' : 'text-red-400')}>
+                  {formatCurrency(projecao.saldo_atual)}
+                </p>
+              </div>
+
+              {/* Projeção Fim do Mês */}
+              <div>
+                <p className="text-xs text-gray-500">Projeção Fim do Mês</p>
+                <p className={cn('text-lg font-bold', projecao.saldo_projetado_fim_mes >= 0 ? 'text-green-400' : 'text-red-400')}>
+                  {formatCurrency(projecao.saldo_projetado_fim_mes)}
+                </p>
+              </div>
+
+              {/* Progresso */}
+              <div className="flex-1 min-w-[200px]">
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-gray-500">Orçamento Usado</span>
+                  <span className={cn(
+                    'font-medium',
+                    projecao.percentual_orcamento_usado <= 80 ? 'text-green-400' :
+                    projecao.percentual_orcamento_usado <= 100 ? 'text-yellow-400' : 'text-red-400'
+                  )}>
+                    {projecao.percentual_orcamento_usado.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="h-2 bg-dark-700 rounded-full overflow-hidden">
+                  <div
+                    className={cn(
+                      'h-full transition-all duration-300',
+                      projecao.percentual_orcamento_usado <= 80 ? 'bg-green-500' :
+                      projecao.percentual_orcamento_usado <= 100 ? 'bg-yellow-500' : 'bg-red-500'
+                    )}
+                    style={{ width: `${Math.min(projecao.percentual_orcamento_usado, 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Cards de resumo */}
       <div className="grid md:grid-cols-4 gap-4">
@@ -212,7 +379,7 @@ export function Envelopes() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-400">Total Orçado</span>
-              <TrendingDown size={16} className="text-primary-500" />
+              <Wallet size={16} className="text-primary-500" />
             </div>
             <p className="text-2xl font-bold text-gray-100">{formatCurrency(totalOrcado)}</p>
             <p className="text-xs text-gray-500 mt-1">{todosEnvelopes.length} envelopes</p>
@@ -390,6 +557,17 @@ export function Envelopes() {
           mesReferencia={orcamentoAtual.mes_referencia}
           valorOrcado={selectedEnvelope.valor_orcado}
           valorGasto={selectedEnvelope.valor_gasto}
+          categoriaBudgetId={selectedEnvelope.id}
+        />
+      )}
+
+      {/* Modal de Planejamento/Edição do Orçamento */}
+      {orcamentoAtual && (
+        <BudgetPlanningModal
+          isOpen={isPlanningModalOpen}
+          onClose={() => setIsPlanningModalOpen(false)}
+          orcamento={orcamentoAtual}
+          mesReferencia={mesAtual}
         />
       )}
     </div>
