@@ -138,11 +138,14 @@ export function AlocarSaldoModal({
         toast.success(`${formatCurrency(totalAlocado)} alocado com sucesso!`)
         onClose()
       } else {
-        toast.error('Erro ao alocar saldo')
+        // Pegar erro do store para mostrar detalhes
+        const errorMsg = useCaixinhasStore.getState().error
+        console.error('Erro ao alocar:', errorMsg)
+        toast.error(errorMsg || 'Erro ao alocar saldo. Verifique sua conexão.')
       }
     } catch (error) {
       console.error('Erro:', error)
-      toast.error('Erro ao alocar saldo')
+      toast.error(error instanceof Error ? error.message : 'Erro ao alocar saldo')
     } finally {
       setIsLoading(false)
     }

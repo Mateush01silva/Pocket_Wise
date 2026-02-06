@@ -451,13 +451,18 @@ export const transacoesCaixinhasService = {
     }
 
     // Criar todas as transações
+    // Garantir que origem_mes_referencia seja uma data completa (YYYY-MM-DD)
+    const mesRefCompleto = input.mes_referencia.length === 7
+      ? `${input.mes_referencia}-01`
+      : input.mes_referencia
+
     const transacoes = input.alocacoes.map((alocacao) => ({
       caixinha_id: alocacao.caixinha_id,
       realizado_por: currentUser.id,
       valor: alocacao.valor,
       tipo: 'deposito' as const,
       descricao: alocacao.descricao || `Alocação de saldo de ${input.mes_referencia}`,
-      origem_mes_referencia: input.mes_referencia,
+      origem_mes_referencia: mesRefCompleto,
     }))
 
     const { error } = await supabase
