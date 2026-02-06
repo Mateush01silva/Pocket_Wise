@@ -38,6 +38,8 @@ export function Dashboard() {
   const caixinhasInitialized = useCaixinhasStore((state) => state.initialized)
   const initializeCaixinhas = useCaixinhasStore((state) => state.initialize)
   const caixinhas = useCaixinhasStore((state) => state.caixinhas)
+  const fetchTransacoesCaixinha = useCaixinhasStore((state) => state.fetchTransacoes)
+  const getTotalAlocadoDoMes = useCaixinhasStore((state) => state.getTotalAlocadoDoMes)
 
   // Budget store
   // Use selectors for each value/function to keep identities stable
@@ -103,6 +105,19 @@ export function Dashboard() {
     }
   }, [caixinhasInitialized, initializeCaixinhas])
 
+  // Buscar transações das caixinhas ativas para calcular alocações já feitas
+  useEffect(() => {
+    if (caixinhasInitialized && caixinhas.length > 0) {
+      caixinhas
+        .filter(c => c.ativa)
+        .forEach(c => {
+          fetchTransacoesCaixinha(c.id).catch(err => {
+            console.error('Erro ao buscar transações da caixinha:', err)
+          })
+        })
+    }
+  }, [caixinhasInitialized, caixinhas, fetchTransacoesCaixinha])
+
 
   // Stable callbacks to prevent render loops
   const handleOpenModal = useCallback(() => {
@@ -140,7 +155,12 @@ export function Dashboard() {
   const lancamentosMes = lancamentosFiltrados
 
   // Calcular saldo do mês anterior para sugestão de alocação
-  const saldoMesAnterior = useMemo(() => {
+  const mesAnteriorRef = useMemo(() => {
+    const mesAnterior = subMonths(new Date(), 1)
+    return format(mesAnterior, 'yyyy-MM')
+  }, [])
+
+  const saldoBrutoMesAnterior = useMemo(() => {
     const mesAnterior = subMonths(new Date(), 1)
     const inicioMesAnterior = startOfMonth(mesAnterior)
     const fimMesAnterior = endOfMonth(mesAnterior)
@@ -153,6 +173,16 @@ export function Dashboard() {
 
     return saldoMesAnt
   }, [lancamentos])
+
+  // Total já alocado do mês anterior em caixinhas
+  const totalJaAlocado = useMemo(() => {
+    return getTotalAlocadoDoMes(mesAnteriorRef)
+  }, [mesAnteriorRef, getTotalAlocadoDoMes])
+
+  // Saldo restante para alocar (bruto - já alocado)
+  const saldoMesAnterior = useMemo(() => {
+    return Math.max(0, saldoBrutoMesAnterior - totalJaAlocado)
+  }, [saldoBrutoMesAnterior, totalJaAlocado])
 
   // Verificar se deve mostrar sugestão de alocação (saldo positivo e caixinhas existem)
   const mostrarSugestaoAlocacao = useMemo(() => {
@@ -299,15 +329,17 @@ export function Dashboard() {
 
         {/* Saldo do Período */}
         <LearningTooltip content={learningContent.saldoDoPeriodo} position="bottom">
-          <Card hover className="ring-2 ring-primary-500/20">
+          <Card hover className={`ring-2 ${saldo >= 0 ? 'ring-green-500/30' : 'ring-red-500/30'}`}>
             <CardContent>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex-1">
                   <p className="text-sm text-gray-400 mb-1">Saldo do Período</p>
-                  <p className="text-2xl font-bold text-gray-100">{formatCurrency(saldo)}</p>
+                  <p className={`text-2xl font-bold ${saldo >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {formatCurrency(saldo)}
+                  </p>
                 </div>
-                <div className={`w-12 h-12 rounded-lg ${saldo >= 0 ? 'bg-blue-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
-                  <Calculator className={`w-6 h-6 ${saldo >= 0 ? 'text-blue-400' : 'text-red-400'}`} />
+                <div className={`w-12 h-12 rounded-lg ${saldo >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
+                  <Calculator className={`w-6 h-6 ${saldo >= 0 ? 'text-green-400' : 'text-red-400'}`} />
                 </div>
               </div>
               <p className="text-xs text-gray-500">
@@ -564,11 +596,22 @@ export function Dashboard() {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-100 mb-1">
-                  Você terminou o mês passado com saldo positivo!
+                  {totalJaAlocado > 0
+                    ? 'Ainda tem saldo para alocar!'
+                    : 'Você terminou o mês passado com saldo positivo!'}
                 </h3>
                 <p className="text-sm text-gray-400">
-                  Você tem <span className="text-green-400 font-semibold">{formatCurrency(saldoMesAnterior)}</span> disponível.
-                  Que tal guardar em uma caixinha para seus objetivos?
+                  {totalJaAlocado > 0 ? (
+                    <>
+                      Você já alocou {formatCurrency(totalJaAlocado)} e ainda tem{' '}
+                      <span className="text-green-400 font-semibold">{formatCurrency(saldoMesAnterior)}</span> disponível.
+                    </>
+                  ) : (
+                    <>
+                      Você tem <span className="text-green-400 font-semibold">{formatCurrency(saldoMesAnterior)}</span> disponível.
+                      Que tal guardar em uma caixinha para seus objetivos?
+                    </>
+                  )}
                 </p>
               </div>
               <div className="flex gap-2 shrink-0">

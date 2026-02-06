@@ -57,6 +57,7 @@ interface CaixinhasActions {
   // Queries
   getCaixinhaById: (id: string) => CaixinhaComDetalhes | undefined
   getTransacoesByCaixinha: (caixinhaId: string) => TransacaoCaixinha[]
+  getTotalAlocadoDoMes: (mesReferencia: string) => number
 
   // Utilities
   clearError: () => void
@@ -392,6 +393,20 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
 
     getTransacoesByCaixinha: (caixinhaId: string) => {
       return get().transacoes[caixinhaId] || []
+    },
+
+    getTotalAlocadoDoMes: (mesReferencia: string) => {
+      // Soma todas as alocações feitas para o mês especificado (YYYY-MM)
+      // A transação pode ter origem_mes_referencia como 'YYYY-MM' ou 'YYYY-MM-DD'
+      const todasTransacoes = Object.values(get().transacoes).flat()
+      return todasTransacoes
+        .filter(
+          (t) =>
+            t.origem_mes_referencia &&
+            t.origem_mes_referencia.startsWith(mesReferencia) &&
+            t.tipo === 'deposito'
+        )
+        .reduce((sum, t) => sum + t.valor, 0)
     },
 
     // =====================================================
