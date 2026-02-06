@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { PiggyBank, Plus, Target, TrendingUp, Wallet, Edit2, Trash2, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CaixinhaModal } from '../components/CaixinhaModal'
 import { MovimentarCaixinhaModal } from '../components/MovimentarCaixinhaModal'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
+import { useTransacoesStore } from '../store'
 import { formatCurrency } from '../utils/currency'
 import { format, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { LearningTooltip } from '../components/ui/LearningTooltip'
 import { learningContent } from '../lib/learningContent'
+import { calcularSaldoAcumuladoNaoAlocado } from '../lib/financialCalculations'
 import type { Caixinha, CaixinhaComDetalhes } from '../types'
 
 export function Caixinhas() {
@@ -19,16 +21,42 @@ export function Caixinhas() {
     isLoadingCaixinhas,
     initialize,
     deleteCaixinha,
+    transacoes: transacoesCaixinhas,
+    fetchTransacoes: fetchTransacoesCaixinha,
   } = useCaixinhasStore()
+
+  const lancamentos = useTransacoesStore((state) => state.lancamentos)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCaixinha, setEditingCaixinha] = useState<Caixinha | undefined>()
   const [movimentarCaixinha, setMovimentarCaixinha] = useState<CaixinhaComDetalhes | null>(null)
   const [tipoMovimentacao, setTipoMovimentacao] = useState<'deposito' | 'retirada'>('deposito')
 
+  // Calcular saldo disponível para depósitos em caixinhas
+  const todasTransacoesCaixinhas = useMemo(() => {
+    return Object.values(transacoesCaixinhas).flat()
+  }, [transacoesCaixinhas])
+
+  const { totalDisponivel: saldoDisponivelParaDeposito } = useMemo(() => {
+    return calcularSaldoAcumuladoNaoAlocado(lancamentos, todasTransacoesCaixinhas)
+  }, [lancamentos, todasTransacoesCaixinhas])
+
   useEffect(() => {
     initialize()
   }, [initialize])
+
+  // Buscar transações de todas as caixinhas ativas para calcular saldo disponível
+  useEffect(() => {
+    if (caixinhas.length > 0) {
+      caixinhas
+        .filter(c => c.ativa)
+        .forEach(c => {
+          fetchTransacoesCaixinha(c.id).catch(err => {
+            console.error('Erro ao buscar transações da caixinha:', err)
+          })
+        })
+    }
+  }, [caixinhas, fetchTransacoesCaixinha])
 
   const handleEdit = (caixinha: Caixinha) => {
     setEditingCaixinha(caixinha)
@@ -105,6 +133,7 @@ export function Caixinhas() {
           onClose={handleCloseMovimentar}
           caixinha={movimentarCaixinha}
           tipo={tipoMovimentacao}
+          saldoDisponivelParaDeposito={saldoDisponivelParaDeposito}
         />
       )}
 

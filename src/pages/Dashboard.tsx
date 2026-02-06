@@ -12,7 +12,7 @@ import { BankAccountsWidget } from '../components/BankAccountsWidget'
 import { UpcomingBillsWidget } from '../components/UpcomingBillsWidget'
 import { AlocarSaldoModal } from '../components/AlocarSaldoModal'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
-import { calcularSaldoProjetado, calcularFaturasAtuaisCartao, filtrarPorPeriodo } from '../lib/financialCalculations'
+import { calcularSaldoProjetado, calcularFaturasAtuaisCartao, filtrarPorPeriodo, calcularSaldoAcumuladoNaoAlocado } from '../lib/financialCalculations'
 import { format, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
@@ -40,6 +40,7 @@ export function Dashboard() {
   const caixinhas = useCaixinhasStore((state) => state.caixinhas)
   const fetchTransacoesCaixinha = useCaixinhasStore((state) => state.fetchTransacoes)
   const getTotalAlocadoDoMes = useCaixinhasStore((state) => state.getTotalAlocadoDoMes)
+  const transacoesCaixinhas = useCaixinhasStore((state) => state.transacoes)
 
   // Budget store
   // Use selectors for each value/function to keep identities stable
@@ -154,35 +155,26 @@ export function Dashboard() {
   const saldo = saldoProjetado
   const lancamentosMes = lancamentosFiltrados
 
-  // Calcular saldo do mês anterior para sugestão de alocação
-  const mesAnteriorRef = useMemo(() => {
-    const mesAnterior = subMonths(new Date(), 1)
-    return format(mesAnterior, 'yyyy-MM')
-  }, [])
+  // Calcular saldo acumulado de todos os meses anteriores não alocados
+  // Flatten das transações de caixinhas para a função de cálculo
+  const todasTransacoesCaixinhas = useMemo(() => {
+    return Object.values(transacoesCaixinhas).flat()
+  }, [transacoesCaixinhas])
 
-  const saldoBrutoMesAnterior = useMemo(() => {
-    const mesAnterior = subMonths(new Date(), 1)
-    const inicioMesAnterior = startOfMonth(mesAnterior)
-    const fimMesAnterior = endOfMonth(mesAnterior)
+  // Calcular saldo acumulado disponível para alocação
+  const { totalDisponivel: saldoAcumuladoDisponivel, mesesComSaldo } = useMemo(() => {
+    return calcularSaldoAcumuladoNaoAlocado(lancamentos, todasTransacoesCaixinhas)
+  }, [lancamentos, todasTransacoesCaixinhas])
 
-    const { saldoProjetado: saldoMesAnt } = calcularSaldoProjetado(
-      lancamentos,
-      inicioMesAnterior,
-      fimMesAnterior
-    )
-
-    return saldoMesAnt
-  }, [lancamentos])
-
-  // Total já alocado do mês anterior em caixinhas
+  // Total já alocado (para mostrar na mensagem)
   const totalJaAlocado = useMemo(() => {
-    return getTotalAlocadoDoMes(mesAnteriorRef)
-  }, [mesAnteriorRef, getTotalAlocadoDoMes])
+    return todasTransacoesCaixinhas
+      .filter(t => t.tipo === 'deposito' && t.origem_mes_referencia)
+      .reduce((sum, t) => sum + t.valor, 0)
+  }, [todasTransacoesCaixinhas])
 
-  // Saldo restante para alocar (bruto - já alocado)
-  const saldoMesAnterior = useMemo(() => {
-    return Math.max(0, saldoBrutoMesAnterior - totalJaAlocado)
-  }, [saldoBrutoMesAnterior, totalJaAlocado])
+  // Saldo disponível para alocar (alias para compatibilidade)
+  const saldoMesAnterior = saldoAcumuladoDisponivel
 
   // Verificar se deve mostrar sugestão de alocação (saldo positivo e caixinhas existem)
   const mostrarSugestaoAlocacao = useMemo(() => {
@@ -598,17 +590,21 @@ export function Dashboard() {
                 <h3 className="text-lg font-semibold text-gray-100 mb-1">
                   {totalJaAlocado > 0
                     ? 'Ainda tem saldo para alocar!'
-                    : 'Você terminou o mês passado com saldo positivo!'}
+                    : mesesComSaldo.length > 1
+                      ? 'Você tem saldo acumulado de meses anteriores!'
+                      : 'Você terminou o mês passado com saldo positivo!'}
                 </h3>
                 <p className="text-sm text-gray-400">
                   {totalJaAlocado > 0 ? (
                     <>
                       Você já alocou {formatCurrency(totalJaAlocado)} e ainda tem{' '}
-                      <span className="text-green-400 font-semibold">{formatCurrency(saldoMesAnterior)}</span> disponível.
+                      <span className="text-green-400 font-semibold">{formatCurrency(saldoMesAnterior)}</span> disponível
+                      {mesesComSaldo.length > 1 && ` de ${mesesComSaldo.length} meses`}.
                     </>
                   ) : (
                     <>
-                      Você tem <span className="text-green-400 font-semibold">{formatCurrency(saldoMesAnterior)}</span> disponível.
+                      Você tem <span className="text-green-400 font-semibold">{formatCurrency(saldoMesAnterior)}</span> disponível
+                      {mesesComSaldo.length > 1 && ` acumulado de ${mesesComSaldo.length} meses`}.
                       Que tal guardar em uma caixinha para seus objetivos?
                     </>
                   )}
@@ -832,6 +828,16 @@ export function Dashboard() {
         isOpen={isAlocarSaldoModalOpen}
         onClose={() => setIsAlocarSaldoModalOpen(false)}
         saldoDisponivel={saldoMesAnterior}
+        onSuccess={() => {
+          // Recarregar transações das caixinhas para atualizar o saldo já alocado
+          caixinhas
+            .filter(c => c.ativa)
+            .forEach(c => {
+              fetchTransacoesCaixinha(c.id).catch(err => {
+                console.error('Erro ao buscar transações da caixinha:', err)
+              })
+            })
+        }}
       />
 
       {/* Floating Posso Comprar Button */}
