@@ -103,7 +103,10 @@ export function MovimentarCaixinhaModal({
       })
 
       if (!result) {
-        toast.error('Erro ao realizar operação')
+        // Pegar o erro do store para mostrar mensagem mais específica
+        const errorMsg = useCaixinhasStore.getState().error
+        toast.error(errorMsg || 'Erro ao realizar operação')
+        console.error('Erro na transação:', errorMsg)
         return
       }
 
