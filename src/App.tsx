@@ -275,16 +275,8 @@ function AppRoutes() {
               </PrivateRoute>
             }
           />
-          <Route
-            path="/app/orcamento"
-            element={
-              <PrivateRoute>
-                <Layout>
-                  <Budgets />
-                </Layout>
-              </PrivateRoute>
-            }
-          />
+          {/* Redirect old budget route to envelopes */}
+          <Route path="/app/orcamento" element={<Navigate to="/app/envelopes" replace />} />
           <Route
             path="/app/envelopes"
             element={
@@ -353,7 +345,7 @@ function AppRoutes() {
           <Route path="/cash-flow" element={<Navigate to="/app/fluxo-caixa" replace />} />
           <Route path="/reports" element={<Navigate to="/app/relatorios" replace />} />
           <Route path="/categories" element={<Navigate to="/app/categorias" replace />} />
-          <Route path="/budgets" element={<Navigate to="/app/orcamento" replace />} />
+          <Route path="/budgets" element={<Navigate to="/app/envelopes" replace />} />
           <Route path="/envelopes" element={<Navigate to="/app/envelopes" replace />} />
           <Route path="/projections" element={<Navigate to="/app/projecoes" replace />} />
           <Route path="/subscriptions" element={<Navigate to="/app/assinaturas" replace />} />

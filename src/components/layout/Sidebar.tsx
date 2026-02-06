@@ -36,7 +36,6 @@ const navItems: NavItem[] = [
   { name: 'Fluxo de Caixa', path: '/app/fluxo-caixa', icon: BarChart3, learningKey: 'menuFluxoCaixa' },
   { name: 'Relatórios', path: '/app/relatorios', icon: FileBarChart, learningKey: 'menuRelatorios' },
   { name: 'Categorias', path: '/app/categorias', icon: FolderTree, learningKey: 'menuCategorias' },
-  { name: 'Orçamentos', path: '/app/orcamento', icon: Wallet, learningKey: 'menuOrcamentos' },
   { name: 'Envelopes', path: '/app/envelopes', icon: Package, learningKey: 'menuEnvelopes' },
   { name: 'Caixinhas', path: '/app/caixinhas', icon: PiggyBank, learningKey: 'menuCaixinhas' },
   { name: 'Projeções', path: '/app/projecoes', icon: TrendingUp, learningKey: 'menuProjecoes' },

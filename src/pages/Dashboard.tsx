@@ -17,6 +17,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis
 import { useNavigate } from 'react-router-dom'
 import { LearningTooltip } from '../components/ui/LearningTooltip'
 import { learningContent } from '../lib/learningContent'
+import { PossoComprarFloating } from '../components/PossoComprarFloating'
 
 export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -384,9 +385,9 @@ export function Dashboard() {
                   variant="ghost"
                   size="sm"
                   className="w-full mt-4"
-                  onClick={() => navigate('/budgets')}
+                  onClick={() => navigate('/app/envelopes')}
                 >
-                  Ver Orçamento Completo
+                  Ver Envelopes
                 </Button>
               </CardContent>
             </Card>
@@ -514,7 +515,7 @@ export function Dashboard() {
               Comece a planejar suas finanças criando um orçamento mensal.
               Acompanhe seus gastos e veja se pode fazer aquela compra!
             </p>
-            <Button onClick={() => navigate('/budgets')}>
+            <Button onClick={() => navigate('/app/envelopes')}>
               Criar Orçamento
             </Button>
           </CardContent>
@@ -714,6 +715,9 @@ export function Dashboard() {
 
       {/* Transaction Modal */}
       <TransactionModal isOpen={isModalOpen} onClose={handleCloseModal} />
+
+      {/* Floating Posso Comprar Button */}
+      <PossoComprarFloating />
     </div>
   )
 }
