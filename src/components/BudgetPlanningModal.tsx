@@ -1,14 +1,16 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Check, X, AlertTriangle, TrendingUp, Search } from 'lucide-react'
+import { Check, X, AlertTriangle, TrendingUp, Search, PiggyBank } from 'lucide-react'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select } from './ui'
 import { CurrencyInput } from './ui/CurrencyInput'
 import { useOrcamentosStore } from '../store'
 import { useCategoriasStore } from '../store'
+import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import type { OrcamentoMensal, Categoria, CategoriaPrioridade } from '../types'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
 import { IconRenderer } from '../lib/iconRenderer'
+import { getRetiradasCaixinhasParaMes } from '../lib/financialCalculations'
 
 interface BudgetPlanningModalProps {
   isOpen: boolean
@@ -35,6 +37,10 @@ export function BudgetPlanningModal({
   const updateOrcamento = useOrcamentosStore((state) => state.updateOrcamento)
   const bulkCreateCategoriasBudget = useOrcamentosStore((state) => state.bulkCreateCategoriasBudget)
 
+  // Caixinhas para mostrar retiradas destinadas a este mês
+  const caixinhas = useCaixinhasStore((state) => state.caixinhas)
+  const transacoesCaixinhas = useCaixinhasStore((state) => state.transacoes)
+
   const [metaPoupanca, setMetaPoupanca] = useState(0)
   const [metaPoupancaPercentual, setMetaPoupancaPercentual] = useState<number | null>(null)
   const [tipoMeta, setTipoMeta] = useState<'valor' | 'percentual'>('valor')
@@ -45,6 +51,18 @@ export function BudgetPlanningModal({
   const [filtroDespesa, setFiltroDespesa] = useState('')
 
   const isEditMode = !!orcamento
+
+  // Converter mesReferencia para YYYY-MM
+  const mesReferenciaFormatado = useMemo(() => {
+    // mesReferencia pode vir como YYYY-MM-DD ou YYYY-MM
+    return mesReferencia.substring(0, 7)
+  }, [mesReferencia])
+
+  // Calcular retiradas de caixinhas destinadas a este mês
+  const { retiradas: retiradasCaixinhas, totalRetiradas: totalRetiradasCaixinhas } = useMemo(() => {
+    const todasTransacoes = Object.values(transacoesCaixinhas).flat()
+    return getRetiradasCaixinhasParaMes(todasTransacoes, caixinhas, mesReferenciaFormatado)
+  }, [transacoesCaixinhas, caixinhas, mesReferenciaFormatado])
 
   // Filtrar categorias de receita principais
   const categoriasReceita = useMemo(
@@ -115,10 +133,12 @@ export function BudgetPlanningModal({
   }, [orcamento, categoriasBudget, categorias])
 
   // Cálculos
-  const totalReceitasPlanejadas = categoriasReceitaSelecionadas.reduce((sum, c) => sum + c.valor_orcado, 0)
+  const totalReceitasCategorias = categoriasReceitaSelecionadas.reduce((sum, c) => sum + c.valor_orcado, 0)
+  // Incluir retiradas de caixinhas no total de receitas
+  const totalReceitasPlanejadas = totalReceitasCategorias + totalRetiradasCaixinhas
   const totalDespesasPlanejadas = categoriasDespesaSelecionadas.reduce((sum, c) => sum + c.valor_orcado, 0)
   const metaReal = tipoMeta === 'percentual' && metaPoupancaPercentual
-    ? (totalReceitasPlanejadas * metaPoupancaPercentual) / 100
+    ? (totalReceitasCategorias * metaPoupancaPercentual) / 100 // Meta baseada apenas em receitas regulares
     : metaPoupanca
   const totalNecessario = totalDespesasPlanejadas + metaReal
   const saldo = totalReceitasPlanejadas - totalNecessario
@@ -309,11 +329,45 @@ export function BudgetPlanningModal({
                 )}
               </div>
 
+              {/* Receitas de Caixinhas */}
+              {retiradasCaixinhas.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-dark-700">
+                  <h4 className="text-xs font-semibold text-gray-400 mb-2 flex items-center gap-2">
+                    <PiggyBank size={14} className="text-primary-400" />
+                    Receitas de Caixinhas ({retiradasCaixinhas.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {retiradasCaixinhas.map((retirada, index) => (
+                      <div
+                        key={`${retirada.caixinha_id}-${index}`}
+                        className="flex items-center gap-3 p-2 bg-primary-500/5 border border-primary-500/30 rounded-lg"
+                      >
+                        <span className="text-lg">{retirada.caixinha_icone || '💰'}</span>
+                        <span className="text-sm text-gray-200 flex-1 truncate">
+                          {retirada.caixinha_nome}
+                        </span>
+                        <span className="text-sm font-semibold text-primary-400">
+                          {formatCurrency(retirada.valor)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Valores retirados de caixinhas para compor este mês
+                  </p>
+                </div>
+              )}
+
               {/* Resumo de Receitas */}
               <div className="mt-3 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
                 <p className="text-sm text-gray-300">
                   <span className="font-semibold text-green-400">Total de Receitas: </span>
                   {formatCurrency(totalReceitasPlanejadas)}
+                  {totalRetiradasCaixinhas > 0 && (
+                    <span className="text-xs text-gray-500 ml-2">
+                      (categorias: {formatCurrency(totalReceitasCategorias)} + caixinhas: {formatCurrency(totalRetiradasCaixinhas)})
+                    </span>
+                  )}
                 </p>
               </div>
             </div>

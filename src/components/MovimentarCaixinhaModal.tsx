@@ -7,9 +7,10 @@ import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
 import { toast } from 'sonner'
-import { format, addMonths, startOfMonth } from 'date-fns'
+import { format, addMonths, startOfMonth, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { CaixinhaComDetalhes, TransacaoCaixinhaTipo } from '../types'
+import type { SaldoMesInfo } from '../lib/financialCalculations'
 
 interface MovimentarCaixinhaModalProps {
   isOpen: boolean
@@ -17,6 +18,7 @@ interface MovimentarCaixinhaModalProps {
   caixinha: CaixinhaComDetalhes
   tipo: 'deposito' | 'retirada'
   saldoDisponivelParaDeposito?: number // Saldo disponível para depósito (de meses anteriores)
+  mesesComSaldo?: SaldoMesInfo[] // Lista de meses com saldo disponível para alocar
 }
 
 export function MovimentarCaixinhaModal({
@@ -25,10 +27,18 @@ export function MovimentarCaixinhaModal({
   caixinha,
   tipo,
   saldoDisponivelParaDeposito = 0,
+  mesesComSaldo = [],
 }: MovimentarCaixinhaModalProps) {
   const [valor, setValor] = useState(0)
   const [descricao, setDescricao] = useState('')
   const [mesDestino, setMesDestino] = useState<string>(() => format(startOfMonth(new Date()), 'yyyy-MM'))
+  // Para depósitos, mês de origem padrão é o mês anterior (ou o mais antigo com saldo)
+  const [mesOrigem, setMesOrigem] = useState<string>(() => {
+    if (mesesComSaldo.length > 0) {
+      return mesesComSaldo[0].mesRef // Mais antigo primeiro
+    }
+    return format(subMonths(startOfMonth(new Date()), 1), 'yyyy-MM')
+  })
   const [isLoading, setIsLoading] = useState(false)
 
   const createTransacao = useCaixinhasStore((state) => state.createTransacao)
@@ -81,11 +91,15 @@ export function MovimentarCaixinhaModal({
       }
 
       // Criar transação na caixinha
+      // Para depósitos: origem_mes_referencia = de qual mês vem o saldo
+      // Para retiradas: destino_mes_referencia = para qual mês compor orçamento
       const result = await createTransacao({
         caixinha_id: caixinha.id,
         valor,
         tipo: tipo as TransacaoCaixinhaTipo,
         descricao: descricaoFinal,
+        origem_mes_referencia: isDeposito ? `${mesOrigem}-01` : undefined,
+        destino_mes_referencia: !isDeposito ? `${mesDestino}-01` : undefined,
       })
 
       if (!result) {
@@ -194,6 +208,27 @@ export function MovimentarCaixinhaModal({
               <p className="text-xs text-gray-500 max-w-[150px] text-right">
                 Sobra de meses anteriores
               </p>
+            </div>
+          )}
+
+          {/* Mês de origem (apenas para depósito quando há múltiplos meses) */}
+          {isDeposito && mesesComSaldo.length > 1 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                <Calendar size={14} className="inline mr-2" />
+                De qual mês está alocando?
+              </label>
+              <select
+                value={mesOrigem}
+                onChange={(e) => setMesOrigem(e.target.value)}
+                className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500"
+              >
+                {mesesComSaldo.map((mes) => (
+                  <option key={mes.mesRef} value={mes.mesRef}>
+                    {format(new Date(`${mes.mesRef}-01`), "MMMM 'de' yyyy", { locale: ptBR })} - {formatCurrency(mes.saldoDisponivel)}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 

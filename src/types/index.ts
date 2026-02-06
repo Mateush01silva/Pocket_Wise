@@ -725,7 +725,8 @@ export interface TransacaoCaixinha {
   valor: number
   tipo: TransacaoCaixinhaTipo
   descricao: string | null
-  origem_mes_referencia: string | null // YYYY-MM-DD se veio de saldo mensal
+  origem_mes_referencia: string | null // YYYY-MM-DD se veio de saldo mensal (para depósitos)
+  destino_mes_referencia: string | null // YYYY-MM-DD para qual mês compor orçamento (para retiradas)
   created_at: string
 }
 
@@ -760,7 +761,8 @@ export interface CreateTransacaoCaixinhaInput {
   valor: number
   tipo: TransacaoCaixinhaTipo
   descricao?: string | null
-  origem_mes_referencia?: string | null
+  origem_mes_referencia?: string | null // Para depósitos: de qual mês vem o saldo
+  destino_mes_referencia?: string | null // Para retiradas: para qual mês compor orçamento
 }
 
 // Input para alocar saldo mensal em múltiplas caixinhas

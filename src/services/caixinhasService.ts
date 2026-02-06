@@ -359,6 +359,7 @@ export const transacoesCaixinhasService = {
         tipo: input.tipo,
         descricao: input.descricao || null,
         origem_mes_referencia: input.origem_mes_referencia || null,
+        destino_mes_referencia: input.destino_mes_referencia || null,
       })
       .select()
       .single()
