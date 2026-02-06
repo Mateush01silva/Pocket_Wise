@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { Filter, TrendingDown, AlertCircle, Plus, Copy, Calendar, Edit2, Trash2, Wallet } from 'lucide-react'
 import { format, startOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -14,6 +14,7 @@ import { HealthIndicator } from '../components/HealthIndicator'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useTransacoesStore } from '../store/useTransacoesStore'
 import { useCategoriasStore } from '../store/useCategoriasStore'
+import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
 import type { EnvelopeDigital } from '../types'
@@ -46,6 +47,8 @@ export function Envelopes() {
   const deleteOrcamento = useOrcamentosStore((state) => state.deleteOrcamento)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
+  // Subscrição às transações de caixinhas para atualizar saldo quando houver retiradas
+  const transacoesCaixinhas = useCaixinhasStore((state) => state.transacoes)
 
   useEffect(() => {
     isMounted.current = true
@@ -147,8 +150,12 @@ export function Envelopes() {
     }
   }
 
-  // Projeção do orçamento
-  const projecao = orcamentoAtual ? getProjecaoMensal(orcamentoAtual.id) : null
+  // Projeção do orçamento - recalcula quando transações de caixinhas mudam
+  const projecao = useMemo(() => {
+    if (!orcamentoAtual) return null
+    return getProjecaoMensal(orcamentoAtual.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orcamentoAtual, getProjecaoMensal, transacoesCaixinhas])
 
   // Filtrar transações do envelope selecionado
   // Inclui 'pago' e 'projetado' para corresponder ao cálculo de valor_gasto
