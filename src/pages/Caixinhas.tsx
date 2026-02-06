@@ -37,7 +37,7 @@ export function Caixinhas() {
     return Object.values(transacoesCaixinhas).flat()
   }, [transacoesCaixinhas])
 
-  const { totalDisponivel: saldoDisponivelParaDeposito } = useMemo(() => {
+  const { totalDisponivel: saldoDisponivelParaDeposito, mesesComSaldo } = useMemo(() => {
     return calcularSaldoAcumuladoNaoAlocado(lancamentos, todasTransacoesCaixinhas)
   }, [lancamentos, todasTransacoesCaixinhas])
 
@@ -134,6 +134,7 @@ export function Caixinhas() {
           caixinha={movimentarCaixinha}
           tipo={tipoMovimentacao}
           saldoDisponivelParaDeposito={saldoDisponivelParaDeposito}
+          mesesComSaldo={mesesComSaldo}
         />
       )}
 
