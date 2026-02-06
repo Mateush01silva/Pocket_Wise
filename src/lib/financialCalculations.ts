@@ -1,4 +1,5 @@
-import type { Lancamento } from '../types'
+import type { Lancamento, TransacaoCaixinha } from '../types'
+import { startOfMonth, endOfMonth, subMonths, format, isBefore, addMonths } from 'date-fns'
 
 /**
  * Calcula o saldo REAL (apenas transações com status='pago' até hoje)
@@ -147,4 +148,94 @@ export function calcularPercentualEconomia(
   }
 
   return { percentual, status }
+}
+
+/**
+ * Interface para o resultado do cálculo de saldo acumulado por mês
+ */
+export interface SaldoMesInfo {
+  mesRef: string // YYYY-MM
+  saldoBruto: number // Receitas - Despesas do mês
+  totalAlocado: number // Total já alocado desse mês em caixinhas
+  saldoDisponivel: number // saldoBruto - totalAlocado
+}
+
+/**
+ * Calcula o saldo acumulado não alocado de todos os meses passados
+ * Considera todos os meses desde a primeira transação até o mês anterior
+ * Para cada mês: calcula receitas - despesas - já alocado em caixinhas
+ * Soma apenas os saldos positivos de cada mês
+ */
+export function calcularSaldoAcumuladoNaoAlocado(
+  lancamentos: Lancamento[],
+  transacoesCaixinhas: TransacaoCaixinha[]
+): {
+  totalDisponivel: number
+  mesesComSaldo: SaldoMesInfo[]
+} {
+  if (lancamentos.length === 0) {
+    return { totalDisponivel: 0, mesesComSaldo: [] }
+  }
+
+  // Encontrar a data mais antiga das transações
+  const datasOrdenadas = lancamentos
+    .map((l) => new Date(l.data))
+    .sort((a, b) => a.getTime() - b.getTime())
+
+  const dataInicio = startOfMonth(datasOrdenadas[0])
+  const mesAnterior = subMonths(startOfMonth(new Date()), 1)
+
+  // Se a primeira transação é do mês atual ou futuro, não há saldo passado
+  if (!isBefore(dataInicio, mesAnterior)) {
+    return { totalDisponivel: 0, mesesComSaldo: [] }
+  }
+
+  const mesesComSaldo: SaldoMesInfo[] = []
+  let mesAtual = dataInicio
+
+  // Iterar por todos os meses até o mês anterior
+  while (isBefore(mesAtual, new Date()) && !isBefore(mesAnterior, mesAtual)) {
+    const inicioMes = startOfMonth(mesAtual)
+    const fimMes = endOfMonth(mesAtual)
+    const mesRef = format(mesAtual, 'yyyy-MM')
+
+    // Calcular receitas e despesas do mês
+    const { saldoProjetado: saldoBruto } = calcularSaldoProjetado(
+      lancamentos,
+      inicioMes,
+      fimMes
+    )
+
+    // Calcular total já alocado deste mês em caixinhas
+    // A transação.origem_mes_referencia pode ser 'YYYY-MM-DD' ou 'YYYY-MM'
+    const totalAlocado = transacoesCaixinhas
+      .filter((t) => {
+        if (!t.origem_mes_referencia || t.tipo !== 'deposito') return false
+        const origem = t.origem_mes_referencia.toString()
+        return origem.startsWith(mesRef)
+      })
+      .reduce((sum, t) => sum + t.valor, 0)
+
+    const saldoDisponivel = saldoBruto - totalAlocado
+
+    // Apenas incluir meses com saldo positivo disponível
+    if (saldoDisponivel > 0) {
+      mesesComSaldo.push({
+        mesRef,
+        saldoBruto,
+        totalAlocado,
+        saldoDisponivel,
+      })
+    }
+
+    // Avançar para o próximo mês
+    mesAtual = addMonths(mesAtual, 1)
+  }
+
+  const totalDisponivel = mesesComSaldo.reduce(
+    (sum, m) => sum + m.saldoDisponivel,
+    0
+  )
+
+  return { totalDisponivel, mesesComSaldo }
 }

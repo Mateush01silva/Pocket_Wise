@@ -14,6 +14,7 @@ interface AlocarSaldoModalProps {
   onClose: () => void
   saldoDisponivel: number
   mesReferencia?: string // YYYY-MM-DD, default is previous month
+  onSuccess?: () => void // Callback for when allocation is successful
 }
 
 export function AlocarSaldoModal({
@@ -21,6 +22,7 @@ export function AlocarSaldoModal({
   onClose,
   saldoDisponivel,
   mesReferencia,
+  onSuccess,
 }: AlocarSaldoModalProps) {
   const caixinhas = useCaixinhasStore((state) => state.caixinhas)
   const alocarSaldoMensal = useCaixinhasStore((state) => state.alocarSaldoMensal)
@@ -136,6 +138,7 @@ export function AlocarSaldoModal({
 
       if (success) {
         toast.success(`${formatCurrency(totalAlocado)} alocado com sucesso!`)
+        onSuccess?.()
         onClose()
       } else {
         // Pegar erro do store para mostrar detalhes

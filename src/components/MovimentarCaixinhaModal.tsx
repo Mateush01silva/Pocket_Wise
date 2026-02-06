@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { X, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { X, ArrowUpCircle, ArrowDownCircle, AlertTriangle, Calendar } from 'lucide-react'
 import { Button } from './ui/Button'
 import { CurrencyInput } from './ui/CurrencyInput'
 import { Input } from './ui/Input'
@@ -7,6 +7,8 @@ import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
 import { toast } from 'sonner'
+import { format, addMonths, startOfMonth } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import type { CaixinhaComDetalhes, TransacaoCaixinhaTipo } from '../types'
 
 interface MovimentarCaixinhaModalProps {
@@ -14,6 +16,7 @@ interface MovimentarCaixinhaModalProps {
   onClose: () => void
   caixinha: CaixinhaComDetalhes
   tipo: 'deposito' | 'retirada'
+  saldoDisponivelParaDeposito?: number // Saldo disponível para depósito (de meses anteriores)
 }
 
 export function MovimentarCaixinhaModal({
@@ -21,14 +24,31 @@ export function MovimentarCaixinhaModal({
   onClose,
   caixinha,
   tipo,
+  saldoDisponivelParaDeposito = 0,
 }: MovimentarCaixinhaModalProps) {
   const [valor, setValor] = useState(0)
   const [descricao, setDescricao] = useState('')
+  const [mesDestino, setMesDestino] = useState<string>(() => format(startOfMonth(new Date()), 'yyyy-MM'))
   const [isLoading, setIsLoading] = useState(false)
 
   const createTransacao = useCaixinhasStore((state) => state.createTransacao)
 
   const isDeposito = tipo === 'deposito'
+  const excedeSaldoDisponivel = isDeposito && valor > saldoDisponivelParaDeposito
+
+  // Gerar opções de meses (mês atual + próximos 2 meses)
+  const opcoesDesMeses = useMemo(() => {
+    const hoje = new Date()
+    const meses = []
+    for (let i = 0; i < 3; i++) {
+      const mesData = addMonths(startOfMonth(hoje), i)
+      meses.push({
+        value: format(mesData, 'yyyy-MM'),
+        label: format(mesData, "MMMM 'de' yyyy", { locale: ptBR }),
+      })
+    }
+    return meses
+  }, [])
 
   const handleSubmit = async () => {
     if (valor <= 0) {
@@ -41,26 +61,48 @@ export function MovimentarCaixinhaModal({
       return
     }
 
+    // Validar depósito contra saldo disponível
+    if (isDeposito && valor > saldoDisponivelParaDeposito) {
+      toast.error(`Saldo disponível insuficiente. Você tem apenas ${formatCurrency(saldoDisponivelParaDeposito)} disponível para alocar em caixinhas.`)
+      return
+    }
+
     setIsLoading(true)
 
     try {
+      // Para retiradas, incluir o mês destino na descrição
+      // Isso permite rastrear para onde o dinheiro foi sem criar lançamento duplicado
+      let descricaoFinal = descricao || null
+      if (!isDeposito) {
+        const mesDestinoLabel = opcoesDesMeses.find(m => m.value === mesDestino)?.label || mesDestino
+        descricaoFinal = descricao
+          ? `${descricao} (para ${mesDestinoLabel})`
+          : `Para compor orçamento de ${mesDestinoLabel}`
+      }
+
+      // Criar transação na caixinha
       const result = await createTransacao({
         caixinha_id: caixinha.id,
         valor,
         tipo: tipo as TransacaoCaixinhaTipo,
-        descricao: descricao || null,
+        descricao: descricaoFinal,
       })
 
-      if (result) {
-        toast.success(
-          isDeposito
-            ? `${formatCurrency(valor)} depositado com sucesso!`
-            : `${formatCurrency(valor)} retirado com sucesso!`
-        )
-        handleClose()
-      } else {
+      if (!result) {
         toast.error('Erro ao realizar operação')
+        return
       }
+
+      if (isDeposito) {
+        toast.success(`${formatCurrency(valor)} depositado com sucesso!`)
+      } else {
+        const mesDestinoLabel = opcoesDesMeses.find(m => m.value === mesDestino)?.label || mesDestino
+        toast.success(
+          `${formatCurrency(valor)} retirado para compor orçamento de ${mesDestinoLabel}!`
+        )
+      }
+
+      handleClose()
     } catch (error) {
       console.error('Erro:', error)
       toast.error('Erro ao realizar operação')
@@ -140,6 +182,21 @@ export function MovimentarCaixinhaModal({
             )}
           </div>
 
+          {/* Saldo Disponível para Depósito */}
+          {isDeposito && (
+            <div className="flex items-center gap-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <div className="flex-1">
+                <p className="text-sm text-gray-400">Saldo Disponível para Alocar</p>
+                <p className="text-lg font-bold text-green-400">
+                  {formatCurrency(saldoDisponivelParaDeposito)}
+                </p>
+              </div>
+              <p className="text-xs text-gray-500 max-w-[150px] text-right">
+                Sobra de meses anteriores
+              </p>
+            </div>
+          )}
+
           {/* Valor */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -156,6 +213,14 @@ export function MovimentarCaixinhaModal({
                 Valor maior que o saldo disponível
               </p>
             )}
+            {excedeSaldoDisponivel && (
+              <div className="flex items-center gap-2 mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <AlertTriangle size={14} className="text-red-400 shrink-0" />
+                <p className="text-xs text-red-400">
+                  Valor excede o saldo disponível de {formatCurrency(saldoDisponivelParaDeposito)}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Descrição */}
@@ -169,6 +234,30 @@ export function MovimentarCaixinhaModal({
               placeholder={isDeposito ? 'Ex: Salário de janeiro' : 'Ex: Compra de viagem'}
             />
           </div>
+
+          {/* Mês destino (apenas para retirada) */}
+          {!isDeposito && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                <Calendar size={14} className="inline mr-2" />
+                Compor orçamento de qual mês?
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Registra para qual mês este valor será utilizado (apenas para controle)
+              </p>
+              <select
+                value={mesDestino}
+                onChange={(e) => setMesDestino(e.target.value)}
+                className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500"
+              >
+                {opcoesDesMeses.map((mes) => (
+                  <option key={mes.value} value={mes.value} className="capitalize">
+                    {mes.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Preview do novo saldo */}
           {valor > 0 && (
@@ -204,7 +293,7 @@ export function MovimentarCaixinhaModal({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={valor <= 0 || isLoading || (!isDeposito && valor > caixinha.saldo_atual)}
+            disabled={valor <= 0 || isLoading || (!isDeposito && valor > caixinha.saldo_atual) || excedeSaldoDisponivel}
             isLoading={isLoading}
             className={cn(
               'flex-1',
