@@ -26,24 +26,24 @@ export const learningContent = {
     dicaPratica: 'Categorize suas despesas corretamente para identificar onde você pode economizar. Gastos pequenos somados fazem grande diferença!',
   } as LearningContent,
 
-  saldoNasContas: {
-    titulo: 'Saldo nas Contas',
-    descricao: 'O dinheiro que você realmente tem disponível AGORA nas suas contas bancárias. É a soma dos saldos de todas as suas contas correntes, poupanças e carteiras digitais.',
-    comoFunciona: 'Soma os saldos atuais de todas as suas contas bancárias cadastradas e ativas. Esse é o dinheiro "real" que você tem disponível.',
-    comoCalculado: 'Soma dos saldos de todas as contas ativas',
-    exemplo: 'Se você tem R$ 2.000 na conta corrente, R$ 3.000 na poupança e R$ 500 no Nubank, seu saldo nas contas é R$ 5.500.',
-    porqueImportante: 'Esse é o dinheiro que você realmente pode usar agora. Diferente do saldo projetado que inclui transações futuras, esse é o valor concreto disponível.',
-    dicaPratica: 'Antes de fazer uma compra grande, verifique o saldo nas contas, não o saldo projetado. Mantenha os saldos das contas sempre atualizados!',
+  saldoDoPeriodo: {
+    titulo: 'Saldo do Período',
+    descricao: 'O resultado financeiro do período selecionado: quanto você ganhou menos quanto gastou. Considera TODAS as transações lançadas, independente do status (pago, pendente ou projetado).',
+    comoFunciona: 'Soma todas as receitas do período e subtrai todas as despesas do período. Mostra o resultado das transações que você já lançou.',
+    comoCalculado: 'Receitas do período - Despesas do período (todas as transações lançadas)',
+    exemplo: 'Se você tem R$ 6.000 em receitas e R$ 4.500 em despesas no mês, seu saldo do período é R$ 1.500.',
+    porqueImportante: 'Mostra se você está fechando o período no positivo ou negativo, considerando tudo o que foi lançado. É a "foto" da sua situação financeira no período.',
+    dicaPratica: 'Compare o saldo do período com o saldo projetado para ver se está seguindo seu planejamento de orçamento.',
   } as LearningContent,
 
   saldoProjetado: {
     titulo: 'Saldo Projetado',
-    descricao: 'Uma previsão de como ficará seu saldo ao considerar TODAS as transações do período, incluindo receitas e despesas que ainda vão acontecer.',
-    comoFunciona: 'Soma todas as receitas (pagas e pendentes) e subtrai todas as despesas (pagas e pendentes) do período filtrado. Mostra o cenário futuro esperado.',
-    comoCalculado: 'Todas as Receitas do período - Todas as Despesas do período (independente do status)',
-    exemplo: 'Se você já recebeu R$ 5.000, espera mais R$ 1.000 de freelance, e tem R$ 4.500 em contas (pagas + a pagar), seu saldo projetado é R$ 1.500.',
-    porqueImportante: 'Permite planejar compras e investimentos futuros. Se o saldo projetado for negativo, você sabe que precisa cortar gastos ou buscar mais renda.',
-    dicaPratica: 'Use o Saldo Projetado para planejamento, mas o Saldo Real para decisões de compra imediatas.',
+    descricao: 'Quanto dinheiro você deve ter no final do mês se seguir o orçamento planejado. Considera as receitas previstas menos TODO o orçamento definido para despesas.',
+    comoFunciona: 'Usa o orçamento que você criou: soma suas receitas orçadas e subtrai todas as despesas que você planejou gastar (mesmo as que ainda não foram lançadas).',
+    comoCalculado: 'Receitas Orçadas - Total de Despesas Orçadas (inclui gastos planejados não lançados)',
+    exemplo: 'Você orçou R$ 6.000 de receita e R$ 5.000 em despesas. Mesmo que ainda não tenha lançado todas as despesas, seu saldo projetado é R$ 1.000.',
+    porqueImportante: 'Mostra se seu planejamento de orçamento é viável. Se for negativo, você precisa revisar o orçamento antes mesmo de gastar!',
+    dicaPratica: 'O saldo projetado é sua "meta" de sobra. Se o saldo do período estiver acima dele, você está gastando menos que o planejado - ótimo!',
   } as LearningContent,
 
   proximasFaturas: {
