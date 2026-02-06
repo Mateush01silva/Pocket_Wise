@@ -25,6 +25,7 @@ import {
 } from '../lib/budgetCalculations'
 import { useTransacoesStore } from './useTransacoesStore'
 import { useCategoriasStore } from './useCategoriasStore'
+import { useCaixinhasStore } from './useCaixinhasStore'
 
 interface OrcamentosState {
   orcamentos: OrcamentoMensal[]
@@ -303,7 +304,23 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
         const lancamentos = useTransacoesStore.getState().lancamentos
         const categorias = useCategoriasStore.getState().categorias
 
-        return calcularProjecaoMensal(orcamento, categoriasBudget, lancamentos, categorias)
+        // Obter transações de caixinhas para incluir retiradas como receita
+        const caixinhasState = useCaixinhasStore.getState()
+        const todasTransacoesCaixinhas = Object.values(caixinhasState.transacoes).flat()
+        const caixinhas = caixinhasState.caixinhas.map((c) => ({
+          id: c.id,
+          nome: c.nome,
+          icone: c.icone,
+        }))
+
+        return calcularProjecaoMensal(
+          orcamento,
+          categoriasBudget,
+          lancamentos,
+          categorias,
+          todasTransacoesCaixinhas,
+          caixinhas
+        )
       },
 
       getEnvelopesDigitais: (orcamentoId) => {

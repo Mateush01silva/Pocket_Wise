@@ -24,7 +24,9 @@ import type {
   ComparativoCategoria,
   CategoriaEmRisco,
   TipoAlerta,
+  TransacaoCaixinha,
 } from '../types'
+import { getRetiradasCaixinhasParaMes } from './financialCalculations'
 import { formatCurrency } from '../utils/currency'
 
 // =====================================================
@@ -115,12 +117,16 @@ export function calcularSaldoAtual(lancamentos: Lancamento[]): SaldoAtual {
  * Calcula projeção para fim do mês
  * O saldo considera as RECEITAS ORÇADAS (planejadas) para dar visibilidade
  * se o orçamento planejado faz sentido para passar o mês
+ *
+ * Também inclui retiradas de caixinhas destinadas a compor o orçamento do mês
  */
 export function calcularProjecaoMensal(
   orcamento: OrcamentoMensal,
   categoriasBudget: CategoriaBudget[],
   lancamentos: Lancamento[],
-  categorias?: Categoria[]
+  categorias?: Categoria[],
+  transacoesCaixinhas?: TransacaoCaixinha[],
+  caixinhas?: Array<{ id: string; nome: string; icone: string | null }>
 ): ProjecaoMensal {
   const hoje = new Date()
   const mesRefParsed = parseISO(orcamento.mes_referencia)
@@ -152,6 +158,18 @@ export function calcularProjecaoMensal(
   // RECEITAS ORÇADAS (planejadas) - base para o saldo do orçamento
   const receitasOrcadas = categoriasBudgetReceita.reduce((sum, cb) => sum + cb.valor_orcado, 0)
 
+  // RETIRADAS DE CAIXINHAS destinadas a compor o orçamento deste mês
+  // Essas retiradas são dinheiro que já estava guardado e agora será usado
+  let totalRetiradasCaixinhas = 0
+  if (transacoesCaixinhas && caixinhas) {
+    const mesRefFormatado = anoMes // já é YYYY-MM
+    const { totalRetiradas } = getRetiradasCaixinhasParaMes(transacoesCaixinhas, caixinhas, mesRefFormatado)
+    totalRetiradasCaixinhas = totalRetiradas
+  }
+
+  // RECEITAS TOTAIS = Receitas orçadas + Retiradas de caixinhas
+  const receitasTotais = receitasOrcadas + totalRetiradasCaixinhas
+
   // Despesas efetivadas no mês (pagas + projetadas de cartão)
   // Projetadas são incluídas pois representam gastos já comprometidos
   const despesasEfetivadasMes = lancamentosDoMes
@@ -170,9 +188,9 @@ export function calcularProjecaoMensal(
   const despesasOrcadasNaoLancadas = Math.max(0, totalDespesasOrcadas - despesasEfetivadasMes - despesasPendentes)
 
   // SALDO ATUAL DO ORÇAMENTO:
-  // Considera as receitas ORÇADAS (planejadas) menos o que já foi gasto
+  // Considera as receitas ORÇADAS (planejadas) + retiradas de caixinhas menos o que já foi gasto
   // Isso permite ao usuário ver se o orçamento planejado faz sentido
-  const saldoAtualOrcamento = receitasOrcadas - despesasEfetivadasMes
+  const saldoAtualOrcamento = receitasTotais - despesasEfetivadasMes
 
   // Receitas futuras (pendentes no mês que ainda não foram recebidas)
   const receitasFuturas = lancamentosDoMes
@@ -180,8 +198,8 @@ export function calcularProjecaoMensal(
     .reduce((sum, l) => sum + l.valor, 0)
 
   // SALDO PROJETADO FIM DO MÊS:
-  // Receitas orçadas - Todas as despesas (pagas + pendentes + orçadas não lançadas)
-  const saldoProjetadoFimMes = receitasOrcadas - despesasEfetivadasMes - despesasPendentes - despesasOrcadasNaoLancadas
+  // Receitas totais (orçadas + caixinhas) - Todas as despesas (pagas + pendentes + orçadas não lançadas)
+  const saldoProjetadoFimMes = receitasTotais - despesasEfetivadasMes - despesasPendentes - despesasOrcadasNaoLancadas
 
   // Calcular percentual de orçamento de despesas usado
   const percentualOrcamentoUsado = totalDespesasOrcadas > 0 ? (despesasEfetivadasMes / totalDespesasOrcadas) * 100 : 0
