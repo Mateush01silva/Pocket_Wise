@@ -1,14 +1,16 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Card, CardContent, Button } from '../components/ui'
-import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock, Package, AlertTriangle, DollarSign } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock, Package, AlertTriangle, DollarSign, PiggyBank, Sparkles } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
+import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { TransactionModal } from '../components/TransactionModal'
 import { HealthIndicator } from '../components/HealthIndicator'
 import { DetectorEstouro } from '../components/DetectorEstouro'
 import { BankAccountsWidget } from '../components/BankAccountsWidget'
 import { UpcomingBillsWidget } from '../components/UpcomingBillsWidget'
+import { AlocarSaldoModal } from '../components/AlocarSaldoModal'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
 import { calcularSaldoReal, calcularSaldoProjetado, calcularFaturasAtuaisCartao, filtrarPorPeriodo } from '../lib/financialCalculations'
 import { format, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns'
@@ -21,6 +23,7 @@ import { PossoComprarFloating } from '../components/PossoComprarFloating'
 
 export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isAlocarSaldoModalOpen, setIsAlocarSaldoModalOpen] = useState(false)
   const [periodFilter, setPeriodFilter] = useState<PeriodFilterValue>({
     tipo: 'mes-atual',
     dataInicio: startOfMonth(new Date()),
@@ -30,6 +33,11 @@ export function Dashboard() {
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
   const navigate = useNavigate()
+
+  // Caixinhas store para alocação de saldo
+  const caixinhasInitialized = useCaixinhasStore((state) => state.initialized)
+  const initializeCaixinhas = useCaixinhasStore((state) => state.initialize)
+  const caixinhas = useCaixinhasStore((state) => state.caixinhas)
 
   // Budget store
   // Use selectors for each value/function to keep identities stable
@@ -69,17 +77,10 @@ export function Dashboard() {
         const mesReferencia = format(startOfMonth(new Date()), 'yyyy-MM-dd')
         const orcamento = getOrcamentoDoMes(mesReferencia)
 
-        // Atualizar se encontrou orçamento ou se o mês mudou
+        // Sempre atualizar o orcamentoAtual com o orçamento do mês atual
+        // Isso garante que mesmo após navegar em Envelopes, o Dashboard mostre o mês correto
         if (isMounted.current) {
-          // Se não tem orçamento para o mês atual, limpar orcamentoAtual
-          if (!orcamento) {
-            if (orcamentoAtual) {
-              setOrcamentoAtual(null)
-            }
-          } else if (!orcamentoAtual || orcamentoAtual.mes_referencia !== mesReferencia) {
-            // Se tem orçamento e é diferente do atual, atualizar
-            setOrcamentoAtual(orcamento)
-          }
+          setOrcamentoAtual(orcamento || null)
         }
       } catch (err) {
         if (isMounted.current) {
@@ -91,7 +92,16 @@ export function Dashboard() {
     return () => {
       isMounted.current = false
     }
-  }, [orcamentosInitialized, orcamentoAtual, getOrcamentoDoMes, setOrcamentoAtual])
+  }, [orcamentosInitialized, getOrcamentoDoMes, setOrcamentoAtual])
+
+  // Initialize caixinhas store
+  useEffect(() => {
+    if (!caixinhasInitialized) {
+      initializeCaixinhas().catch(err => {
+        console.error('Erro ao inicializar caixinhas:', err)
+      })
+    }
+  }, [caixinhasInitialized, initializeCaixinhas])
 
 
   // Stable callbacks to prevent render loops
@@ -131,6 +141,26 @@ export function Dashboard() {
   const despesas = despesasTotal
   const saldo = saldoProjetado
   const lancamentosMes = lancamentosFiltrados
+
+  // Calcular saldo do mês anterior para sugestão de alocação
+  const saldoMesAnterior = useMemo(() => {
+    const mesAnterior = subMonths(new Date(), 1)
+    const inicioMesAnterior = startOfMonth(mesAnterior)
+    const fimMesAnterior = endOfMonth(mesAnterior)
+
+    const { saldoProjetado: saldoMesAnt } = calcularSaldoProjetado(
+      lancamentos,
+      inicioMesAnterior,
+      fimMesAnterior
+    )
+
+    return saldoMesAnt
+  }, [lancamentos])
+
+  // Verificar se deve mostrar sugestão de alocação (saldo positivo e caixinhas existem)
+  const mostrarSugestaoAlocacao = useMemo(() => {
+    return saldoMesAnterior > 0 && caixinhasInitialized && caixinhas.some(c => c.ativa)
+  }, [saldoMesAnterior, caixinhasInitialized, caixinhas])
 
   // Get recent transactions (last 5) - criar cópia antes de ordenar!
   const transacoesRecentes = [...lancamentos]
@@ -525,6 +555,45 @@ export function Dashboard() {
       {/* Upcoming Bills Widget */}
       <UpcomingBillsWidget />
 
+      {/* Sugestão de Alocação de Saldo */}
+      {mostrarSugestaoAlocacao && (
+        <Card className="border-green-500/30 bg-green-500/5">
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl bg-green-500/20 flex items-center justify-center shrink-0">
+                <Sparkles className="w-7 h-7 text-green-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-100 mb-1">
+                  Você terminou o mês passado com saldo positivo!
+                </h3>
+                <p className="text-sm text-gray-400">
+                  Você tem <span className="text-green-400 font-semibold">{formatCurrency(saldoMesAnterior)}</span> disponível.
+                  Que tal guardar em uma caixinha para seus objetivos?
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/app/caixinhas')}
+                >
+                  Ver Caixinhas
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={() => setIsAlocarSaldoModalOpen(true)}
+                >
+                  <PiggyBank className="w-4 h-4 mr-2" />
+                  Alocar Agora
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Charts Section */}
       {lancamentos.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -715,6 +784,13 @@ export function Dashboard() {
 
       {/* Transaction Modal */}
       <TransactionModal isOpen={isModalOpen} onClose={handleCloseModal} />
+
+      {/* Modal de Alocação de Saldo */}
+      <AlocarSaldoModal
+        isOpen={isAlocarSaldoModalOpen}
+        onClose={() => setIsAlocarSaldoModalOpen(false)}
+        saldoDisponivel={saldoMesAnterior}
+      />
 
       {/* Floating Posso Comprar Button */}
       <PossoComprarFloating />

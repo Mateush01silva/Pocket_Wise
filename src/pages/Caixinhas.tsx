@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { PiggyBank, Plus, Target, TrendingUp, Wallet, Edit2, Trash2, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CaixinhaModal } from '../components/CaixinhaModal'
+import { MovimentarCaixinhaModal } from '../components/MovimentarCaixinhaModal'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { formatCurrency } from '../utils/currency'
 import { format, differenceInDays } from 'date-fns'
@@ -9,7 +10,7 @@ import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { LearningTooltip } from '../components/ui/LearningTooltip'
 import { learningContent } from '../lib/learningContent'
-import type { Caixinha } from '../types'
+import type { Caixinha, CaixinhaComDetalhes } from '../types'
 
 export function Caixinhas() {
   const {
@@ -22,6 +23,8 @@ export function Caixinhas() {
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCaixinha, setEditingCaixinha] = useState<Caixinha | undefined>()
+  const [movimentarCaixinha, setMovimentarCaixinha] = useState<CaixinhaComDetalhes | null>(null)
+  const [tipoMovimentacao, setTipoMovimentacao] = useState<'deposito' | 'retirada'>('deposito')
 
   useEffect(() => {
     initialize()
@@ -53,6 +56,20 @@ export function Caixinhas() {
     setEditingCaixinha(undefined)
   }
 
+  const handleDepositar = (caixinha: CaixinhaComDetalhes) => {
+    setMovimentarCaixinha(caixinha)
+    setTipoMovimentacao('deposito')
+  }
+
+  const handleRetirar = (caixinha: CaixinhaComDetalhes) => {
+    setMovimentarCaixinha(caixinha)
+    setTipoMovimentacao('retirada')
+  }
+
+  const handleCloseMovimentar = () => {
+    setMovimentarCaixinha(null)
+  }
+
   const getTipoLabel = (tipo: string) => {
     switch (tipo) {
       case 'objetivo':
@@ -80,6 +97,16 @@ export function Caixinhas() {
         onClose={handleCloseModal}
         editingCaixinha={editingCaixinha}
       />
+
+      {/* Modal de Depositar/Retirar */}
+      {movimentarCaixinha && (
+        <MovimentarCaixinhaModal
+          isOpen={true}
+          onClose={handleCloseMovimentar}
+          caixinha={movimentarCaixinha}
+          tipo={tipoMovimentacao}
+        />
+      )}
 
       <div className="space-y-8">
         {/* Header */}
@@ -282,12 +309,22 @@ export function Caixinhas() {
 
                         {/* Actions */}
                         <div className="flex gap-2 pt-2">
-                          <Button size="sm" variant="secondary" className="flex-1">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="flex-1"
+                            onClick={() => handleDepositar(caixinha)}
+                          >
                             <ArrowUpCircle size={14} className="mr-1" />
                             Depositar
                           </Button>
                           {caixinha.saldo_atual > 0 && (
-                            <Button size="sm" variant="secondary" className="flex-1">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="flex-1"
+                              onClick={() => handleRetirar(caixinha)}
+                            >
                               <ArrowDownCircle size={14} className="mr-1" />
                               Retirar
                             </Button>
