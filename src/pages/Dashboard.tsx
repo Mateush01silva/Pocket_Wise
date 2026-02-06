@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Card, CardContent, Button } from '../components/ui'
-import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock, Package, AlertTriangle, Landmark, PiggyBank, Sparkles } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock, Package, AlertTriangle, Calculator, PiggyBank, Sparkles } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
-import { useTransacoesStore, useCategoriasStore, useContasBancariasStore } from '../store'
+import { useTransacoesStore, useCategoriasStore } from '../store'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { TransactionModal } from '../components/TransactionModal'
@@ -38,11 +38,6 @@ export function Dashboard() {
   const caixinhasInitialized = useCaixinhasStore((state) => state.initialized)
   const initializeCaixinhas = useCaixinhasStore((state) => state.initialize)
   const caixinhas = useCaixinhasStore((state) => state.caixinhas)
-
-  // Contas bancárias para saldo real
-  const contas = useContasBancariasStore((state) => state.contas)
-  const fetchContas = useContasBancariasStore((state) => state.fetchContas)
-  const getSaldoTotal = useContasBancariasStore((state) => state.getSaldoTotal)
 
   // Budget store
   // Use selectors for each value/function to keep identities stable
@@ -108,11 +103,6 @@ export function Dashboard() {
     }
   }, [caixinhasInitialized, initializeCaixinhas])
 
-  // Initialize bank accounts
-  useEffect(() => {
-    fetchContas()
-  }, [fetchContas])
-
 
   // Stable callbacks to prevent render loops
   const handleOpenModal = useCallback(() => {
@@ -133,10 +123,7 @@ export function Dashboard() {
   // Calcular stats usando os filtros de período
   const lancamentosFiltrados = filtrarPorPeriodo(lancamentos, periodFilter.dataInicio, periodFilter.dataFim)
 
-  // Saldo nas Contas Bancárias (valor real disponível nas contas)
-  const saldoNasContas = useMemo(() => getSaldoTotal(), [contas, getSaldoTotal])
-
-  // Saldo PROJETADO (todas as transações do período filtrado)
+  // Saldo do Período (Receitas - Despesas lançadas no período)
   const { receitasTotal, despesasTotal, saldoProjetado } = calcularSaldoProjetado(
     lancamentos,
     periodFilter.dataInicio,
@@ -310,41 +297,43 @@ export function Dashboard() {
           </Card>
         </LearningTooltip>
 
-        {/* Saldo nas Contas */}
-        <LearningTooltip content={learningContent.saldoNasContas} position="bottom">
+        {/* Saldo do Período */}
+        <LearningTooltip content={learningContent.saldoDoPeriodo} position="bottom">
           <Card hover className="ring-2 ring-primary-500/20">
             <CardContent>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex-1">
-                  <p className="text-sm text-gray-400 mb-1">Saldo nas Contas</p>
-                  <p className="text-2xl font-bold text-gray-100">{formatCurrency(saldoNasContas)}</p>
+                  <p className="text-sm text-gray-400 mb-1">Saldo do Período</p>
+                  <p className="text-2xl font-bold text-gray-100">{formatCurrency(saldo)}</p>
                 </div>
-                <div className={`w-12 h-12 rounded-lg ${saldoNasContas >= 0 ? 'bg-blue-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
-                  <Landmark className={`w-6 h-6 ${saldoNasContas >= 0 ? 'text-blue-400' : 'text-red-400'}`} />
+                <div className={`w-12 h-12 rounded-lg ${saldo >= 0 ? 'bg-blue-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
+                  <Calculator className={`w-6 h-6 ${saldo >= 0 ? 'text-blue-400' : 'text-red-400'}`} />
                 </div>
               </div>
               <p className="text-xs text-gray-500">
-                Total em contas bancárias
+                Receitas - Despesas
               </p>
             </CardContent>
           </Card>
         </LearningTooltip>
 
-        {/* Saldo Projetado */}
+        {/* Saldo Projetado (baseado no orçamento) */}
         <LearningTooltip content={learningContent.saldoProjetado} position="bottom">
           <Card hover>
             <CardContent>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex-1">
                   <p className="text-sm text-gray-400 mb-1">Saldo Projetado</p>
-                  <p className="text-2xl font-bold text-gray-100">{formatCurrency(saldo)}</p>
+                  <p className="text-2xl font-bold text-gray-100">
+                    {formatCurrency(projecao?.saldo_projetado_fim_mes ?? saldo)}
+                  </p>
                 </div>
-                <div className={`w-12 h-12 rounded-lg ${saldo >= 0 ? 'bg-primary-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
-                  <Wallet className={`w-6 h-6 ${saldo >= 0 ? 'text-primary-400' : 'text-red-400'}`} />
+                <div className={`w-12 h-12 rounded-lg ${(projecao?.saldo_projetado_fim_mes ?? saldo) >= 0 ? 'bg-primary-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
+                  <Wallet className={`w-6 h-6 ${(projecao?.saldo_projetado_fim_mes ?? saldo) >= 0 ? 'text-primary-400' : 'text-red-400'}`} />
                 </div>
               </div>
               <p className="text-xs text-gray-500">
-                Incluindo pendentes
+                {projecao ? 'Baseado no orçamento' : 'Receitas - Despesas'}
               </p>
             </CardContent>
           </Card>
