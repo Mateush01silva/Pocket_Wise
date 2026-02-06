@@ -1,5 +1,5 @@
 import type { Lancamento, TransacaoCaixinha } from '../types'
-import { startOfMonth, endOfMonth, subMonths, format, isBefore, addMonths, parseISO } from 'date-fns'
+import { startOfMonth, endOfMonth, subMonths, format, isBefore, addMonths } from 'date-fns'
 
 /**
  * Calcula o saldo REAL (apenas transações com status='pago' até hoje)

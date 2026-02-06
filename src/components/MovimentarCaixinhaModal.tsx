@@ -4,7 +4,6 @@ import { Button } from './ui/Button'
 import { CurrencyInput } from './ui/CurrencyInput'
 import { Input } from './ui/Input'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
-import { useTransacoesStore } from '../store'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
 import { toast } from 'sonner'
@@ -33,7 +32,6 @@ export function MovimentarCaixinhaModal({
   const [isLoading, setIsLoading] = useState(false)
 
   const createTransacao = useCaixinhasStore((state) => state.createTransacao)
-  const createLancamento = useTransacoesStore((state) => state.createLancamento)
 
   const isDeposito = tipo === 'deposito'
   const excedeSaldoDisponivel = isDeposito && valor > saldoDisponivelParaDeposito
@@ -72,12 +70,22 @@ export function MovimentarCaixinhaModal({
     setIsLoading(true)
 
     try {
+      // Para retiradas, incluir o mês destino na descrição
+      // Isso permite rastrear para onde o dinheiro foi sem criar lançamento duplicado
+      let descricaoFinal = descricao || null
+      if (!isDeposito) {
+        const mesDestinoLabel = opcoesDesMeses.find(m => m.value === mesDestino)?.label || mesDestino
+        descricaoFinal = descricao
+          ? `${descricao} (para ${mesDestinoLabel})`
+          : `Para compor orçamento de ${mesDestinoLabel}`
+      }
+
       // Criar transação na caixinha
       const result = await createTransacao({
         caixinha_id: caixinha.id,
         valor,
         tipo: tipo as TransacaoCaixinhaTipo,
-        descricao: descricao || null,
+        descricao: descricaoFinal,
       })
 
       if (!result) {
@@ -85,33 +93,13 @@ export function MovimentarCaixinhaModal({
         return
       }
 
-      // Se for retirada, criar uma receita no mês destino
-      if (!isDeposito) {
-        const mesDestinoLabel = opcoesDesMeses.find(m => m.value === mesDestino)?.label || mesDestino
-        const dataReceita = `${mesDestino}-01` // Primeiro dia do mês selecionado
-
-        try {
-          await createLancamento({
-            tipo: 'receita',
-            valor,
-            data: dataReceita,
-            status: 'pago',
-            descricao: descricao || `Retirada da caixinha "${caixinha.nome}"`,
-            observacao: `Valor retirado da caixinha "${caixinha.nome}" para compor o orçamento de ${mesDestinoLabel}`,
-          })
-
-          toast.success(
-            `${formatCurrency(valor)} retirado e adicionado como receita em ${mesDestinoLabel}!`
-          )
-        } catch (error) {
-          console.error('Erro ao criar receita:', error)
-          // A retirada da caixinha já aconteceu, apenas avisar sobre a receita
-          toast.warning(
-            `${formatCurrency(valor)} retirado da caixinha, mas não foi possível criar a receita. Adicione manualmente.`
-          )
-        }
-      } else {
+      if (isDeposito) {
         toast.success(`${formatCurrency(valor)} depositado com sucesso!`)
+      } else {
+        const mesDestinoLabel = opcoesDesMeses.find(m => m.value === mesDestino)?.label || mesDestino
+        toast.success(
+          `${formatCurrency(valor)} retirado para compor orçamento de ${mesDestinoLabel}!`
+        )
       }
 
       handleClose()
@@ -255,7 +243,7 @@ export function MovimentarCaixinhaModal({
                 Compor orçamento de qual mês?
               </label>
               <p className="text-xs text-gray-500 mb-2">
-                O valor será adicionado como receita no mês selecionado
+                Registra para qual mês este valor será utilizado (apenas para controle)
               </p>
               <select
                 value={mesDestino}

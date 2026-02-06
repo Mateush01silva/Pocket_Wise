@@ -39,7 +39,6 @@ export function Dashboard() {
   const initializeCaixinhas = useCaixinhasStore((state) => state.initialize)
   const caixinhas = useCaixinhasStore((state) => state.caixinhas)
   const fetchTransacoesCaixinha = useCaixinhasStore((state) => state.fetchTransacoes)
-  const getTotalAlocadoDoMes = useCaixinhasStore((state) => state.getTotalAlocadoDoMes)
   const transacoesCaixinhas = useCaixinhasStore((state) => state.transacoes)
 
   // Budget store
