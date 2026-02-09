@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
-import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw, Clock } from 'lucide-react'
+import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw, Clock, Pause, Eye } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
 import { TransactionModal } from '../components/TransactionModal'
@@ -93,6 +93,7 @@ export function Transactions() {
   const cartoes = useCartoesStore((state) => state.cartoes)
   const deleteLancamento = useTransacoesStore((state) => state.deleteLancamento)
   const marcarComoPago = useTransacoesStore((state) => state.marcarComoPago)
+  const updateLancamento = useTransacoesStore((state) => state.updateLancamento)
   const atualizarDataVencimentoFaturaAntigos = useTransacoesStore((state) => state.atualizarDataVencimentoFaturaAntigos)
   const recalcularTodasDatasFatura = useTransacoesStore((state) => state.recalcularTodasDatasFatura)
 
@@ -376,6 +377,26 @@ export function Transactions() {
     }
     setSelectedIds([])
   }, [selectedIds, marcarComoPago])
+
+  const handleBulkMarkAsPendente = useCallback(async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Marcar ${selectedIds.length} transação(ões) como pendente(s)?`)) return
+
+    for (const id of selectedIds) {
+      await updateLancamento(id, { status: 'pendente' })
+    }
+    setSelectedIds([])
+  }, [selectedIds, updateLancamento])
+
+  const handleBulkMarkAsProjetado = useCallback(async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Marcar ${selectedIds.length} transação(ões) como projetado(s)?`)) return
+
+    for (const id of selectedIds) {
+      await updateLancamento(id, { status: 'projetado' })
+    }
+    setSelectedIds([])
+  }, [selectedIds, updateLancamento])
 
   const handleBulkDelete = useCallback(async () => {
     if (selectedIds.length === 0) return
@@ -712,19 +733,37 @@ export function Transactions() {
       {selectedIds.length > 0 && (
         <Card>
           <CardContent>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <p className="text-sm text-gray-400">
                 {selectedIds.length} transação(ões) selecionada(s)
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleBulkMarkAsPaid}
-                  className="gap-2"
+                  className="gap-2 text-green-400 hover:text-green-300"
                 >
                   <Check className="w-4 h-4" />
-                  Marcar como Pago
+                  Pago
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleBulkMarkAsPendente}
+                  className="gap-2 text-yellow-400 hover:text-yellow-300"
+                >
+                  <Pause className="w-4 h-4" />
+                  Pendente
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleBulkMarkAsProjetado}
+                  className="gap-2 text-blue-400 hover:text-blue-300"
+                >
+                  <Eye className="w-4 h-4" />
+                  Projetado
                 </Button>
                 <Button
                   variant="ghost"
@@ -733,7 +772,7 @@ export function Transactions() {
                   className="gap-2 text-red-400 hover:text-red-300"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Deletar Selecionados
+                  Deletar
                 </Button>
               </div>
             </div>

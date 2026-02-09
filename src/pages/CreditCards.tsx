@@ -186,15 +186,17 @@ export function CreditCards() {
   // Calcular estatísticas de cada cartão
   const cartoesComEstatisticas = useMemo(() => {
     return cartoes.map((cartao) => {
-      // Buscar TODAS as compras não pagas do cartão (para limite)
-      const comprasNaoPagas = lancamentos.filter(
+      // Buscar compras que efetivamente consomem o limite do cartão
+      // Apenas 'projetado' conta (compras reais feitas no cartão)
+      // 'pendente' (assinaturas) não consome limite pois pode ser cancelado
+      const comprasUsandoLimite = lancamentos.filter(
         (l) =>
           l.cartao_id === cartao.id &&
           l.forma_pagamento === 'credito' &&
-          l.status !== 'pago'
+          l.status === 'projetado'
       )
 
-      const totalUsandoLimite = comprasNaoPagas.reduce((sum, f) => sum + f.valor, 0)
+      const totalUsandoLimite = comprasUsandoLimite.reduce((sum, f) => sum + f.valor, 0)
 
       // Fatura em aberto (ciclo atual - ainda não fechou)
       const transacoesFaturaEmAberto = getTransacoesFaturaAtual(
