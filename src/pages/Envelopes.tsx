@@ -529,7 +529,6 @@ export function Envelopes() {
       {isMesPassado ? (
         <FechamentoMesPassado
           categoriasBudget={getCategoriasBudgetComDados(orcamentoAtual.id)}
-          orcamentoId={orcamentoAtual.id}
           mesReferencia={mesAtual}
           onRebalanceado={async () => {
             if (orcamentoAtual) {

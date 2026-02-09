@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle, AlertTriangle, RefreshCw, ArrowRight } from 'lucide-react'
+import { AlertTriangle, RefreshCw, ArrowRight } from 'lucide-react'
 import { Button } from './ui'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import type { CategoriaBudgetComRelacoes } from '../types'
@@ -10,14 +10,12 @@ import { toast } from 'sonner'
 
 interface FechamentoMesPassadoProps {
   categoriasBudget: CategoriaBudgetComRelacoes[]
-  orcamentoId: string
   mesReferencia: string
   onRebalanceado?: () => void | Promise<void>
 }
 
 export function FechamentoMesPassado({
   categoriasBudget,
-  orcamentoId,
   mesReferencia,
   onRebalanceado,
 }: FechamentoMesPassadoProps) {
