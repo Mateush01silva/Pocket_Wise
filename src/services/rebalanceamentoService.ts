@@ -61,13 +61,14 @@ export async function gerarSugestoesRebalanceamento(
     tem_categoria: !!cat.categoria,
   })))
 
-  // Filtrar apenas categorias com saldo disponível
+  // Filtrar apenas categorias de DESPESA com saldo disponível
   const categoriasComSaldo = todasCategoriasBudget.filter(
     (cat) =>
       cat.id !== categoriaEstourada.id && // Não sugerir a própria categoria
       cat.valor_disponivel &&
       cat.valor_disponivel > 0 &&
-      cat.categoria // Tem categoria vinculada
+      cat.categoria && // Tem categoria vinculada
+      cat.categoria.tipo === 'despesa' // Apenas despesas (ignorar receitas como Salário)
   )
 
   console.log('✅ Categorias com saldo disponível:', categoriasComSaldo.length)

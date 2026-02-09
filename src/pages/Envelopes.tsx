@@ -38,6 +38,7 @@ export function Envelopes() {
   const isLoading = useOrcamentosStore((state) => state.isLoading)
   const initialize = useOrcamentosStore((state) => state.initialize)
   const initialized = useOrcamentosStore((state) => state.initialized)
+  const fetchCategoriasBudget = useOrcamentosStore((state) => state.fetchCategoriasBudget)
   const getEnvelopesDigitais = useOrcamentosStore((state) => state.getEnvelopesDigitais)
   const getOrcamentoDoMes = useOrcamentosStore((state) => state.getOrcamentoDoMes)
   const setOrcamentoAtual = useOrcamentosStore((state) => state.setOrcamentoAtual)
@@ -517,8 +518,10 @@ export function Envelopes() {
         categoriasBudget={getCategoriasBudgetComDados(orcamentoAtual.id)}
         orcamentoId={orcamentoAtual.id}
         onRebalanceado={async () => {
-          // Recarregar dados após rebalanceamento
-          await initialize()
+          // Recarregar categorias budget para atualizar valores após rebalanceamento
+          if (orcamentoAtual) {
+            await fetchCategoriasBudget(orcamentoAtual.id)
+          }
         }}
       />
 

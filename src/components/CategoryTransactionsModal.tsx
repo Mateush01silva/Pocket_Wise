@@ -213,9 +213,9 @@ export function CategoryTransactionsModal({
             <p className="text-sm text-gray-400 mb-3">Classificação</p>
             <div className="flex gap-2">
               {([
-                { value: 'essencial' as CategoriaPrioridade, label: 'Essencial', color: 'border-red-500 bg-red-500/10 text-red-400', activeColor: 'border-red-500 bg-red-500/20 text-red-300 ring-2 ring-red-500/50' },
-                { value: 'importante' as CategoriaPrioridade, label: 'Importante', color: 'border-yellow-500 bg-yellow-500/10 text-yellow-400', activeColor: 'border-yellow-500 bg-yellow-500/20 text-yellow-300 ring-2 ring-yellow-500/50' },
-                { value: 'desejavel' as CategoriaPrioridade, label: 'Desejável', color: 'border-blue-500 bg-blue-500/10 text-blue-400', activeColor: 'border-blue-500 bg-blue-500/20 text-blue-300 ring-2 ring-blue-500/50' },
+                { value: 'essencial' as CategoriaPrioridade, label: 'Essencial', activeColor: 'border-red-500 bg-red-500/20 text-red-300 ring-2 ring-red-500/40 shadow-[0_0_8px_rgba(239,68,68,0.15)]' },
+                { value: 'importante' as CategoriaPrioridade, label: 'Importante', activeColor: 'border-yellow-500 bg-yellow-500/20 text-yellow-300 ring-2 ring-yellow-500/40 shadow-[0_0_8px_rgba(234,179,8,0.15)]' },
+                { value: 'desejavel' as CategoriaPrioridade, label: 'Desejável', activeColor: 'border-blue-500 bg-blue-500/20 text-blue-300 ring-2 ring-blue-500/40 shadow-[0_0_8px_rgba(59,130,246,0.15)]' },
               ]).map((option) => (
                 <button
                   key={option.value}
@@ -223,8 +223,10 @@ export function CategoryTransactionsModal({
                   disabled={isSavingPrioridade}
                   className={cn(
                     'flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-all',
-                    novaPrioridade === option.value ? option.activeColor : option.color,
-                    'hover:opacity-80 disabled:opacity-50'
+                    novaPrioridade === option.value
+                      ? option.activeColor
+                      : 'border-dark-600 bg-dark-700 text-gray-500 hover:text-gray-300 hover:border-dark-500',
+                    'disabled:opacity-50'
                   )}
                 >
                   {option.label}
