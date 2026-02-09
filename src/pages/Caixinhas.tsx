@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
-import { PiggyBank, Plus, Target, TrendingUp, Wallet, Edit2, Trash2, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
+import { PiggyBank, Plus, Target, TrendingUp, Wallet, Edit2, Trash2, ArrowUpCircle, ArrowDownCircle, History } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CaixinhaModal } from '../components/CaixinhaModal'
 import { MovimentarCaixinhaModal } from '../components/MovimentarCaixinhaModal'
+import { HistoricoCaixinhaModal } from '../components/HistoricoCaixinhaModal'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { useTransacoesStore } from '../store'
 import { formatCurrency } from '../utils/currency'
@@ -31,6 +32,7 @@ export function Caixinhas() {
   const [editingCaixinha, setEditingCaixinha] = useState<Caixinha | undefined>()
   const [movimentarCaixinha, setMovimentarCaixinha] = useState<CaixinhaComDetalhes | null>(null)
   const [tipoMovimentacao, setTipoMovimentacao] = useState<'deposito' | 'retirada'>('deposito')
+  const [historicoCaixinha, setHistoricoCaixinha] = useState<CaixinhaComDetalhes | null>(null)
 
   // Calcular saldo disponível para depósitos em caixinhas
   const todasTransacoesCaixinhas = useMemo(() => {
@@ -98,6 +100,14 @@ export function Caixinhas() {
     setMovimentarCaixinha(null)
   }
 
+  const handleHistorico = (caixinha: CaixinhaComDetalhes) => {
+    setHistoricoCaixinha(caixinha)
+  }
+
+  const handleCloseHistorico = () => {
+    setHistoricoCaixinha(null)
+  }
+
   const getTipoLabel = (tipo: string) => {
     switch (tipo) {
       case 'objetivo':
@@ -125,6 +135,15 @@ export function Caixinhas() {
         onClose={handleCloseModal}
         editingCaixinha={editingCaixinha}
       />
+
+      {/* Modal de Histórico */}
+      {historicoCaixinha && (
+        <HistoricoCaixinhaModal
+          isOpen={true}
+          onClose={handleCloseHistorico}
+          caixinha={historicoCaixinha}
+        />
+      )}
 
       {/* Modal de Depositar/Retirar */}
       {movimentarCaixinha && (
@@ -360,6 +379,15 @@ export function Caixinhas() {
                             </Button>
                           )}
                         </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="w-full mt-1 text-gray-500 hover:text-gray-300"
+                          onClick={() => handleHistorico(caixinha)}
+                        >
+                          <History size={14} className="mr-1" />
+                          Histórico / Desfazer
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
