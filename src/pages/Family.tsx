@@ -2,9 +2,6 @@ import { useMemo, useState, useEffect } from 'react'
 import {
   Users,
   UserPlus,
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
   CreditCard,
   Shield,
   Mail,
@@ -16,6 +13,11 @@ import {
   X,
   Check,
   Pencil,
+  Flame,
+  CalendarCheck,
+  ListChecks,
+  Tags,
+  DollarSign,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import {
@@ -27,7 +29,7 @@ import {
 import { useFamilyStore } from '../store/useFamilyStore'
 import { useAuth } from '../contexts/AuthContext'
 import { formatCurrency } from '../utils/currency'
-import { format, startOfMonth } from 'date-fns'
+import { differenceInDays, parseISO } from 'date-fns'
 import { FamilyInviteModal } from '../components/FamilyInviteModal'
 import { toast } from 'sonner'
 import type { OrcamentoMensal } from '../types'
@@ -69,35 +71,31 @@ export function Family() {
 
   // Estatísticas da família
   const estatisticas = useMemo(() => {
-    const mesAtual = format(startOfMonth(new Date()), 'yyyy-MM')
-
-    // Lançamentos do mês
-    const lancamentosMes = lancamentos.filter((l) => l.data.startsWith(mesAtual))
-
-    const receitas = lancamentosMes
-      .filter((l) => l.tipo === 'receita' && l.status === 'pago')
-      .reduce((sum, l) => sum + l.valor, 0)
-
-    const despesas = lancamentosMes
-      .filter((l) => l.tipo === 'despesa' && l.status === 'pago')
-      .reduce((sum, l) => sum + l.valor, 0)
-
-    const saldo = receitas - despesas
-
     // Contadores
-    const totalCartoes = cartoes.length
+    const totalCartoes = cartoes.filter(c => c.ativo).length
     const totalCategorias = categorias.length
     const totalOrcamentos = orcamentos.length
     const totalLancamentos = lancamentos.length
 
+    // Dias usando o sistema (desde a primeira transação)
+    let diasUsando = 0
+    if (lancamentos.length > 0) {
+      const datasOrdenadas = lancamentos
+        .map((l) => parseISO(l.created_at))
+        .sort((a, b) => a.getTime() - b.getTime())
+      diasUsando = differenceInDays(new Date(), datasOrdenadas[0]) + 1
+    }
+
+    // Total já controlado (soma absoluta de todas transações)
+    const totalControlado = lancamentos.reduce((sum, l) => sum + l.valor, 0)
+
     return {
-      receitas,
-      despesas,
-      saldo,
       totalCartoes,
       totalCategorias,
       totalOrcamentos,
       totalLancamentos,
+      diasUsando,
+      totalControlado,
     }
   }, [lancamentos, cartoes, orcamentos, categorias])
 
@@ -251,23 +249,28 @@ export function Family() {
           )}
         </div>
 
-      {/* Estatísticas da Família */}
+      {/* Sua Jornada Financeira */}
       <div>
         <h2 className="text-xl font-bold text-gray-100 mb-4">
-          Estatísticas da Família
+          Sua Jornada Financeira
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400 mb-1">Receitas do Mês</p>
-                  <p className="text-2xl font-bold text-green-400">
-                    {formatCurrency(estatisticas.receitas)}
+                  <p className="text-sm text-gray-400 mb-1">Dias organizando</p>
+                  <p className="text-2xl font-bold text-orange-400">
+                    {estatisticas.diasUsando}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {estatisticas.diasUsando >= 30
+                      ? 'Continue assim!'
+                      : 'O hábito se forma com constância'}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
-                  <TrendingUp className="text-green-500" size={24} />
+                <div className="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center">
+                  <Flame className="text-orange-500" size={24} />
                 </div>
               </div>
             </CardContent>
@@ -277,29 +280,12 @@ export function Family() {
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400 mb-1">Despesas do Mês</p>
-                  <p className="text-2xl font-bold text-red-400">
-                    {formatCurrency(estatisticas.despesas)}
+                  <p className="text-sm text-gray-400 mb-1">Total controlado</p>
+                  <p className="text-2xl font-bold text-primary-400">
+                    {formatCurrency(estatisticas.totalControlado)}
                   </p>
-                </div>
-                <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
-                  <TrendingDown className="text-red-500" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Saldo do Mês</p>
-                  <p
-                    className={`text-2xl font-bold ${
-                      estatisticas.saldo >= 0 ? 'text-green-400' : 'text-red-400'
-                    }`}
-                  >
-                    {formatCurrency(estatisticas.saldo)}
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    em movimentações registradas
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center">
@@ -313,64 +299,74 @@ export function Family() {
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-400 mb-1">Cartões Cadastrados</p>
-                  <p className="text-2xl font-bold text-gray-100">
+                  <p className="text-sm text-gray-400 mb-1">Transações</p>
+                  <p className="text-2xl font-bold text-blue-400">
+                    {estatisticas.totalLancamentos}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    registradas no sistema
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center">
+                  <ListChecks className="text-blue-500" size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Meses planejados</p>
+                  <p className="text-2xl font-bold text-green-400">
+                    {estatisticas.totalOrcamentos}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    orçamentos criados
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
+                  <CalendarCheck className="text-green-500" size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Categorias</p>
+                  <p className="text-2xl font-bold text-purple-400">
+                    {estatisticas.totalCategorias}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    organizando seus gastos
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-purple-500/10 rounded-full flex items-center justify-center">
+                  <Tags className="text-purple-500" size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Cartões</p>
+                  <p className="text-2xl font-bold text-yellow-400">
                     {estatisticas.totalCartoes}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    sendo monitorados
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center">
                   <CreditCard className="text-yellow-500" size={24} />
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Recursos do Sistema */}
-      <div>
-        <h2 className="text-xl font-bold text-gray-100 mb-4">
-          Recursos Cadastrados
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Categorias</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center">
-                <p className="text-4xl font-bold text-primary-400 mb-2">
-                  {estatisticas.totalCategorias}
-                </p>
-                <p className="text-sm text-gray-500">categorias cadastradas</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Orçamentos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center">
-                <p className="text-4xl font-bold text-green-400 mb-2">
-                  {estatisticas.totalOrcamentos}
-                </p>
-                <p className="text-sm text-gray-500">orçamentos criados</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Lançamentos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center">
-                <p className="text-4xl font-bold text-blue-400 mb-2">
-                  {estatisticas.totalLancamentos}
-                </p>
-                <p className="text-sm text-gray-500">transações registradas</p>
               </div>
             </CardContent>
           </Card>
