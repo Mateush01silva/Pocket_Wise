@@ -456,7 +456,7 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
             dataVencimentoFatura = format(dataVenc, 'yyyy-MM-dd')
           }
 
-          // Criar lançamento projetado
+          // Criar lançamento como pendente (assinaturas ficam pendentes até o usuário confirmar/pagar)
           const lancamentoData: CreateLancamentoInput = {
             family_id: assinatura.family_id || 'local-storage-family',
             tipo: 'despesa',
@@ -468,7 +468,7 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
             forma_pagamento: formaPagamento,
             cartao_id: assinatura.cartao_id || null,
             data_vencimento_fatura: dataVencimentoFatura,
-            status: 'projetado',
+            status: 'pendente',
             assinatura_id: assinatura.id,
           }
 
@@ -504,7 +504,7 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
         const lancamentosParaRemover = lancamentos.filter(
           (l) =>
             l.assinatura_id === assinaturaId &&
-            l.status === 'projetado' &&
+            l.status !== 'pago' &&
             l.data > apartirDe
         )
 
@@ -524,7 +524,7 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
         const lancamentosParaAtualizar = lancamentos.filter(
           (l) =>
             l.assinatura_id === assinaturaId &&
-            l.status === 'projetado' &&
+            l.status !== 'pago' &&
             l.data >= apartirDe
         )
 
@@ -553,7 +553,7 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
         const lancamentosParaAtualizar = lancamentos.filter(
           (l) =>
             l.assinatura_id === assinaturaId &&
-            l.status === 'projetado' &&
+            l.status !== 'pago' &&
             l.data >= apartirDe
         )
 
@@ -664,9 +664,8 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
             dataVencimentoFatura = format(dataVenc, 'yyyy-MM-dd')
           }
 
-          // Determinar status: se a data já passou, pode ser 'projetado' ou 'pendente'
-          const hoje = new Date()
-          const status = temCartao ? 'projetado' : (isBefore(dataCobranca, hoje) ? 'pendente' : 'projetado')
+          // Assinaturas sempre são criadas como 'pendente' (usuário confirma/paga manualmente)
+          const status = 'pendente' as const
 
           const lancamentoData: CreateLancamentoInput = {
             family_id: assinatura.family_id || 'local-storage-family',
@@ -710,12 +709,12 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
         for (const assinatura of assinaturas) {
           console.log(`📋 Processando: ${assinatura.nome}`)
 
-          // 1. Encontrar e remover todos os lançamentos PROJETADOS desta assinatura
+          // 1. Encontrar e remover todos os lançamentos NÃO PAGOS desta assinatura
           const lancamentosParaRemover = lancamentos.filter(
-            (l) => l.assinatura_id === assinatura.id && l.status === 'projetado'
+            (l) => l.assinatura_id === assinatura.id && l.status !== 'pago'
           )
 
-          console.log(`  🗑️ Removendo ${lancamentosParaRemover.length} lançamentos projetados`)
+          console.log(`  🗑️ Removendo ${lancamentosParaRemover.length} lançamentos não pagos`)
 
           for (const lancamento of lancamentosParaRemover) {
             await deleteLancamento(lancamento.id)
