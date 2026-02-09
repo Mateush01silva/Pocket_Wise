@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Modal } from './ui/Modal'
 import { Button, CurrencyInput } from './ui'
 import { AlertTriangle, ArrowRight, CheckCircle, TrendingUp } from 'lucide-react'
-import { rebalanceamentoService, analisarEstouroCategoria } from '../services/rebalanceamentoService'
+import { rebalanceamentoService, gerarSugestoesRebalanceamento } from '../services/rebalanceamentoService'
 import { useFamilyStore } from '../store/useFamilyStore'
 import type { AnaliseEstouro, SugestaoRebalanceamento, CategoriaBudgetComRelacoes } from '../types'
 import { formatCurrency } from '../utils/currency'
@@ -12,6 +12,7 @@ interface RebalanceamentoModalProps {
   isOpen: boolean
   onClose: () => void
   categoriaEstourada: CategoriaBudgetComRelacoes
+  todasCategoriasBudget: CategoriaBudgetComRelacoes[]
   orcamentoId: string
   onRebalanceado?: () => void | Promise<void>
 }
@@ -20,6 +21,7 @@ export function RebalanceamentoModal({
   isOpen,
   onClose,
   categoriaEstourada,
+  todasCategoriasBudget,
   orcamentoId,
   onRebalanceado,
 }: RebalanceamentoModalProps) {
@@ -29,40 +31,54 @@ export function RebalanceamentoModal({
   const [isLoading, setIsLoading] = useState(false)
   const [isAnalisando, setIsAnalisando] = useState(false)
 
-  // Buscar análise quando modal abre
+  // Gerar análise quando modal abre usando dados locais (já calculados pelo store)
   useEffect(() => {
-    if (isOpen && categoriaEstourada.id && orcamentoId) {
-      buscarAnalise()
+    if (isOpen && categoriaEstourada.id) {
+      gerarAnaliseLocal()
     }
-  }, [isOpen, categoriaEstourada.id, orcamentoId])
+  }, [isOpen, categoriaEstourada.id])
 
-  const buscarAnalise = async () => {
+  const gerarAnaliseLocal = async () => {
     setIsAnalisando(true)
     try {
-      console.log('🔍 Buscando análise:', {
-        categoriaEstouradaId: categoriaEstourada.id,
-        categoriaId: categoriaEstourada.categoria_id,
-        orcamentoId,
-      })
+      const valorOrcado = categoriaEstourada.valor_orcado || 0
+      const valorGasto = categoriaEstourada.valor_gasto || 0
+      const valorDisponivel = categoriaEstourada.valor_disponivel ?? (valorOrcado - valorGasto)
 
-      const { data, error } = await analisarEstouroCategoria(
-        categoriaEstourada.id,
-        orcamentoId
-      )
-
-      if (error) {
-        console.error('❌ Erro na análise:', error)
-        toast.error('Erro ao analisar estouro')
+      // Se não há estouro real, retornar sem sugestões
+      if (valorDisponivel >= 0) {
+        setAnalise({
+          categoria: categoriaEstourada.categoria!,
+          valor_orcado: valorOrcado,
+          valor_gasto: valorGasto,
+          valor_estouro: 0,
+          percentual_estouro: 0,
+          sugestoes: [],
+        })
         return
       }
 
-      if (data) {
-        console.log('✅ Análise obtida:', data)
-        setAnalise(data)
-        setSugestoesSelecionadas(new Map())
-      }
+      const valorEstouro = Math.abs(valorDisponivel)
+      const percentualEstouro = valorOrcado > 0 ? (valorEstouro / valorOrcado) * 100 : 0
+
+      // Gerar sugestões usando os dados locais já calculados pelo store
+      const sugestoes = await gerarSugestoesRebalanceamento(
+        categoriaEstourada,
+        valorEstouro,
+        todasCategoriasBudget
+      )
+
+      setAnalise({
+        categoria: categoriaEstourada.categoria!,
+        valor_orcado: valorOrcado,
+        valor_gasto: valorGasto,
+        valor_estouro: valorEstouro,
+        percentual_estouro: percentualEstouro,
+        sugestoes,
+      })
+      setSugestoesSelecionadas(new Map())
     } catch (error) {
-      console.error('💥 Erro ao buscar análise:', error)
+      console.error('Erro ao gerar análise:', error)
       toast.error('Erro ao analisar estouro')
     } finally {
       setIsAnalisando(false)
@@ -172,7 +188,7 @@ export function RebalanceamentoModal({
               <p className="text-gray-300 text-sm">
                 <span className="font-medium">{categoriaEstourada.categoria?.nome}</span> estourou em{' '}
                 <span className="font-bold text-red-400">
-                  {formatCurrency(analise?.valor_estouro || 0)}
+                  {formatCurrency(analise?.valor_estouro || Math.abs(categoriaEstourada.valor_disponivel || 0))}
                 </span>
               </p>
               {analise && (
@@ -285,8 +301,8 @@ export function RebalanceamentoModal({
                           </div>
                         </div>
                       </div>
-                    )}
-                    )}
+                    )
+                    })}
                   </div>
                 </div>
 

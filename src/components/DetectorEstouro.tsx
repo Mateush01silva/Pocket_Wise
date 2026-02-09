@@ -53,6 +53,7 @@ export function DetectorEstouro({
           isOpen={isModalOpen}
           onClose={handleCloseModal}
           categoriaEstourada={categoriaEstourada}
+          todasCategoriasBudget={categoriasBudget}
           orcamentoId={orcamentoId}
           onRebalanceado={handleRebalanceado}
         />
