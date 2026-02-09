@@ -52,7 +52,7 @@ interface OrcamentosActions {
   fetchCategoriasBudget: (orcamentoId: string) => Promise<void>
   createCategoriaBudget: (data: CreateCategoriaBudgetInput) => Promise<void>
   bulkCreateCategoriasBudget: (data: BulkCategoriaBudgetInput) => Promise<void>
-  updateCategoriaBudget: (id: string, valorOrcado: number) => Promise<void>
+  updateCategoriaBudget: (id: string, valorOrcado: number, prioridade?: import('../types').CategoriaPrioridade) => Promise<void>
   deleteCategoriaBudget: (id: string) => Promise<void>
 
   // Queries computadas
@@ -256,10 +256,14 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
         }
       },
 
-      updateCategoriaBudget: async (id, valorOrcado) => {
+      updateCategoriaBudget: async (id, valorOrcado, prioridade?) => {
         set({ isLoading: true, error: null })
         try {
-          const { data, error } = await db.categoriasBudget.update({ id, valor_orcado: valorOrcado })
+          const updateData: any = { id, valor_orcado: valorOrcado }
+          if (prioridade) {
+            updateData.prioridade = prioridade
+          }
+          const { data, error } = await db.categoriasBudget.update(updateData)
           if (error) throw error
           if (!data) return
 

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
-import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw } from 'lucide-react'
+import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw, Clock } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
 import { TransactionModal } from '../components/TransactionModal'
@@ -10,7 +10,7 @@ import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Lancamento } from '../types'
 
-type SortField = 'data' | 'categoria' | 'valor' | 'status' | 'forma_pagamento'
+type SortField = 'data' | 'categoria' | 'valor' | 'status' | 'forma_pagamento' | 'cadastro'
 type SortOrder = 'asc' | 'desc'
 
 export function Transactions() {
@@ -160,7 +160,7 @@ export function Transactions() {
       setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')
     } else {
       setSortField(field)
-      setSortOrder(field === 'data' ? 'desc' : 'asc') // Data começa desc, outros asc
+      setSortOrder(field === 'data' || field === 'cadastro' ? 'desc' : 'asc') // Data e cadastro começam desc, outros asc
     }
   }, [sortField])
 
@@ -292,6 +292,9 @@ export function Transactions() {
       switch (sortField) {
         case 'data':
           comparison = parseISO(a.data).getTime() - parseISO(b.data).getTime()
+          break
+        case 'cadastro':
+          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
           break
         case 'valor':
           comparison = a.valor - b.valor
@@ -686,9 +689,23 @@ export function Transactions() {
             <span className="text-gray-600"> de {lancamentos.length} total</span>
           )}
         </span>
-        <span className="text-xs">
-          Clique nas colunas para ordenar • Clique na linha para editar
-        </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => handleSort('cadastro')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+              sortField === 'cadastro'
+                ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-dark-700'
+            }`}
+          >
+            <Clock size={14} />
+            Ordem de Cadastro
+            {sortField === 'cadastro' && <SortIcon field="cadastro" />}
+          </button>
+          <span className="text-xs">
+            Clique nas colunas para ordenar • Clique na linha para editar
+          </span>
+        </div>
       </div>
 
       {/* Bulk Actions */}

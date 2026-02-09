@@ -5,7 +5,7 @@ import { CurrencyInput } from './ui/CurrencyInput'
 import { formatCurrency } from '../utils/currency'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import type { Lancamento, Categoria } from '../types'
+import type { Lancamento, Categoria, CategoriaPrioridade } from '../types'
 import { TrendingDown, Calendar, Edit2, Check, X } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { useOrcamentosStore } from '../store'
@@ -20,6 +20,7 @@ interface CategoryTransactionsModalProps {
   valorOrcado: number
   valorGasto: number
   categoriaBudgetId?: string  // ID da categoria budget para permitir edição
+  prioridade?: CategoriaPrioridade // Prioridade atual do envelope
 }
 
 export function CategoryTransactionsModal({
@@ -32,10 +33,13 @@ export function CategoryTransactionsModal({
   valorOrcado,
   valorGasto,
   categoriaBudgetId,
+  prioridade,
 }: CategoryTransactionsModalProps) {
   const [isEditingBudget, setIsEditingBudget] = useState(false)
   const [novoValorOrcado, setNovoValorOrcado] = useState(valorOrcado)
+  const [novaPrioridade, setNovaPrioridade] = useState<CategoriaPrioridade | undefined>(prioridade)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSavingPrioridade, setIsSavingPrioridade] = useState(false)
 
   const updateCategoriaBudget = useOrcamentosStore((state) => state.updateCategoriaBudget)
 
@@ -67,6 +71,21 @@ export function CategoryTransactionsModal({
       alert('Erro ao atualizar o orçamento. Tente novamente.')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleSavePrioridade = async (newPrioridade: CategoriaPrioridade) => {
+    if (!categoriaBudgetId || newPrioridade === novaPrioridade) return
+
+    setIsSavingPrioridade(true)
+    try {
+      await updateCategoriaBudget(categoriaBudgetId, valorOrcado, newPrioridade)
+      setNovaPrioridade(newPrioridade)
+    } catch (error) {
+      console.error('Erro ao atualizar prioridade:', error)
+      alert('Erro ao atualizar a classificação. Tente novamente.')
+    } finally {
+      setIsSavingPrioridade(false)
     }
   }
 
@@ -187,6 +206,36 @@ export function CategoryTransactionsModal({
             </div>
           )}
         </div>
+
+        {/* Classificação / Prioridade */}
+        {categoriaBudgetId && novaPrioridade && (
+          <div className="bg-dark-800 rounded-lg p-4">
+            <p className="text-sm text-gray-400 mb-3">Classificação</p>
+            <div className="flex gap-2">
+              {([
+                { value: 'essencial' as CategoriaPrioridade, label: 'Essencial', color: 'border-red-500 bg-red-500/10 text-red-400', activeColor: 'border-red-500 bg-red-500/20 text-red-300 ring-2 ring-red-500/50' },
+                { value: 'importante' as CategoriaPrioridade, label: 'Importante', color: 'border-yellow-500 bg-yellow-500/10 text-yellow-400', activeColor: 'border-yellow-500 bg-yellow-500/20 text-yellow-300 ring-2 ring-yellow-500/50' },
+                { value: 'desejavel' as CategoriaPrioridade, label: 'Desejável', color: 'border-blue-500 bg-blue-500/10 text-blue-400', activeColor: 'border-blue-500 bg-blue-500/20 text-blue-300 ring-2 ring-blue-500/50' },
+              ]).map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => handleSavePrioridade(option.value)}
+                  disabled={isSavingPrioridade}
+                  className={cn(
+                    'flex-1 px-3 py-2 text-sm font-medium rounded-lg border transition-all',
+                    novaPrioridade === option.value ? option.activeColor : option.color,
+                    'hover:opacity-80 disabled:opacity-50'
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              A classificação afeta as sugestões de rebalanceamento entre envelopes
+            </p>
+          </div>
+        )}
 
         {/* Lista de Transações */}
         <div className="space-y-2">
