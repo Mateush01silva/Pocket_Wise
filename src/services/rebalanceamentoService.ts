@@ -55,7 +55,7 @@ export async function gerarSugestoesRebalanceamento(
   // Log de todas as categorias para debug
   console.log('📊 Todas as categorias:', todasCategoriasBudget.map(cat => ({
     nome: cat.categoria?.nome,
-    prioridade: cat.categoria?.prioridade,
+    prioridade: cat.prioridade,
     valor_orcado: cat.valor_orcado,
     valor_disponivel: cat.valor_disponivel,
     tem_categoria: !!cat.categoria,
@@ -81,7 +81,7 @@ export async function gerarSugestoesRebalanceamento(
   // NÍVEL 1: Categorias DESEJÁVEIS com saldo
   // =====================================================
   const desejaveisComSaldo = categoriasComSaldo
-    .filter((cat) => cat.categoria?.prioridade === 'desejavel')
+    .filter((cat) => cat.prioridade === 'desejavel')
     .sort((a, b) => (b.valor_disponivel || 0) - (a.valor_disponivel || 0))
 
   console.log(`🟢 Desejáveis encontradas: ${desejaveisComSaldo.length}`, desejaveisComSaldo.map(cat => ({
@@ -113,7 +113,7 @@ export async function gerarSugestoesRebalanceamento(
   if (valorRestante > 0) {
     const importantesComMuitoSaldo = categoriasComSaldo
       .filter((cat) => {
-        if (cat.categoria?.prioridade !== 'importante') return false
+        if (cat.prioridade !== 'importante') return false
         if (!cat.valor_orcado || cat.valor_orcado === 0) return false
 
         const percentualDisponivel = (cat.valor_disponivel || 0) / cat.valor_orcado
@@ -148,7 +148,7 @@ export async function gerarSugestoesRebalanceamento(
   // Só sugerir essenciais se ainda faltar valor para cobrir
   if (valorRestante > 0) {
     const essenciaisComSaldo = categoriasComSaldo
-      .filter((cat) => cat.categoria?.prioridade === 'essencial')
+      .filter((cat) => cat.prioridade === 'essencial')
       .sort((a, b) => (b.valor_disponivel || 0) - (a.valor_disponivel || 0))
 
     for (const catBudget of essenciaisComSaldo) {

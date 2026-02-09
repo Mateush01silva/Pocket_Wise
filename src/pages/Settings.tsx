@@ -8,13 +8,10 @@ import {
   Camera,
   Save,
   Download,
-  Upload,
   Trash2,
   Mail,
   Calendar,
   DollarSign,
-  Shield,
-  ExternalLink,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -30,11 +27,9 @@ import { useCartoesStore } from '../store/useCartoesStore'
 import { cn } from '../lib/cn'
 
 export function Settings() {
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
-  const [isImporting, setIsImporting] = useState(false)
 
   // User preferences
   const nome = useUserPreferencesStore((state) => state.nome)
@@ -116,44 +111,6 @@ export function Settings() {
     } finally {
       setIsExporting(false)
     }
-  }
-
-  const handleImportData = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setIsImporting(true)
-    const reader = new FileReader()
-    reader.onload = async (event) => {
-      try {
-        const content = event.target?.result as string
-        const importData = JSON.parse(content)
-
-        if (!importData.version || !importData.data) {
-          throw new Error('Formato de arquivo inválido')
-        }
-
-        const confirma = window.confirm(
-          'ATENÇÃO: Importar dados irá SUBSTITUIR todos os dados atuais.\n\n' +
-          'Recomendamos fazer um backup antes de continuar.\n\n' +
-          'Deseja continuar com a importação?'
-        )
-
-        if (confirma) {
-          // Aqui seria necessário implementar a lógica de importação em cada store
-          alert('Funcionalidade de importação em desenvolvimento.\n\nPor enquanto, use a exportação para backup.')
-        }
-      } catch (error) {
-        console.error('Erro ao importar:', error)
-        alert('Erro ao importar arquivo. Verifique se é um backup válido do PocketWise.')
-      } finally {
-        setIsImporting(false)
-        if (fileInputRef.current) {
-          fileInputRef.current.value = ''
-        }
-      }
-    }
-    reader.readAsText(file)
   }
 
   return (
@@ -396,7 +353,7 @@ export function Settings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-gray-400">
-            Exporte seus dados para backup ou importe de um arquivo anterior.
+            Exporte seus dados para backup.
           </p>
 
           {ultimoBackup && (
@@ -410,28 +367,6 @@ export function Settings() {
               <Download size={16} className="mr-2" />
               Exportar Dados
             </Button>
-            <Button
-              variant="ghost"
-              onClick={() => fileInputRef.current?.click()}
-              isLoading={isImporting}
-            >
-              <Upload size={16} className="mr-2" />
-              Importar Dados
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              onChange={handleImportData}
-              className="hidden"
-            />
-          </div>
-
-          <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-            <p className="text-xs text-yellow-400">
-              <strong>Atenção:</strong> A importação irá substituir todos os dados existentes.
-              Faça um backup antes de importar.
-            </p>
           </div>
         </CardContent>
       </Card>
@@ -459,25 +394,6 @@ export function Settings() {
             Gestão financeira pessoal inteligente. Controle suas finanças,
             acompanhe gastos e alcance seus objetivos financeiros.
           </p>
-
-          <div className="flex flex-wrap gap-3">
-            <a
-              href="#"
-              className="inline-flex items-center gap-1 text-sm text-primary-400 hover:text-primary-300"
-            >
-              <Shield size={14} />
-              Política de Privacidade
-              <ExternalLink size={12} />
-            </a>
-            <a
-              href="#"
-              className="inline-flex items-center gap-1 text-sm text-primary-400 hover:text-primary-300"
-            >
-              <Info size={14} />
-              Termos de Uso
-              <ExternalLink size={12} />
-            </a>
-          </div>
         </CardContent>
       </Card>
     </div>
