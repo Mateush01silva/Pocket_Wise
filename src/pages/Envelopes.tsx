@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { Filter, TrendingDown, AlertCircle, Plus, Copy, Calendar, Edit2, Trash2, Wallet } from 'lucide-react'
-import { format, startOfMonth, parseISO } from 'date-fns'
+import { format, startOfMonth, parseISO, isBefore } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -9,6 +9,7 @@ import { EnvelopeCard } from '../components/EnvelopeCard'
 import { CategoryTransactionsModal } from '../components/CategoryTransactionsModal'
 import { MonthYearSelector } from '../components/MonthYearSelector'
 import { DetectorEstouro } from '../components/DetectorEstouro'
+import { FechamentoMesPassado } from '../components/FechamentoMesPassado'
 import { BudgetPlanningModal } from '../components/BudgetPlanningModal'
 import { HealthIndicator } from '../components/HealthIndicator'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
@@ -27,13 +28,14 @@ export function Envelopes() {
   const [mesAtual, setMesAtual] = useState(mesRealAtual)
   const [filtro, setFiltro] = useState<FiltroCategoria>('todas')
   const [ordenacao, setOrdenacao] = useState<OrdenacaoCategoria>('percentual_desc')
-  const [selectedEnvelope, setSelectedEnvelope] = useState<EnvelopeDigital | null>(null)
+  const [selectedEnvelopeId, setSelectedEnvelopeId] = useState<string | null>(null)
   const [isPlanningModalOpen, setIsPlanningModalOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const isMounted = useRef(true)
 
   // Store selectors
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
+  const categoriasBudget = useOrcamentosStore((state) => state.categoriasBudget)
   const getCategoriasBudgetComDados = useOrcamentosStore((state) => state.getCategoriasBudgetComDados)
   const isLoading = useOrcamentosStore((state) => state.isLoading)
   const initialize = useOrcamentosStore((state) => state.initialize)
@@ -50,6 +52,9 @@ export function Envelopes() {
   const categorias = useCategoriasStore((state) => state.categorias)
   // Subscrição às transações de caixinhas para atualizar saldo quando houver retiradas
   const transacoesCaixinhas = useCaixinhasStore((state) => state.transacoes)
+
+  // Detectar se é mês passado (já fechado)
+  const isMesPassado = isBefore(parseISO(mesAtual), startOfMonth(new Date()))
 
   useEffect(() => {
     isMounted.current = true
@@ -69,25 +74,32 @@ export function Envelopes() {
     if (initialized) {
       const orcamento = getOrcamentoDoMes(mesAtual)
       if (isMounted.current) {
-        setOrcamentoAtual(orcamento || null)
+        // Setar orçamento diretamente (sem disparar fetchCategoriasBudget interno)
+        // e fazer o fetch explicitamente para garantir que completa antes de renderizar
+        if (orcamento) {
+          useOrcamentosStore.setState({ orcamentoAtual: orcamento })
+          fetchCategoriasBudget(orcamento.id)
+        } else {
+          useOrcamentosStore.setState({ orcamentoAtual: null })
+        }
       }
     }
 
     return () => {
       isMounted.current = false
     }
-  }, [initialized, mesAtual, getOrcamentoDoMes, setOrcamentoAtual])
+  }, [initialized, mesAtual, getOrcamentoDoMes, fetchCategoriasBudget])
 
   const handleCurrentMonth = () => {
     setMesAtual(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   }
 
   const handleEnvelopeClick = (envelope: EnvelopeDigital) => {
-    setSelectedEnvelope(envelope)
+    setSelectedEnvelopeId(envelope.id)
   }
 
   const handleCloseModal = () => {
-    setSelectedEnvelope(null)
+    setSelectedEnvelopeId(null)
   }
 
   // Funções de orçamento
@@ -151,12 +163,12 @@ export function Envelopes() {
     }
   }
 
-  // Projeção do orçamento - recalcula quando transações de caixinhas mudam
+  // Projeção do orçamento - recalcula quando transações de caixinhas ou categorias budget mudam
   const projecao = useMemo(() => {
     if (!orcamentoAtual) return null
     return getProjecaoMensal(orcamentoAtual.id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orcamentoAtual, getProjecaoMensal, transacoesCaixinhas])
+  }, [orcamentoAtual, getProjecaoMensal, transacoesCaixinhas, categoriasBudget, lancamentos])
 
   // Filtrar transações do envelope selecionado
   // Inclui 'pago' e 'projetado' para corresponder ao cálculo de valor_gasto
@@ -513,17 +525,29 @@ export function Envelopes() {
         </CardContent>
       </Card>
 
-      {/* Detector de Estouro */}
-      <DetectorEstouro
-        categoriasBudget={getCategoriasBudgetComDados(orcamentoAtual.id)}
-        orcamentoId={orcamentoAtual.id}
-        onRebalanceado={async () => {
-          // Recarregar categorias budget para atualizar valores após rebalanceamento
-          if (orcamentoAtual) {
-            await fetchCategoriasBudget(orcamentoAtual.id)
-          }
-        }}
-      />
+      {/* Detector de Estouro / Fechamento de Mês Passado */}
+      {isMesPassado ? (
+        <FechamentoMesPassado
+          categoriasBudget={getCategoriasBudgetComDados(orcamentoAtual.id)}
+          orcamentoId={orcamentoAtual.id}
+          mesReferencia={mesAtual}
+          onRebalanceado={async () => {
+            if (orcamentoAtual) {
+              await fetchCategoriasBudget(orcamentoAtual.id)
+            }
+          }}
+        />
+      ) : (
+        <DetectorEstouro
+          categoriasBudget={getCategoriasBudgetComDados(orcamentoAtual.id)}
+          orcamentoId={orcamentoAtual.id}
+          onRebalanceado={async () => {
+            if (orcamentoAtual) {
+              await fetchCategoriasBudget(orcamentoAtual.id)
+            }
+          }}
+        />
+      )}
 
       {/* Grid de envelopes */}
       {envelopesFiltrados.length === 0 ? (
@@ -556,21 +580,25 @@ export function Envelopes() {
         </>
       )}
 
-      {/* Modal de Transações */}
-      {selectedEnvelope && orcamentoAtual && (
-        <CategoryTransactionsModal
-          isOpen={!!selectedEnvelope}
-          onClose={handleCloseModal}
-          categoria={selectedEnvelope.categoria}
-          subcategorias={categorias.filter(c => c.categoria_pai_id === selectedEnvelope.categoria.id)}
-          transacoes={getEnvelopeTransactions(selectedEnvelope)}
-          mesReferencia={orcamentoAtual.mes_referencia}
-          valorOrcado={selectedEnvelope.valor_orcado}
-          valorGasto={selectedEnvelope.valor_gasto}
-          categoriaBudgetId={selectedEnvelope.id}
-          prioridade={selectedEnvelope.prioridade}
-        />
-      )}
+      {/* Modal de Transações - dados derivados do store para refletir mudanças em tempo real */}
+      {selectedEnvelopeId && orcamentoAtual && (() => {
+        const envelope = todosEnvelopes.find(e => e.id === selectedEnvelopeId)
+        if (!envelope) return null
+        return (
+          <CategoryTransactionsModal
+            isOpen={true}
+            onClose={handleCloseModal}
+            categoria={envelope.categoria}
+            subcategorias={categorias.filter(c => c.categoria_pai_id === envelope.categoria.id)}
+            transacoes={getEnvelopeTransactions(envelope)}
+            mesReferencia={orcamentoAtual.mes_referencia}
+            valorOrcado={envelope.valor_orcado}
+            valorGasto={envelope.valor_gasto}
+            categoriaBudgetId={envelope.id}
+            prioridade={envelope.prioridade}
+          />
+        )
+      })()}
 
       {/* Modal de Planejamento/Edição do Orçamento */}
       {orcamentoAtual && (
