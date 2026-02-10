@@ -1,9 +1,38 @@
+import { useState } from 'react'
 import { Button } from '../components/ui'
-import { Check, TrendingUp } from 'lucide-react'
+import { Check, TrendingUp, Loader2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { createCheckout, redirectToPayment } from '../services/paymentService'
+import type { PlanType } from '../services/paymentService'
+import { toast } from 'sonner'
 
 export function Paywall() {
   const navigate = useNavigate()
+  const [loadingPlan, setLoadingPlan] = useState<PlanType | null>(null)
+
+  const handleSubscribe = async (plan: PlanType) => {
+    setLoadingPlan(plan)
+
+    try {
+      const result = await createCheckout(plan)
+
+      if (result.subscription.paymentLink) {
+        toast.success('Redirecionando para pagamento...')
+        redirectToPayment(result.subscription.paymentLink)
+      } else {
+        toast.success('Assinatura criada! Verifique seu email para o link de pagamento.')
+      }
+    } catch (error) {
+      console.error('Erro ao criar checkout:', error)
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao processar pagamento. Tente novamente.'
+      )
+    } finally {
+      setLoadingPlan(null)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-dark-900 via-dark-800 to-dark-900 flex items-center justify-center p-4">
@@ -47,8 +76,20 @@ export function Paywall() {
               ))}
             </ul>
 
-            <Button className="w-full" size="lg">
-              Assinar Mensal
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={() => handleSubscribe('monthly')}
+              disabled={loadingPlan !== null}
+            >
+              {loadingPlan === 'monthly' ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Processando...
+                </span>
+              ) : (
+                'Assinar Mensal'
+              )}
             </Button>
           </div>
 
@@ -79,8 +120,20 @@ export function Paywall() {
               ))}
             </ul>
 
-            <Button className="w-full" size="lg">
-              Assinar Anual
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={() => handleSubscribe('annual')}
+              disabled={loadingPlan !== null}
+            >
+              {loadingPlan === 'annual' ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Processando...
+                </span>
+              ) : (
+                'Assinar Anual'
+              )}
             </Button>
           </div>
         </div>
@@ -88,7 +141,10 @@ export function Paywall() {
         {/* FAQ Mini */}
         <div className="bg-dark-800/30 border border-dark-700 rounded-xl p-6 text-center">
           <p className="text-gray-400 mb-4">
-            💳 Pagamento 100% seguro • 🔒 Cancele quando quiser
+            Pagamento 100% seguro via Asaas • Cancele quando quiser
+          </p>
+          <p className="text-xs text-gray-500 mb-4">
+            Aceita Pix, Cartão de Crédito e Boleto
           </p>
           <button
             onClick={() => navigate('/app')}
