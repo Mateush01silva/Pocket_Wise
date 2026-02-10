@@ -1,20 +1,21 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { corsHeaders } from '../_shared/cors.ts'
-import { supabaseAdmin } from '../_shared/supabase-admin.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-// Eventos da Asaas que nos interessam
-// Docs: https://docs.asaas.com/docs/webhooks
-type AsaasEvent =
-  | 'PAYMENT_CONFIRMED'       // Pagamento confirmado (boleto/pix)
-  | 'PAYMENT_RECEIVED'        // Pagamento recebido (cartão de crédito)
-  | 'PAYMENT_OVERDUE'         // Pagamento vencido
-  | 'PAYMENT_DELETED'         // Pagamento removido
-  | 'PAYMENT_REFUNDED'        // Pagamento estornado
-  | 'SUBSCRIPTION_DELETED'    // Assinatura removida/cancelada
-  | 'SUBSCRIPTION_UPDATED'    // Assinatura atualizada
+// ============================================================================
+// SUPABASE ADMIN CLIENT
+// ============================================================================
+
+const supabaseAdmin = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+)
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface AsaasWebhookPayload {
-  event: AsaasEvent
+  event: string
   payment?: {
     id: string
     customer: string
@@ -32,10 +33,19 @@ interface AsaasWebhookPayload {
   }
 }
 
+// ============================================================================
+// MAIN HANDLER
+// ============================================================================
+
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'content-type, asaas-access-token',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      },
+    })
   }
 
   try {
@@ -104,16 +114,16 @@ async function handlePaymentConfirmed(payload: AsaasWebhookPayload) {
     return
   }
 
-  // Buscar a assinatura do usuário para saber o plano
-  const { data: subscription } = await supabaseAdmin
+  // Buscar plano atual
+  const { data: sub } = await supabaseAdmin
     .from('assinaturas')
     .select('plan')
     .eq('user_id', userId)
     .single()
 
-  const plan = subscription?.plan || 'monthly'
+  const plan = sub?.plan || 'monthly'
 
-  // Calcular período da assinatura
+  // Calcular período
   const now = new Date()
   const periodEnd = new Date(now)
   if (plan === 'annual') {
@@ -122,7 +132,6 @@ async function handlePaymentConfirmed(payload: AsaasWebhookPayload) {
     periodEnd.setMonth(periodEnd.getMonth() + 1)
   }
 
-  // Ativar assinatura
   const { error } = await supabaseAdmin
     .from('assinaturas')
     .update({
@@ -138,17 +147,13 @@ async function handlePaymentConfirmed(payload: AsaasWebhookPayload) {
     throw error
   }
 
-  console.log(`Assinatura ativada para usuário ${userId} - plano ${plan}`)
+  console.log(`Assinatura ativada: user=${userId}, plan=${plan}`)
 }
 
 async function handlePaymentOverdue(payload: AsaasWebhookPayload) {
-  const payment = payload.payment
-  if (!payment) return
-
-  const userId = payment.externalReference
+  const userId = payload.payment?.externalReference
   if (!userId) return
 
-  // Marcar como expirada após vencimento
   const { error } = await supabaseAdmin
     .from('assinaturas')
     .update({
@@ -157,22 +162,14 @@ async function handlePaymentOverdue(payload: AsaasWebhookPayload) {
     })
     .eq('user_id', userId)
 
-  if (error) {
-    console.error('Erro ao expirar assinatura:', error)
-    throw error
-  }
-
-  console.log(`Assinatura expirada para usuário ${userId} - pagamento vencido`)
+  if (error) throw error
+  console.log(`Assinatura expirada (pagamento vencido): user=${userId}`)
 }
 
 async function handlePaymentRefunded(payload: AsaasWebhookPayload) {
-  const payment = payload.payment
-  if (!payment) return
-
-  const userId = payment.externalReference
+  const userId = payload.payment?.externalReference
   if (!userId) return
 
-  // Cancelar assinatura após estorno
   const { error } = await supabaseAdmin
     .from('assinaturas')
     .update({
@@ -181,19 +178,12 @@ async function handlePaymentRefunded(payload: AsaasWebhookPayload) {
     })
     .eq('user_id', userId)
 
-  if (error) {
-    console.error('Erro ao cancelar assinatura (estorno):', error)
-    throw error
-  }
-
-  console.log(`Assinatura cancelada para usuário ${userId} - pagamento estornado`)
+  if (error) throw error
+  console.log(`Assinatura cancelada (estorno): user=${userId}`)
 }
 
 async function handleSubscriptionCanceled(payload: AsaasWebhookPayload) {
-  const sub = payload.subscription
-  if (!sub) return
-
-  const userId = sub.externalReference
+  const userId = payload.subscription?.externalReference
   if (!userId) return
 
   const { error } = await supabaseAdmin
@@ -205,10 +195,6 @@ async function handleSubscriptionCanceled(payload: AsaasWebhookPayload) {
     })
     .eq('user_id', userId)
 
-  if (error) {
-    console.error('Erro ao cancelar assinatura:', error)
-    throw error
-  }
-
-  console.log(`Assinatura cancelada para usuário ${userId}`)
+  if (error) throw error
+  console.log(`Assinatura cancelada: user=${userId}`)
 }
