@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   User,
   Bell,
@@ -24,17 +24,21 @@ import { useTransacoesStore } from '../store/useTransacoesStore'
 import { useCategoriasStore } from '../store/useCategoriasStore'
 import { useContasBancariasStore } from '../store/useContasBancariasStore'
 import { useCartoesStore } from '../store/useCartoesStore'
+import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 import { cn } from '../lib/cn'
+import { toast } from 'sonner'
 
 export function Settings() {
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
 
-  // User preferences
-  const nome = useUserPreferencesStore((state) => state.nome)
+  // Auth context - dados reais do banco
+  const { user, userProfile } = useAuth()
+
+  // User preferences (local store)
   const avatarUrl = useUserPreferencesStore((state) => state.avatarUrl)
-  const email = useUserPreferencesStore((state) => state.email)
   const moeda = useUserPreferencesStore((state) => state.moeda)
   const diaInicioCiclo = useUserPreferencesStore((state) => state.diaInicioCiclo)
   const notificacoesAtivas = useUserPreferencesStore((state) => state.notificacoesAtivas)
@@ -45,9 +49,33 @@ export function Settings() {
   const atualizarPreferencias = useUserPreferencesStore((state) => state.atualizarPreferencias)
   const registrarBackup = useUserPreferencesStore((state) => state.registrarBackup)
 
-  // Local state for form
-  const [formNome, setFormNome] = useState(nome)
-  const [formEmail, setFormEmail] = useState(email || '')
+  // Local state for form - inicializar com dados do banco
+  const [formNome, setFormNome] = useState('')
+  const [formEmail, setFormEmail] = useState('')
+
+  // Carregar dados do perfil do banco + avatar
+  useEffect(() => {
+    if (userProfile) {
+      setFormNome(userProfile.full_name || '')
+      setFormEmail(userProfile.email || '')
+      // Sincronizar nome com o store local
+      atualizarPerfil({ nome: userProfile.full_name, email: userProfile.email })
+    }
+
+    // Carregar avatar_url do banco
+    const loadAvatar = async () => {
+      if (!supabase || !user) return
+      const { data } = await (supabase as any)
+        .from('users')
+        .select('avatar_url')
+        .eq('id', user.id)
+        .single()
+      if (data?.avatar_url) {
+        atualizarPerfil({ avatarUrl: data.avatar_url })
+      }
+    }
+    loadAvatar()
+  }, [userProfile, user])
 
   // Stores for export
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
@@ -58,11 +86,21 @@ export function Settings() {
   const handleSavePerfil = async () => {
     setIsSaving(true)
     try {
-      atualizarPerfil({
-        nome: formNome,
-        email: formEmail || null,
-      })
-      await new Promise(resolve => setTimeout(resolve, 500)) // Simula delay
+      // Salvar no store local
+      atualizarPerfil({ nome: formNome, email: formEmail || null })
+
+      // Salvar no Supabase
+      if (supabase && user) {
+        const { error } = await (supabase as any)
+          .from('users')
+          .update({ full_name: formNome, nome: formNome })
+          .eq('id', user.id)
+        if (error) throw error
+      }
+      toast.success('Perfil salvo com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar perfil:', error)
+      toast.error('Erro ao salvar perfil')
     } finally {
       setIsSaving(false)
     }
@@ -74,15 +112,31 @@ export function Settings() {
 
     // Converter para base64
     const reader = new FileReader()
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       const base64 = reader.result as string
       atualizarPerfil({ avatarUrl: base64 })
+
+      // Salvar no Supabase
+      if (supabase && user) {
+        await (supabase as any)
+          .from('users')
+          .update({ avatar_url: base64 })
+          .eq('id', user.id)
+      }
     }
     reader.readAsDataURL(file)
   }
 
-  const handleRemoveAvatar = () => {
+  const handleRemoveAvatar = async () => {
     atualizarPerfil({ avatarUrl: null })
+
+    // Remover do Supabase
+    if (supabase && user) {
+      await (supabase as any)
+        .from('users')
+        .update({ avatar_url: null })
+        .eq('id', user.id)
+    }
   }
 
   const handleExportData = async () => {
@@ -141,7 +195,7 @@ export function Settings() {
                   />
                 ) : (
                   <span className="text-2xl font-bold text-white">
-                    {nome.charAt(0).toUpperCase()}
+                    {(formNome || 'U').charAt(0).toUpperCase()}
                   </span>
                 )}
               </div>
@@ -200,14 +254,15 @@ export function Settings() {
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 <Mail size={14} className="inline mr-1" />
-                Email (opcional)
+                Email
               </label>
               <Input
                 type="email"
                 value={formEmail}
-                onChange={(e) => setFormEmail(e.target.value)}
-                placeholder="seu@email.com"
+                disabled
+                className="opacity-60 cursor-not-allowed"
               />
+              <p className="text-xs text-gray-500 mt-1">Email da conta (não editável)</p>
             </div>
           </div>
 

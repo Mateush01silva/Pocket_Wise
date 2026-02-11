@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   Receipt,
@@ -15,10 +15,12 @@ import {
   Repeat,
   FileBarChart,
   GraduationCap,
+  LogOut,
 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { useLearningModeStore } from '../../store/useLearningModeStore'
 import { useUserPreferencesStore } from '../../store/useUserPreferencesStore'
+import { useAuth } from '../../contexts/AuthContext'
 import { LearningTooltipMenu } from '../ui/LearningTooltip'
 import { learningContent } from '../../lib/learningContent'
 
@@ -52,10 +54,29 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { signOut, userProfile, subscription } = useAuth()
   const isLearningMode = useLearningModeStore((state) => state.isEnabled)
   const toggleLearningMode = useLearningModeStore((state) => state.toggleLearningMode)
-  const userName = useUserPreferencesStore((state) => state.nome)
+  const prefsName = useUserPreferencesStore((state) => state.nome)
   const userAvatar = useUserPreferencesStore((state) => state.avatarUrl)
+
+  const userName = userProfile?.full_name || prefsName
+
+  const planLabel = subscription?.status === 'active'
+    ? (subscription.plan === 'annual' ? 'Plano Anual' : 'Plano Mensal')
+    : subscription?.status === 'trial'
+      ? 'Trial Gratuito'
+      : 'Plano Free'
+
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      navigate('/login')
+    } catch (error) {
+      console.error('Erro ao sair:', error)
+    }
+  }
 
   return (
     <aside className={cn(
@@ -130,8 +151,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-200 truncate">{userName}</p>
-            <p className="text-xs text-gray-500 truncate">Plano Free</p>
+            <p className="text-xs text-gray-500 truncate">{planLabel}</p>
           </div>
+          <button
+            onClick={handleLogout}
+            title="Sair da conta"
+            className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-dark-700/50 transition-colors shrink-0"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Learning Mode Toggle - Compact */}
