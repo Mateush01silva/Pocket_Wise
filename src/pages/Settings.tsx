@@ -55,11 +55,16 @@ export function Settings() {
 
   // Carregar dados do perfil do banco + avatar
   useEffect(() => {
-    if (userProfile) {
-      setFormNome(userProfile.full_name || '')
-      setFormEmail(userProfile.email || '')
-      // Sincronizar nome com o store local
-      atualizarPerfil({ nome: userProfile.full_name, email: userProfile.email })
+    // Tentar dados do perfil do banco primeiro, senão fallback pro auth user
+    const nome = userProfile?.full_name || user?.user_metadata?.full_name || ''
+    const email = userProfile?.email || user?.email || ''
+
+    if (nome) setFormNome(nome)
+    if (email) setFormEmail(email)
+
+    // Sincronizar nome com o store local
+    if (nome || email) {
+      atualizarPerfil({ nome: nome || undefined, email: email || null })
     }
 
     // Carregar avatar_url do banco

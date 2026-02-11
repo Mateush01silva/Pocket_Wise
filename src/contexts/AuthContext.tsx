@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
@@ -59,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const currentUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     // Se Supabase não está configurado, setar loading false e return
@@ -71,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
+      currentUserIdRef.current = session?.user?.id ?? null
       if (session?.user) {
         fetchUserProfile(session.user.id)
         fetchSubscription(session.user.id)
@@ -82,13 +84,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription: authSubscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      const previousUserId = user?.id
-      const newUserId = session?.user?.id
+      const previousUserId = currentUserIdRef.current
+      const newUserId = session?.user?.id ?? null
 
       // Se mudou de usuário, limpar stores persistidos
       if (previousUserId && newUserId && previousUserId !== newUserId) {
         clearPersistedStores()
       }
+
+      // Atualizar ref do userId atual
+      currentUserIdRef.current = newUserId
 
       setSession(session)
       setUser(session?.user ?? null)
@@ -175,6 +180,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) throw new Error('Supabase not configured')
 
     clearPersistedStores()
+    currentUserIdRef.current = null
+    setUserProfile(null)
+    setSubscription(null)
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   }
