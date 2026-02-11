@@ -36,6 +36,23 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// Chaves localStorage dos Zustand stores que contêm dados do usuário
+const PERSISTED_STORE_KEYS = [
+  'pocketwise-categorias-store',
+  'pocketwise-cartoes-store',
+  'pocketwise-contas-bancarias-store',
+  'pocketwise-orcamentos-store',
+  'pocketwise-patrimonio-store',
+  'pocket-wise-user-preferences',
+  'learning-mode-storage',
+]
+
+function clearPersistedStores() {
+  PERSISTED_STORE_KEYS.forEach((key) => {
+    localStorage.removeItem(key)
+  })
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -65,6 +82,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription: authSubscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      const previousUserId = user?.id
+      const newUserId = session?.user?.id
+
+      // Se mudou de usuário, limpar stores persistidos
+      if (previousUserId && newUserId && previousUserId !== newUserId) {
+        clearPersistedStores()
+      }
+
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
@@ -149,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     if (!supabase) throw new Error('Supabase not configured')
 
+    clearPersistedStores()
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   }
