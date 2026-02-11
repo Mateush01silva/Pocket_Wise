@@ -65,7 +65,7 @@ export function Settings() {
     // Carregar avatar_url do banco
     const loadAvatar = async () => {
       if (!supabase || !user) return
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from('users')
         .select('avatar_url')
         .eq('id', user.id)
@@ -91,7 +91,7 @@ export function Settings() {
 
       // Salvar no Supabase
       if (supabase && user) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('users')
           .update({ full_name: formNome, nome: formNome })
           .eq('id', user.id)
@@ -118,7 +118,7 @@ export function Settings() {
 
       // Salvar no Supabase
       if (supabase && user) {
-        await supabase
+        await (supabase as any)
           .from('users')
           .update({ avatar_url: base64 })
           .eq('id', user.id)
@@ -132,7 +132,7 @@ export function Settings() {
 
     // Remover do Supabase
     if (supabase && user) {
-      await supabase
+      await (supabase as any)
         .from('users')
         .update({ avatar_url: null })
         .eq('id', user.id)
