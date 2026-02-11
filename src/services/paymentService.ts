@@ -1,8 +1,6 @@
 import { supabase } from '../lib/supabase'
 
 export type PlanType = 'monthly' | 'annual'
-export type BillingType = 'BOLETO' | 'CREDIT_CARD' | 'PIX' | 'UNDEFINED'
-
 interface CheckoutResponse {
   success: boolean
   subscription: {
@@ -17,11 +15,11 @@ interface CheckoutResponse {
 
 /**
  * Cria uma assinatura via Supabase Edge Function -> Asaas API
+ * Pagamento sempre via cartão de crédito (recorrência automática)
  */
 export async function createCheckout(
   plan: PlanType,
-  billingType: BillingType = 'UNDEFINED',
-  cpfCnpj?: string
+  cpfCnpj: string
 ): Promise<CheckoutResponse> {
   if (!supabase) {
     throw new Error('Supabase não configurado')
@@ -33,7 +31,7 @@ export async function createCheckout(
   }
 
   const { data, error } = await supabase.functions.invoke('create-checkout', {
-    body: { plan, billingType, cpfCnpj },
+    body: { plan, cpfCnpj },
   })
 
   if (error) {

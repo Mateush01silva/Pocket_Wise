@@ -141,7 +141,8 @@ serve(async (req) => {
     }
 
     // 2. Ler plano e CPF do body
-    const { plan, billingType = 'UNDEFINED', cpfCnpj } = await req.json()
+    const { plan, cpfCnpj } = await req.json()
+    const billingType = 'CREDIT_CARD' // Sempre cartão de crédito (recorrência automática)
 
     if (!plan || !['monthly', 'annual'].includes(plan)) {
       return new Response(
