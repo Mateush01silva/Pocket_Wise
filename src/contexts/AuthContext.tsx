@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const { data, error } = await supabase
-        .from('assinaturas')
+        .from('plano_usuario')
         .select('*')
         .eq('user_id', userId)
         .single()

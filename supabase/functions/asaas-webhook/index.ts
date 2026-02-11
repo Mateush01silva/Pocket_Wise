@@ -116,7 +116,7 @@ async function handlePaymentConfirmed(payload: AsaasWebhookPayload) {
 
   // Buscar plano atual
   const { data: sub } = await supabaseAdmin
-    .from('assinaturas')
+    .from('plano_usuario')
     .select('plan')
     .eq('user_id', userId)
     .single()
@@ -133,7 +133,7 @@ async function handlePaymentConfirmed(payload: AsaasWebhookPayload) {
   }
 
   const { error } = await supabaseAdmin
-    .from('assinaturas')
+    .from('plano_usuario')
     .update({
       status: 'active',
       current_period_start: now.toISOString(),
@@ -155,7 +155,7 @@ async function handlePaymentOverdue(payload: AsaasWebhookPayload) {
   if (!userId) return
 
   const { error } = await supabaseAdmin
-    .from('assinaturas')
+    .from('plano_usuario')
     .update({
       status: 'expired',
       updated_at: new Date().toISOString(),
@@ -171,7 +171,7 @@ async function handlePaymentRefunded(payload: AsaasWebhookPayload) {
   if (!userId) return
 
   const { error } = await supabaseAdmin
-    .from('assinaturas')
+    .from('plano_usuario')
     .update({
       status: 'canceled',
       updated_at: new Date().toISOString(),
@@ -187,7 +187,7 @@ async function handleSubscriptionCanceled(payload: AsaasWebhookPayload) {
   if (!userId) return
 
   const { error } = await supabaseAdmin
-    .from('assinaturas')
+    .from('plano_usuario')
     .update({
       status: 'canceled',
       asaas_subscription_id: null,
