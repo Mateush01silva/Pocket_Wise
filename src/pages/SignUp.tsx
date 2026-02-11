@@ -15,7 +15,6 @@ export function SignUp() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [acceptTerms, setAcceptTerms] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -52,11 +51,6 @@ export function SignUp() {
 
     if (password !== confirmPassword) {
       setError('As senhas não coincidem')
-      return
-    }
-
-    if (!acceptTerms) {
-      setError('Você deve aceitar os Termos de Uso')
       return
     }
 
@@ -197,25 +191,6 @@ export function SignUp() {
                   )}
                 </div>
               )}
-            </div>
-
-            {/* Terms */}
-            <div>
-              <label className="flex items-start gap-3 text-sm text-gray-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={acceptTerms}
-                  onChange={(e) => setAcceptTerms(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 rounded border-gray-600 bg-dark-700 text-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-offset-0"
-                />
-                <span>
-                  Aceito os{' '}
-                  <button type="button" className="text-primary-400 hover:text-primary-300 underline">
-                    Termos de Uso
-                  </button>{' '}
-                  <span className="text-red-400">*</span>
-                </span>
-              </label>
             </div>
 
             {/* Submit Button */}

@@ -153,14 +153,16 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <p className="text-sm font-medium text-gray-200 truncate">{userName}</p>
             <p className="text-xs text-gray-500 truncate">{planLabel}</p>
           </div>
-          <button
-            onClick={handleLogout}
-            title="Sair da conta"
-            className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-dark-700/50 transition-colors shrink-0"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
         </div>
+
+        {/* Botão Sair */}
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
+        >
+          <LogOut className="w-4 h-4 shrink-0" />
+          <span className="text-sm">Sair da conta</span>
+        </button>
 
         {/* Learning Mode Toggle - Compact */}
         <button
