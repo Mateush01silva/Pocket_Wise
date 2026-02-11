@@ -36,11 +36,26 @@ export async function createCheckout(
   })
 
   if (error) {
-    throw new Error(error.message || 'Erro ao criar checkout')
+    // Extrair mensagem real do erro da Edge Function
+    let errorMessage = 'Erro ao criar checkout'
+    try {
+      if (error.context instanceof Response) {
+        const errorBody = await error.context.json()
+        errorMessage = errorBody?.error || error.message
+      } else {
+        errorMessage = error.message
+      }
+    } catch {
+      errorMessage = error.message || errorMessage
+    }
+    console.error('Erro create-checkout:', errorMessage)
+    throw new Error(errorMessage)
   }
 
   if (!data?.success) {
-    throw new Error(data?.error || 'Erro desconhecido ao criar checkout')
+    const msg = data?.error || 'Erro desconhecido ao criar checkout'
+    console.error('Erro create-checkout:', msg)
+    throw new Error(msg)
   }
 
   return data as CheckoutResponse

@@ -100,9 +100,15 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== create-checkout iniciado ===')
+    console.log('ASAAS_ENVIRONMENT:', Deno.env.get('ASAAS_ENVIRONMENT'))
+    console.log('ASAAS_API_KEY definida:', !!ASAAS_API_KEY)
+    console.log('ASAAS_API_URL:', ASAAS_API_URL)
+
     // 1. Autenticar usuário
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      console.error('Sem header de autenticação')
       return new Response(
         JSON.stringify({ error: 'Token de autenticação não fornecido' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -147,20 +153,27 @@ serve(async (req) => {
 
     const userName = profile?.full_name || user.user_metadata?.full_name || 'Usuário'
     const userEmail = profile?.email || user.email || ''
+    console.log('Usuário:', userEmail, '| Plano:', plan)
 
     // 4. Buscar ou criar cliente na Asaas
+    console.log('Buscando cliente na Asaas...')
     let customer = await findCustomerByEmail(userEmail)
     if (!customer) {
+      console.log('Cliente não encontrado, criando...')
       customer = await createAsaasCustomer(userName, userEmail, user.id)
     }
+    console.log('Cliente Asaas:', customer.id)
 
     // 5. Criar assinatura na Asaas
+    console.log('Criando assinatura na Asaas...')
     const subscription = await createAsaasSubscription(
       customer.id,
       plan as keyof typeof PLANS,
       user.id,
       billingType
     )
+
+    console.log('Assinatura criada:', subscription.id, '| Link:', subscription.paymentLink)
 
     // 6. Salvar IDs no Supabase
     await supabaseAdmin
