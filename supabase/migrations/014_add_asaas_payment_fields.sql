@@ -64,17 +64,30 @@ CREATE TRIGGER update_plano_usuario_updated_at
 
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  new_family_id UUID;
 BEGIN
-  -- Criar perfil do usuário
-  INSERT INTO public.users (id, email, full_name)
+  -- 1. Criar uma nova família para o usuário
+  INSERT INTO public.families (nome)
+  VALUES (
+    'Família de ' || COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário')
+  )
+  RETURNING id INTO new_family_id;
+
+  -- 2. Criar perfil do usuário com family_id
+  INSERT INTO public.users (id, email, full_name, family_id)
   VALUES (
     NEW.id,
-    COALESCE(NEW.email, NEW.raw_user_meta_data->>'email'),
-    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário')
+    COALESCE(NEW.email, NEW.raw_user_meta_data->>'email', ''),
+    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário'),
+    new_family_id
   )
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT (id) DO UPDATE
+  SET email = EXCLUDED.email,
+      full_name = EXCLUDED.full_name,
+      family_id = COALESCE(users.family_id, EXCLUDED.family_id);
 
-  -- Criar plano trial de 7 dias
+  -- 3. Criar plano trial de 7 dias (em plano_usuario, NÃO em assinaturas)
   INSERT INTO public.plano_usuario (user_id, status, trial_ends_at)
   VALUES (
     NEW.id,
