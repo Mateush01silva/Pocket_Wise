@@ -69,13 +69,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
       currentUserIdRef.current = session?.user?.id ?? null
       if (session?.user) {
-        fetchUserProfile(session.user.id)
-        fetchSubscription(session.user.id)
+        await Promise.all([
+          fetchUserProfile(session.user.id),
+          fetchSubscription(session.user.id),
+        ])
       }
       setLoading(false)
     })
@@ -83,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Listen for auth changes
     const {
       data: { subscription: authSubscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const previousUserId = currentUserIdRef.current
       const newUserId = session?.user?.id ?? null
 
@@ -98,8 +100,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
-        fetchUserProfile(session.user.id)
-        fetchSubscription(session.user.id)
+        // Mostrar loading enquanto carrega dados do novo usuário
+        setLoading(true)
+        await Promise.all([
+          fetchUserProfile(session.user.id),
+          fetchSubscription(session.user.id),
+        ])
+        setLoading(false)
       } else {
         setUserProfile(null)
         setSubscription(null)
