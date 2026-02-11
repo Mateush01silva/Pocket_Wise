@@ -48,6 +48,16 @@ async function findCustomerByEmail(email: string) {
   return data.data?.[0] || null
 }
 
+async function updateAsaasCustomer(customerId: string, cpfCnpj: string) {
+  const res = await fetch(`${ASAAS_API_URL}/customers/${customerId}`, {
+    method: 'PUT',
+    headers: asaasHeaders(),
+    body: JSON.stringify({ cpfCnpj }),
+  })
+  if (!res.ok) throw new Error(`Asaas updateCustomer: ${await res.text()}`)
+  return res.json()
+}
+
 async function createAsaasCustomer(name: string, email: string, userId: string, cpfCnpj?: string) {
   const res = await fetch(`${ASAAS_API_URL}/customers`, {
     method: 'POST',
@@ -162,6 +172,10 @@ serve(async (req) => {
     if (!customer) {
       console.log('Cliente não encontrado, criando...')
       customer = await createAsaasCustomer(userName, userEmail, user.id, cpfCnpj)
+    } else if (cpfCnpj) {
+      // Cliente já existe mas pode não ter CPF cadastrado - atualizar
+      console.log('Cliente já existe, atualizando CPF/CNPJ...')
+      customer = await updateAsaasCustomer(customer.id, cpfCnpj)
     }
     console.log('Cliente Asaas:', customer.id)
 
