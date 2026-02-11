@@ -66,24 +66,27 @@ CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
   new_family_id UUID;
+  user_name TEXT;
 BEGIN
+  user_name := COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário');
+
   -- 1. Criar uma nova família para o usuário
   INSERT INTO public.families (nome)
-  VALUES (
-    'Família de ' || COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário')
-  )
+  VALUES ('Família de ' || user_name)
   RETURNING id INTO new_family_id;
 
-  -- 2. Criar perfil do usuário com family_id
-  INSERT INTO public.users (id, email, full_name, family_id)
+  -- 2. Criar perfil do usuário com family_id (inclui nome E full_name)
+  INSERT INTO public.users (id, email, nome, full_name, family_id)
   VALUES (
     NEW.id,
     COALESCE(NEW.email, NEW.raw_user_meta_data->>'email', ''),
-    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário'),
+    user_name,
+    user_name,
     new_family_id
   )
   ON CONFLICT (id) DO UPDATE
   SET email = EXCLUDED.email,
+      nome = EXCLUDED.nome,
       full_name = EXCLUDED.full_name,
       family_id = COALESCE(users.family_id, EXCLUDED.family_id);
 
