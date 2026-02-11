@@ -20,7 +20,8 @@ interface CheckoutResponse {
  */
 export async function createCheckout(
   plan: PlanType,
-  billingType: BillingType = 'UNDEFINED'
+  billingType: BillingType = 'UNDEFINED',
+  cpfCnpj?: string
 ): Promise<CheckoutResponse> {
   if (!supabase) {
     throw new Error('Supabase não configurado')
@@ -32,7 +33,7 @@ export async function createCheckout(
   }
 
   const { data, error } = await supabase.functions.invoke('create-checkout', {
-    body: { plan, billingType },
+    body: { plan, billingType, cpfCnpj },
   })
 
   if (error) {
