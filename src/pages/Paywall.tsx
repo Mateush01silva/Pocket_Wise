@@ -6,15 +6,49 @@ import { createCheckout, redirectToPayment } from '../services/paymentService'
 import type { PlanType } from '../services/paymentService'
 import { toast } from 'sonner'
 
+function formatCpfCnpj(value: string): string {
+  const digits = value.replace(/\D/g, '')
+  if (digits.length <= 11) {
+    // CPF: 000.000.000-00
+    return digits
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+  }
+  // CNPJ: 00.000.000/0000-00
+  return digits
+    .replace(/(\d{2})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1/$2')
+    .replace(/(\d{4})(\d{1,2})$/, '$1-$2')
+}
+
+function isValidCpfCnpj(value: string): boolean {
+  const digits = value.replace(/\D/g, '')
+  return digits.length === 11 || digits.length === 14
+}
+
 export function Paywall() {
   const navigate = useNavigate()
   const [loadingPlan, setLoadingPlan] = useState<PlanType | null>(null)
+  const [cpfCnpj, setCpfCnpj] = useState('')
+
+  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 14)
+    setCpfCnpj(formatCpfCnpj(raw))
+  }
 
   const handleSubscribe = async (plan: PlanType) => {
+    const digits = cpfCnpj.replace(/\D/g, '')
+    if (!isValidCpfCnpj(digits)) {
+      toast.error('Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.')
+      return
+    }
+
     setLoadingPlan(plan)
 
     try {
-      const result = await createCheckout(plan)
+      const result = await createCheckout(plan, 'UNDEFINED', digits)
 
       if (result.subscription.paymentLink) {
         toast.success('Redirecionando para pagamento...')
@@ -49,6 +83,25 @@ export function Paywall() {
           </h1>
           <p className="text-xl text-gray-400">
             Continue no controle total das suas finanças
+          </p>
+        </div>
+
+        {/* CPF/CNPJ Input */}
+        <div className="max-w-md mx-auto mb-8">
+          <label htmlFor="cpfCnpj" className="block text-sm font-medium text-gray-300 mb-2">
+            CPF ou CNPJ
+          </label>
+          <input
+            id="cpfCnpj"
+            type="text"
+            inputMode="numeric"
+            value={cpfCnpj}
+            onChange={handleCpfChange}
+            placeholder="000.000.000-00"
+            className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-lg tracking-wider"
+          />
+          <p className="text-xs text-gray-500 mt-1 text-center">
+            Necessário para emissão da cobrança
           </p>
         </div>
 

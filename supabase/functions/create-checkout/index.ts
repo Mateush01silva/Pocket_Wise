@@ -48,13 +48,14 @@ async function findCustomerByEmail(email: string) {
   return data.data?.[0] || null
 }
 
-async function createAsaasCustomer(name: string, email: string, userId: string) {
+async function createAsaasCustomer(name: string, email: string, userId: string, cpfCnpj?: string) {
   const res = await fetch(`${ASAAS_API_URL}/customers`, {
     method: 'POST',
     headers: asaasHeaders(),
     body: JSON.stringify({
       name,
       email,
+      cpfCnpj: cpfCnpj || undefined,
       externalReference: userId,
       notificationDisabled: false,
     }),
@@ -129,8 +130,8 @@ serve(async (req) => {
       )
     }
 
-    // 2. Ler plano do body
-    const { plan, billingType = 'UNDEFINED' } = await req.json()
+    // 2. Ler plano e CPF do body
+    const { plan, billingType = 'UNDEFINED', cpfCnpj } = await req.json()
 
     if (!plan || !['monthly', 'annual'].includes(plan)) {
       return new Response(
@@ -160,7 +161,7 @@ serve(async (req) => {
     let customer = await findCustomerByEmail(userEmail)
     if (!customer) {
       console.log('Cliente não encontrado, criando...')
-      customer = await createAsaasCustomer(userName, userEmail, user.id)
+      customer = await createAsaasCustomer(userName, userEmail, user.id, cpfCnpj)
     }
     console.log('Cliente Asaas:', customer.id)
 
