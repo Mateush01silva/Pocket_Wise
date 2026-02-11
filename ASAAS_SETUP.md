@@ -14,6 +14,7 @@ Este guia contém todas as instruções para configurar a integração de pagame
 | **Gateway** | Asaas |
 | **Backend** | Supabase Edge Functions |
 | **Métodos aceitos** | Pix, Cartão de Crédito, Boleto |
+| **Tabela do banco** | `plano_usuario` (separada da `assinaturas` de Netflix/Spotify) |
 
 ---
 
@@ -124,31 +125,42 @@ supabase functions list
 4. Clique em **Run**
 5. Verifique a mensagem de sucesso
 
-### 3.2 Verificar campos criados
+### 3.2 Verificar tabela criada
 
 Execute no SQL Editor:
 
 ```sql
 SELECT column_name, data_type
 FROM information_schema.columns
-WHERE table_name = 'assinaturas'
+WHERE table_name = 'plano_usuario'
 ORDER BY ordinal_position;
 ```
 
-Deve mostrar os novos campos:
-- `asaas_customer_id` (VARCHAR)
-- `asaas_subscription_id` (VARCHAR)
-- `asaas_payment_url` (TEXT)
+Deve mostrar os campos:
+- `id`, `user_id`, `status`, `plan`
+- `trial_ends_at`, `current_period_start`, `current_period_end`
+- `asaas_customer_id`, `asaas_subscription_id`, `asaas_payment_url`
 
-E os campos Stripe antigos devem ter sido removidos.
+### 3.3 Sobre as tabelas
+
+| Tabela | Finalidade |
+|--------|-----------|
+| `plano_usuario` | Plano SaaS do Pocket Wise (trial, active, expired, canceled) |
+| `assinaturas` | Assinaturas do usuário (Netflix, Spotify, etc.) |
+
+Estas são tabelas **diferentes** com finalidades diferentes.
 
 ---
 
 ## Passo 4: Testar o fluxo completo (Sandbox)
 
-### 4.1 Teste de ponta a ponta
+### 4.1 Simular trial expirado (para testar pagamento)
 
-1. **Acesse o app** com um usuário cujo trial expirou (ou crie um novo)
+Execute o script `supabase/scripts/simulate_expired_trial.sql` no SQL Editor.
+
+### 4.2 Teste de ponta a ponta
+
+1. **Acesse o app** com o usuário cujo trial expirou
 2. **Clique em "Assinar Mensal"** ou **"Assinar Anual"** na Paywall
 3. **Será redirecionado** para a página de pagamento da Asaas
 4. **No sandbox**, use os dados de teste:
@@ -161,19 +173,19 @@ E os campos Stripe antigos devem ter sido removidos.
 
 ```sql
 SELECT status, plan, asaas_customer_id, asaas_subscription_id
-FROM assinaturas
+FROM plano_usuario
 WHERE user_id = 'ID_DO_USUARIO';
 ```
 
 O status deve ser `active`.
 
-### 4.2 Testar Pix no sandbox
+### 4.3 Testar Pix no sandbox
 
 No sandbox da Asaas, o Pix funciona automaticamente:
 - A cobrança é criada com QR Code
 - No sandbox, o pagamento é simulado automaticamente
 
-### 4.3 Verificar logs das Edge Functions
+### 4.4 Verificar logs das Edge Functions
 
 ```bash
 # Ver logs em tempo real
@@ -207,30 +219,30 @@ supabase functions logs asaas-webhook
 
 - Acompanhe os pagamentos no **dashboard da Asaas**
 - Verifique os logs das Edge Functions no **Supabase Dashboard → Edge Functions → Logs**
-- Monitore a tabela `assinaturas` no banco para garantir atualizações corretas
+- Monitore a tabela `plano_usuario` no banco para garantir atualizações corretas
 
 ---
 
-## Estrutura dos arquivos criados
+## Estrutura dos arquivos
 
 ```
 supabase/
 ├── functions/
-│   ├── _shared/
-│   │   ├── asaas.ts           # Cliente da API Asaas (customers, subscriptions)
-│   │   ├── cors.ts            # Headers CORS
-│   │   └── supabase-admin.ts  # Cliente Supabase com service_role
 │   ├── create-checkout/
 │   │   └── index.ts           # Edge Function: cria cliente + assinatura na Asaas
 │   └── asaas-webhook/
 │       └── index.ts           # Edge Function: recebe webhooks da Asaas
 ├── migrations/
-│   └── 014_add_asaas_payment_fields.sql  # Migration para campos Asaas
+│   └── 014_add_asaas_payment_fields.sql  # Cria tabela plano_usuario + Asaas
+├── scripts/
+│   └── simulate_expired_trial.sql        # Script para simular trial expirado
 src/
+├── contexts/
+│   └── AuthContext.tsx         # Busca plano de plano_usuario
 ├── services/
 │   └── paymentService.ts      # Service do frontend para chamar Edge Functions
 └── pages/
-    └── Paywall.tsx             # UI atualizada com integração de pagamento
+    └── Paywall.tsx             # UI com integração de pagamento
 ```
 
 ---
@@ -245,7 +257,7 @@ src/
 5. Asaas retorna paymentLink
 6. Usuário é redirecionado para pagar (Pix/Cartão/Boleto)
 7. Após pagamento, Asaas envia webhook para asaas-webhook
-8. Webhook atualiza status da assinatura para 'active' no Supabase
+8. Webhook atualiza status em plano_usuario para 'active'
 9. Usuário volta ao app e tem acesso completo
 ```
 
@@ -265,7 +277,7 @@ src/
 
 ### Pagamento confirmado mas status não muda
 - O `externalReference` na Asaas precisa ser o `user_id` do Supabase
-- Verifique se a migration foi executada (campos `asaas_*` existem)
+- Verifique se a migration foi executada (tabela `plano_usuario` existe)
 
 ### Erro de CORS
 - As Edge Functions já têm CORS configurado para aceitar todas as origens

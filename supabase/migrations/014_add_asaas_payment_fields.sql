@@ -1,132 +1,206 @@
 -- ============================================================================
--- MIGRATION: Adicionar campos Asaas na tabela de assinaturas (plano SaaS)
+-- MIGRATION: Criar tabela plano_usuario + Integração Asaas
 -- ============================================================================
--- Substitui campos Stripe por campos Asaas para integração de pagamentos
+-- A tabela "assinaturas" já é usada para assinaturas do usuário (Netflix, etc.)
+-- Esta migration cria "plano_usuario" para o plano SaaS do Pocket Wise
+-- (trial, monthly, annual) com integração Asaas.
 -- ============================================================================
 
--- 1. Adicionar campos Asaas
-DO $$
+-- ============================================================================
+-- 1. CRIAR TABELA PLANO_USUARIO (plano SaaS do app)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS plano_usuario (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  status VARCHAR(20) NOT NULL CHECK (status IN ('trial', 'active', 'expired', 'canceled')),
+  plan VARCHAR(20) CHECK (plan IN ('monthly', 'annual')),
+  trial_ends_at TIMESTAMP WITH TIME ZONE,
+  current_period_start TIMESTAMP WITH TIME ZONE,
+  current_period_end TIMESTAMP WITH TIME ZONE,
+  asaas_customer_id VARCHAR(255),
+  asaas_subscription_id VARCHAR(255),
+  asaas_payment_url TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id)
+);
+
+-- Índices
+CREATE INDEX IF NOT EXISTS idx_plano_usuario_user_id ON plano_usuario(user_id);
+CREATE INDEX IF NOT EXISTS idx_plano_usuario_status ON plano_usuario(status);
+CREATE INDEX IF NOT EXISTS idx_plano_usuario_asaas_customer ON plano_usuario(asaas_customer_id);
+CREATE INDEX IF NOT EXISTS idx_plano_usuario_asaas_subscription ON plano_usuario(asaas_subscription_id);
+
+-- ============================================================================
+-- 2. RLS (Row Level Security)
+-- ============================================================================
+
+ALTER TABLE plano_usuario ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view own plan" ON plano_usuario;
+CREATE POLICY "Users can view own plan"
+  ON plano_usuario FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Service role can manage all plans" ON plano_usuario;
+CREATE POLICY "Service role can manage all plans"
+  ON plano_usuario FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role');
+
+-- ============================================================================
+-- 3. TRIGGER: updated_at automático
+-- ============================================================================
+
+DROP TRIGGER IF EXISTS update_plano_usuario_updated_at ON plano_usuario;
+CREATE TRIGGER update_plano_usuario_updated_at
+  BEFORE UPDATE ON plano_usuario
+  FOR EACH ROW
+  EXECUTE PROCEDURE update_updated_at_column();
+
+-- ============================================================================
+-- 4. ATUALIZAR TRIGGER de novo usuário para criar trial em plano_usuario
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
 BEGIN
-  -- ID do cliente na Asaas
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                 WHERE table_name='assinaturas' AND column_name='asaas_customer_id') THEN
-    ALTER TABLE assinaturas ADD COLUMN asaas_customer_id VARCHAR(255);
-  END IF;
+  -- Criar perfil do usuário
+  INSERT INTO public.users (id, email, full_name)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.email, NEW.raw_user_meta_data->>'email'),
+    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário')
+  )
+  ON CONFLICT (id) DO NOTHING;
 
-  -- ID da assinatura na Asaas
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                 WHERE table_name='assinaturas' AND column_name='asaas_subscription_id') THEN
-    ALTER TABLE assinaturas ADD COLUMN asaas_subscription_id VARCHAR(255);
-  END IF;
+  -- Criar plano trial de 7 dias
+  INSERT INTO public.plano_usuario (user_id, status, trial_ends_at)
+  VALUES (
+    NEW.id,
+    'trial',
+    NOW() + INTERVAL '7 days'
+  )
+  ON CONFLICT (user_id) DO NOTHING;
 
-  -- URL de pagamento (checkout da Asaas)
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
-                 WHERE table_name='assinaturas' AND column_name='asaas_payment_url') THEN
-    ALTER TABLE assinaturas ADD COLUMN asaas_payment_url TEXT;
-  END IF;
-END $$;
-
--- 2. Índices para busca rápida
-CREATE INDEX IF NOT EXISTS idx_assinaturas_asaas_customer ON assinaturas(asaas_customer_id);
-CREATE INDEX IF NOT EXISTS idx_assinaturas_asaas_subscription ON assinaturas(asaas_subscription_id);
-
--- 3. Remover campos Stripe antigos (se existirem)
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.columns
-             WHERE table_name='assinaturas' AND column_name='stripe_customer_id') THEN
-    -- Remover índice primeiro
-    DROP INDEX IF EXISTS idx_assinaturas_stripe_customer;
-    ALTER TABLE assinaturas DROP COLUMN stripe_customer_id;
-  END IF;
-
-  IF EXISTS (SELECT 1 FROM information_schema.columns
-             WHERE table_name='assinaturas' AND column_name='stripe_subscription_id') THEN
-    ALTER TABLE assinaturas DROP COLUMN stripe_subscription_id;
-  END IF;
-END $$;
-
--- ============================================================================
--- 4. FUNÇÃO: Ativar assinatura após pagamento confirmado
--- ============================================================================
--- Chamada pelo webhook da Asaas quando o pagamento é confirmado
-
-CREATE OR REPLACE FUNCTION activate_subscription(
-  p_user_id UUID,
-  p_plan VARCHAR(20),
-  p_asaas_customer_id VARCHAR(255),
-  p_asaas_subscription_id VARCHAR(255)
-)
-RETURNS VOID AS $$
-BEGIN
-  UPDATE assinaturas
-  SET
-    status = 'active',
-    plan = p_plan,
-    asaas_customer_id = p_asaas_customer_id,
-    asaas_subscription_id = p_asaas_subscription_id,
-    current_period_start = NOW(),
-    current_period_end = CASE
-      WHEN p_plan = 'monthly' THEN NOW() + INTERVAL '1 month'
-      WHEN p_plan = 'annual' THEN NOW() + INTERVAL '1 year'
-      ELSE NOW() + INTERVAL '1 month'
-    END,
-    updated_at = NOW()
-  WHERE user_id = p_user_id;
+  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- ============================================================================
--- 5. FUNÇÃO: Cancelar assinatura
--- ============================================================================
-
-CREATE OR REPLACE FUNCTION cancel_subscription(p_user_id UUID)
-RETURNS VOID AS $$
-BEGIN
-  UPDATE assinaturas
-  SET
-    status = 'canceled',
-    updated_at = NOW()
-  WHERE user_id = p_user_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- Recriar trigger
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE PROCEDURE handle_new_user();
 
 -- ============================================================================
--- 6. FUNÇÃO: Renovar período da assinatura (chamada pelo webhook)
+-- 5. FUNÇÕES DE ACESSO (atualizadas para plano_usuario)
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION renew_subscription(p_user_id UUID)
-RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION user_has_access(user_uuid UUID)
+RETURNS BOOLEAN AS $$
 DECLARE
-  sub assinaturas%ROWTYPE;
+  user_role VARCHAR(20);
+  sub plano_usuario%ROWTYPE;
 BEGIN
-  SELECT * INTO sub FROM assinaturas WHERE user_id = p_user_id;
+  SELECT role INTO user_role FROM users WHERE id = user_uuid;
+  IF user_role = 'admin' THEN
+    RETURN TRUE;
+  END IF;
+
+  SELECT * INTO sub FROM plano_usuario WHERE user_id = user_uuid;
 
   IF sub IS NULL THEN
-    RETURN;
+    RETURN FALSE;
   END IF;
 
-  UPDATE assinaturas
-  SET
-    current_period_start = NOW(),
-    current_period_end = CASE
-      WHEN sub.plan = 'monthly' THEN NOW() + INTERVAL '1 month'
-      WHEN sub.plan = 'annual' THEN NOW() + INTERVAL '1 year'
-      ELSE NOW() + INTERVAL '1 month'
-    END,
-    updated_at = NOW()
-  WHERE user_id = p_user_id;
+  IF sub.status = 'trial' AND sub.trial_ends_at > NOW() THEN
+    RETURN TRUE;
+  END IF;
+
+  IF sub.status = 'active' THEN
+    RETURN TRUE;
+  END IF;
+
+  RETURN FALSE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION trial_days_remaining(user_uuid UUID)
+RETURNS INTEGER AS $$
+DECLARE
+  sub plano_usuario%ROWTYPE;
+  days_left INTEGER;
+BEGIN
+  SELECT * INTO sub FROM plano_usuario WHERE user_id = user_uuid AND status = 'trial';
+
+  IF sub IS NULL OR sub.trial_ends_at IS NULL THEN
+    RETURN 0;
+  END IF;
+
+  days_left := CEIL(EXTRACT(EPOCH FROM (sub.trial_ends_at - NOW())) / 86400);
+  RETURN GREATEST(0, days_left);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION expire_trials()
+RETURNS INTEGER AS $$
+DECLARE
+  expired_count INTEGER;
+BEGIN
+  UPDATE plano_usuario
+  SET status = 'expired'
+  WHERE status = 'trial'
+    AND trial_ends_at < NOW();
+
+  GET DIAGNOSTICS expired_count = ROW_COUNT;
+  RETURN expired_count;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================================
--- FIM DA MIGRATION
+-- 6. FUNÇÃO: Tornar usuário admin (atualizada)
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION make_user_admin(user_email VARCHAR)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE users SET role = 'admin' WHERE email = user_email;
+
+  INSERT INTO plano_usuario (user_id, status, plan)
+  SELECT id, 'active', 'annual'
+  FROM users WHERE email = user_email
+  ON CONFLICT (user_id) DO UPDATE
+  SET status = 'active',
+      plan = 'annual',
+      current_period_start = NOW(),
+      current_period_end = NOW() + INTERVAL '100 years',
+      updated_at = NOW();
+
+  RAISE NOTICE 'Usuário % agora é admin com acesso ilimitado', user_email;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================================
+-- 7. MIGRAR DADOS: Criar trial para usuários que não têm plano
+-- ============================================================================
+
+INSERT INTO plano_usuario (user_id, status, trial_ends_at)
+SELECT u.id, 'trial', NOW() + INTERVAL '7 days'
+FROM users u
+WHERE NOT EXISTS (
+  SELECT 1 FROM plano_usuario p WHERE p.user_id = u.id
+)
+ON CONFLICT (user_id) DO NOTHING;
+
+-- ============================================================================
+-- FIM
 -- ============================================================================
 
 DO $$
 BEGIN
-  RAISE NOTICE '✅ Campos Asaas adicionados com sucesso à tabela assinaturas!';
-  RAISE NOTICE '📝 Campos adicionados: asaas_customer_id, asaas_subscription_id, asaas_payment_url';
-  RAISE NOTICE '📝 Campos removidos: stripe_customer_id, stripe_subscription_id';
-  RAISE NOTICE '📝 Funções criadas: activate_subscription, cancel_subscription, renew_subscription';
+  RAISE NOTICE '✅ Tabela plano_usuario criada com sucesso!';
+  RAISE NOTICE '📝 "assinaturas" = assinaturas do usuário (Netflix, Spotify, etc.)';
+  RAISE NOTICE '📝 "plano_usuario" = plano SaaS do Pocket Wise (trial/active/expired)';
 END $$;

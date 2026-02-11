@@ -164,7 +164,7 @@ serve(async (req) => {
 
     // 6. Salvar IDs no Supabase
     await supabaseAdmin
-      .from('assinaturas')
+      .from('plano_usuario')
       .update({
         plan,
         asaas_customer_id: customer.id,
