@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button } from '../components/ui'
-import { Check, TrendingUp, Loader2 } from 'lucide-react'
+import { Check, TrendingUp, Loader2, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { createCheckout, redirectToPayment } from '../services/paymentService'
 import type { PlanType } from '../services/paymentService'
@@ -9,13 +9,11 @@ import { toast } from 'sonner'
 function formatCpfCnpj(value: string): string {
   const digits = value.replace(/\D/g, '')
   if (digits.length <= 11) {
-    // CPF: 000.000.000-00
     return digits
       .replace(/(\d{3})(\d)/, '$1.$2')
       .replace(/(\d{3})(\d)/, '$1.$2')
       .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
   }
-  // CNPJ: 00.000.000/0000-00
   return digits
     .replace(/(\d{2})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d)/, '$1.$2')
@@ -31,6 +29,7 @@ function isValidCpfCnpj(value: string): boolean {
 export function Paywall() {
   const navigate = useNavigate()
   const [loadingPlan, setLoadingPlan] = useState<PlanType | null>(null)
+  const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null)
   const [cpfCnpj, setCpfCnpj] = useState('')
 
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,23 +37,37 @@ export function Paywall() {
     setCpfCnpj(formatCpfCnpj(raw))
   }
 
-  const handleSubscribe = async (plan: PlanType) => {
+  const handlePlanClick = (plan: PlanType) => {
+    setSelectedPlan(plan)
+  }
+
+  const handleCloseModal = () => {
+    if (!loadingPlan) {
+      setSelectedPlan(null)
+    }
+  }
+
+  const handleConfirmSubscription = async () => {
+    if (!selectedPlan) return
+
     const digits = cpfCnpj.replace(/\D/g, '')
     if (!isValidCpfCnpj(digits)) {
       toast.error('Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.')
       return
     }
 
-    setLoadingPlan(plan)
+    setLoadingPlan(selectedPlan)
 
     try {
-      const result = await createCheckout(plan, 'UNDEFINED', digits)
+      const result = await createCheckout(selectedPlan, 'UNDEFINED', digits)
 
       if (result.subscription.paymentLink) {
         toast.success('Redirecionando para pagamento...')
+        setSelectedPlan(null)
         redirectToPayment(result.subscription.paymentLink)
       } else {
         toast.success('Assinatura criada! Verifique seu email para o link de pagamento.')
+        setSelectedPlan(null)
       }
     } catch (error) {
       console.error('Erro ao criar checkout:', error)
@@ -86,25 +99,6 @@ export function Paywall() {
           </p>
         </div>
 
-        {/* CPF/CNPJ Input */}
-        <div className="max-w-md mx-auto mb-8">
-          <label htmlFor="cpfCnpj" className="block text-sm font-medium text-gray-300 mb-2">
-            CPF ou CNPJ
-          </label>
-          <input
-            id="cpfCnpj"
-            type="text"
-            inputMode="numeric"
-            value={cpfCnpj}
-            onChange={handleCpfChange}
-            placeholder="000.000.000-00"
-            className="w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-lg tracking-wider"
-          />
-          <p className="text-xs text-gray-500 mt-1 text-center">
-            Necessário para emissão da cobrança
-          </p>
-        </div>
-
         {/* Pricing Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           {/* Plano Mensal */}
@@ -132,17 +126,10 @@ export function Paywall() {
             <Button
               className="w-full"
               size="lg"
-              onClick={() => handleSubscribe('monthly')}
+              onClick={() => handlePlanClick('monthly')}
               disabled={loadingPlan !== null}
             >
-              {loadingPlan === 'monthly' ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Processando...
-                </span>
-              ) : (
-                'Assinar Mensal'
-              )}
+              Assinar Mensal
             </Button>
           </div>
 
@@ -176,17 +163,10 @@ export function Paywall() {
             <Button
               className="w-full"
               size="lg"
-              onClick={() => handleSubscribe('annual')}
+              onClick={() => handlePlanClick('annual')}
               disabled={loadingPlan !== null}
             >
-              {loadingPlan === 'annual' ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Processando...
-                </span>
-              ) : (
-                'Assinar Anual'
-              )}
+              Assinar Anual
             </Button>
           </div>
         </div>
@@ -207,6 +187,61 @@ export function Paywall() {
           </button>
         </div>
       </div>
+
+      {/* Modal CPF/CNPJ */}
+      {selectedPlan && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-800 border border-dark-600 rounded-2xl p-8 max-w-md w-full relative">
+            <button
+              onClick={handleCloseModal}
+              disabled={loadingPlan !== null}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-50"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h3 className="text-xl font-bold text-gray-100 mb-2">
+              Confirmar assinatura
+            </h3>
+            <p className="text-gray-400 mb-6">
+              Plano {selectedPlan === 'monthly' ? 'Mensal • R$ 12,90/mês' : 'Anual • R$ 119,90/ano'}
+            </p>
+
+            <label htmlFor="cpfCnpj" className="block text-sm font-medium text-gray-300 mb-2">
+              CPF ou CNPJ
+            </label>
+            <input
+              id="cpfCnpj"
+              type="text"
+              inputMode="numeric"
+              autoFocus
+              value={cpfCnpj}
+              onChange={handleCpfChange}
+              placeholder="000.000.000-00"
+              className="w-full px-4 py-3 bg-dark-700 border border-dark-500 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-lg tracking-wider mb-2"
+            />
+            <p className="text-xs text-gray-500 mb-6 text-center">
+              Necessário para emissão da cobrança
+            </p>
+
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={handleConfirmSubscription}
+              disabled={loadingPlan !== null}
+            >
+              {loadingPlan ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Processando...
+                </span>
+              ) : (
+                'Confirmar e pagar'
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
