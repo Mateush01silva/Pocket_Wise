@@ -59,7 +59,7 @@ export function Paywall() {
     setLoadingPlan(selectedPlan)
 
     try {
-      const result = await createCheckout(selectedPlan, 'UNDEFINED', digits)
+      const result = await createCheckout(selectedPlan, digits)
 
       if (result.subscription.paymentLink) {
         toast.success('Redirecionando para pagamento...')
@@ -177,7 +177,7 @@ export function Paywall() {
             Pagamento 100% seguro via Asaas • Cancele quando quiser
           </p>
           <p className="text-xs text-gray-500 mb-4">
-            Aceita Pix, Cartão de Crédito e Boleto
+            Pagamento via Cartão de Crédito com cobrança automática
           </p>
           <button
             onClick={() => navigate('/app')}
