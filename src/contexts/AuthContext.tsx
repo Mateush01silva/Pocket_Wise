@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { supabase, isSupabaseConfigured, clearFamilyIdCache } from '../lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
 interface Subscription {
@@ -36,13 +36,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Chaves localStorage dos Zustand stores que contêm dados do usuário
+// Chaves localStorage que devem ser limpas ao trocar de usuário
+// NÃO incluir stores de dados (categorias, cartoes, contas, orcamentos, patrimonio)
+// pois são apenas caches do Supabase e serão re-sincronizados automaticamente
 const PERSISTED_STORE_KEYS = [
-  'pocketwise-categorias-store',
-  'pocketwise-cartoes-store',
-  'pocketwise-contas-bancarias-store',
-  'pocketwise-orcamentos-store',
-  'pocketwise-patrimonio-store',
   'pocket-wise-user-preferences',
   'learning-mode-storage',
 ]
@@ -92,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Se mudou de usuário, limpar stores persistidos
       if (previousUserId && newUserId && previousUserId !== newUserId) {
         clearPersistedStores()
+        clearFamilyIdCache()
       }
 
       // Atualizar ref do userId atual
@@ -187,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) throw new Error('Supabase not configured')
 
     clearPersistedStores()
+    clearFamilyIdCache()
     currentUserIdRef.current = null
     setUserProfile(null)
     setSubscription(null)
