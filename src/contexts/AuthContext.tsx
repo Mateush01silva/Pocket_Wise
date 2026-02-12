@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { supabase, isSupabaseConfigured, clearFamilyIdCache } from '../lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 
 interface Subscription {
@@ -89,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Se mudou de usuário, limpar stores persistidos
       if (previousUserId && newUserId && previousUserId !== newUserId) {
         clearPersistedStores()
+        clearFamilyIdCache()
       }
 
       // Atualizar ref do userId atual
@@ -184,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) throw new Error('Supabase not configured')
 
     clearPersistedStores()
+    clearFamilyIdCache()
     currentUserIdRef.current = null
     setUserProfile(null)
     setSubscription(null)

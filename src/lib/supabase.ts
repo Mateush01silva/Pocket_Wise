@@ -24,19 +24,22 @@ export const isSupabaseConfigured = (): boolean => {
   return !useLocalStorage && supabase !== null
 }
 
-// Helper to get the current user
+// Helper to get the current user (uses local session, no network call)
 export const getCurrentUser = async () => {
   if (!supabase) return null
 
-  const { data: { user }, error } = await supabase.auth.getUser()
+  const { data: { session } } = await supabase.auth.getSession()
 
-  if (error) {
-    console.error('Error getting current user:', error)
+  if (!session?.user) {
     return null
   }
 
-  return user
+  return session.user
 }
+
+// Cache do family_id para evitar queries repetidas
+let cachedFamilyId: string | null = null
+let cachedUserId: string | null = null
 
 // Helper to get the user's family ID
 export const getUserFamilyId = async (): Promise<string | null> => {
@@ -45,7 +48,12 @@ export const getUserFamilyId = async (): Promise<string | null> => {
   const user = await getCurrentUser()
   if (!user) return null
 
-  const { data, error } = await supabase
+  // Retornar cache se for o mesmo usuário
+  if (cachedFamilyId && cachedUserId === user.id) {
+    return cachedFamilyId
+  }
+
+  const { data, error } = await (supabase as any)
     .from('users')
     .select('family_id')
     .eq('id', user.id)
@@ -56,7 +64,16 @@ export const getUserFamilyId = async (): Promise<string | null> => {
     return null
   }
 
-  return (data as { family_id: string | null })?.family_id || null
+  const familyId = (data as { family_id: string | null })?.family_id || null
+  cachedFamilyId = familyId
+  cachedUserId = user.id
+  return familyId
+}
+
+// Limpar cache de family_id (chamar no logout)
+export const clearFamilyIdCache = () => {
+  cachedFamilyId = null
+  cachedUserId = null
 }
 
 // Type definitions for Supabase will be generated
