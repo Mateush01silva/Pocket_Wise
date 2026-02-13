@@ -34,6 +34,67 @@ interface AsaasWebhookPayload {
 }
 
 // ============================================================================
+// HELPERS
+// ============================================================================
+
+/**
+ * Resolve o user_id a partir do payload do webhook.
+ * Tenta, nesta ordem:
+ *   1. payment.externalReference
+ *   2. subscription.externalReference
+ *   3. Busca no banco por asaas_subscription_id (payment.subscription)
+ *   4. Busca no banco por asaas_customer_id (payment.customer)
+ */
+async function resolveUserId(payload: AsaasWebhookPayload): Promise<string | null> {
+  // 1. externalReference no payment
+  const fromPayment = payload.payment?.externalReference
+  if (fromPayment) {
+    console.log('resolveUserId: encontrado via payment.externalReference =', fromPayment)
+    return fromPayment
+  }
+
+  // 2. externalReference na subscription
+  const fromSub = payload.subscription?.externalReference
+  if (fromSub) {
+    console.log('resolveUserId: encontrado via subscription.externalReference =', fromSub)
+    return fromSub
+  }
+
+  // 3. Buscar por asaas_subscription_id
+  const subscriptionId = payload.payment?.subscription
+  if (subscriptionId) {
+    console.log('resolveUserId: buscando por asaas_subscription_id =', subscriptionId)
+    const { data } = await supabaseAdmin
+      .from('plano_usuario')
+      .select('user_id')
+      .eq('asaas_subscription_id', subscriptionId)
+      .single()
+    if (data?.user_id) {
+      console.log('resolveUserId: encontrado via asaas_subscription_id, user_id =', data.user_id)
+      return data.user_id
+    }
+  }
+
+  // 4. Buscar por asaas_customer_id
+  const customerId = payload.payment?.customer
+  if (customerId) {
+    console.log('resolveUserId: buscando por asaas_customer_id =', customerId)
+    const { data } = await supabaseAdmin
+      .from('plano_usuario')
+      .select('user_id')
+      .eq('asaas_customer_id', customerId)
+      .single()
+    if (data?.user_id) {
+      console.log('resolveUserId: encontrado via asaas_customer_id, user_id =', data.user_id)
+      return data.user_id
+    }
+  }
+
+  console.error('resolveUserId: NÃO foi possível resolver user_id. Payload:', JSON.stringify(payload))
+  return null
+}
+
+// ============================================================================
 // MAIN HANDLER
 // ============================================================================
 
@@ -62,7 +123,9 @@ serve(async (req) => {
     }
 
     const payload: AsaasWebhookPayload = await req.json()
-    console.log('Webhook Asaas recebido:', payload.event)
+    console.log('=== Webhook Asaas recebido ===')
+    console.log('Evento:', payload.event)
+    console.log('Payload completo:', JSON.stringify(payload))
 
     switch (payload.event) {
       case 'PAYMENT_CONFIRMED':
@@ -105,23 +168,32 @@ serve(async (req) => {
 // ============================================================================
 
 async function handlePaymentConfirmed(payload: AsaasWebhookPayload) {
-  const payment = payload.payment
-  if (!payment) return
-
-  const userId = payment.externalReference
+  const userId = await resolveUserId(payload)
   if (!userId) {
-    console.error('Payment sem externalReference (user_id)')
+    console.error('handlePaymentConfirmed: Impossível identificar o usuário. Abortando.')
     return
   }
 
   // Buscar plano atual
-  const { data: sub } = await supabaseAdmin
+  const { data: sub, error: fetchError } = await supabaseAdmin
     .from('plano_usuario')
-    .select('plan')
+    .select('plan, status')
     .eq('user_id', userId)
     .single()
 
-  const plan = sub?.plan || 'monthly'
+  if (fetchError) {
+    console.error('handlePaymentConfirmed: Erro ao buscar plano_usuario:', fetchError)
+    throw fetchError
+  }
+
+  if (!sub) {
+    console.error('handlePaymentConfirmed: Nenhum registro plano_usuario encontrado para user_id =', userId)
+    return
+  }
+
+  console.log(`handlePaymentConfirmed: user=${userId}, status_atual=${sub.status}, plan=${sub.plan}`)
+
+  const plan = sub.plan || 'monthly'
 
   // Calcular período
   const now = new Date()
@@ -132,7 +204,7 @@ async function handlePaymentConfirmed(payload: AsaasWebhookPayload) {
     periodEnd.setMonth(periodEnd.getMonth() + 1)
   }
 
-  const { error } = await supabaseAdmin
+  const { data: updated, error } = await supabaseAdmin
     .from('plano_usuario')
     .update({
       status: 'active',
@@ -141,52 +213,56 @@ async function handlePaymentConfirmed(payload: AsaasWebhookPayload) {
       updated_at: now.toISOString(),
     })
     .eq('user_id', userId)
+    .select('id, status')
 
   if (error) {
-    console.error('Erro ao ativar assinatura:', error)
+    console.error('handlePaymentConfirmed: Erro ao atualizar para active:', error)
     throw error
   }
 
-  console.log(`Assinatura ativada: user=${userId}, plan=${plan}`)
+  console.log(`handlePaymentConfirmed: UPDATE resultado:`, JSON.stringify(updated))
+  console.log(`Assinatura ativada com sucesso: user=${userId}, plan=${plan}`)
 }
 
 async function handlePaymentOverdue(payload: AsaasWebhookPayload) {
-  const userId = payload.payment?.externalReference
+  const userId = await resolveUserId(payload)
   if (!userId) return
 
-  const { error } = await supabaseAdmin
+  const { data: updated, error } = await supabaseAdmin
     .from('plano_usuario')
     .update({
       status: 'expired',
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId)
+    .select('id, status')
 
   if (error) throw error
-  console.log(`Assinatura expirada (pagamento vencido): user=${userId}`)
+  console.log(`Assinatura expirada (pagamento vencido): user=${userId}`, JSON.stringify(updated))
 }
 
 async function handlePaymentRefunded(payload: AsaasWebhookPayload) {
-  const userId = payload.payment?.externalReference
+  const userId = await resolveUserId(payload)
   if (!userId) return
 
-  const { error } = await supabaseAdmin
+  const { data: updated, error } = await supabaseAdmin
     .from('plano_usuario')
     .update({
       status: 'canceled',
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId)
+    .select('id, status')
 
   if (error) throw error
-  console.log(`Assinatura cancelada (estorno): user=${userId}`)
+  console.log(`Assinatura cancelada (estorno): user=${userId}`, JSON.stringify(updated))
 }
 
 async function handleSubscriptionCanceled(payload: AsaasWebhookPayload) {
-  const userId = payload.subscription?.externalReference
+  const userId = await resolveUserId(payload)
   if (!userId) return
 
-  const { error } = await supabaseAdmin
+  const { data: updated, error } = await supabaseAdmin
     .from('plano_usuario')
     .update({
       status: 'canceled',
@@ -194,7 +270,8 @@ async function handleSubscriptionCanceled(payload: AsaasWebhookPayload) {
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId)
+    .select('id, status')
 
   if (error) throw error
-  console.log(`Assinatura cancelada: user=${userId}`)
+  console.log(`Assinatura cancelada: user=${userId}`, JSON.stringify(updated))
 }
