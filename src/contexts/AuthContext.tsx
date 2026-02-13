@@ -28,6 +28,7 @@ interface AuthContextType {
   userProfile: UserProfile | null
   loading: boolean
   refreshProfile: () => Promise<void>
+  refreshSubscription: () => Promise<Subscription | null>
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, name: string) => Promise<void>
   signOut: () => Promise<void>
@@ -214,6 +215,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const refreshSubscription = async (): Promise<Subscription | null> => {
+    if (user) {
+      return await fetchSubscription(user.id)
+    }
+    return null
+  }
+
   const signOut = async () => {
     if (!supabase) throw new Error('Supabase not configured')
 
@@ -280,6 +288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     userProfile,
     loading,
     refreshProfile,
+    refreshSubscription,
     signIn,
     signUp,
     signOut,
