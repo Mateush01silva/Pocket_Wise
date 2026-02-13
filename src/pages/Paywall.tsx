@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '../components/ui'
 import { Check, TrendingUp, Loader2, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { createCheckout, redirectToPayment } from '../services/paymentService'
 import type { PlanType } from '../services/paymentService'
 import { toast } from 'sonner'
+import { useAuth } from '../contexts/AuthContext'
 
 function formatCpfCnpj(value: string): string {
   const digits = value.replace(/\D/g, '')
@@ -28,9 +29,66 @@ function isValidCpfCnpj(value: string): boolean {
 
 export function Paywall() {
   const navigate = useNavigate()
+  const { refreshSubscription } = useAuth()
   const [loadingPlan, setLoadingPlan] = useState<PlanType | null>(null)
   const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null)
   const [cpfCnpj, setCpfCnpj] = useState('')
+  const [waitingPayment, setWaitingPayment] = useState(false)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
+    }
+  }, [])
+
+  // Polling: verifica a cada 5s se o pagamento foi confirmado pelo webhook
+  const startPolling = useCallback(() => {
+    stopPolling()
+    setWaitingPayment(true)
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const sub = await refreshSubscription()
+        if (sub?.status === 'active') {
+          stopPolling()
+          setWaitingPayment(false)
+          toast.success('Pagamento confirmado! Redirecionando...')
+          navigate('/app', { replace: true })
+        }
+      } catch {
+        // Silencioso - continua tentando
+      }
+    }, 5000)
+  }, [refreshSubscription, stopPolling, navigate])
+
+  // Limpar polling ao desmontar o componente
+  useEffect(() => {
+    return () => stopPolling()
+  }, [stopPolling])
+
+  // Quando o usuário volta para a aba, faz uma verificação imediata
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && waitingPayment) {
+        try {
+          const sub = await refreshSubscription()
+          if (sub?.status === 'active') {
+            stopPolling()
+            setWaitingPayment(false)
+            toast.success('Pagamento confirmado! Redirecionando...')
+            navigate('/app', { replace: true })
+          }
+        } catch {
+          // Silencioso
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [waitingPayment, refreshSubscription, stopPolling, navigate])
 
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, '').slice(0, 14)
@@ -65,9 +123,11 @@ export function Paywall() {
         toast.success('Redirecionando para pagamento...')
         setSelectedPlan(null)
         redirectToPayment(result.subscription.paymentLink)
+        startPolling()
       } else {
         toast.success('Assinatura criada! Verifique seu email para o link de pagamento.')
         setSelectedPlan(null)
+        startPolling()
       }
     } catch (error) {
       console.error('Erro ao criar checkout:', error)
@@ -170,6 +230,35 @@ export function Paywall() {
             </Button>
           </div>
         </div>
+
+        {/* Aguardando pagamento */}
+        {waitingPayment && (
+          <div className="bg-primary-500/10 border border-primary-500/30 rounded-xl p-6 text-center mb-8">
+            <Loader2 className="w-8 h-8 animate-spin text-primary-400 mx-auto mb-3" />
+            <p className="text-gray-200 font-medium mb-2">
+              Aguardando confirmação do pagamento...
+            </p>
+            <p className="text-sm text-gray-400 mb-4">
+              Após concluir o pagamento, você será redirecionado automaticamente.
+            </p>
+            <button
+              onClick={async () => {
+                const sub = await refreshSubscription()
+                if (sub?.status === 'active') {
+                  stopPolling()
+                  setWaitingPayment(false)
+                  toast.success('Pagamento confirmado! Redirecionando...')
+                  navigate('/app', { replace: true })
+                } else {
+                  toast.info('Pagamento ainda não confirmado. Aguarde alguns instantes.')
+                }
+              }}
+              className="text-sm text-primary-400 hover:text-primary-300 transition-colors underline"
+            >
+              Já paguei, verificar agora
+            </button>
+          </div>
+        )}
 
         {/* FAQ Mini */}
         <div className="bg-dark-800/30 border border-dark-700 rounded-xl p-6 text-center">
