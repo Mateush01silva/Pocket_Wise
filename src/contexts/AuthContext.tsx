@@ -37,8 +37,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // Chaves localStorage que devem ser limpas ao trocar de usuário
-// NÃO incluir stores de dados (categorias, cartoes, contas, orcamentos, patrimonio)
-// pois são apenas caches do Supabase e serão re-sincronizados automaticamente
 const PERSISTED_STORE_KEYS = [
   'pocket-wise-user-preferences',
   'learning-mode-storage',
@@ -59,53 +57,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const currentUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    // Se Supabase não está configurado, setar loading false e return
     if (!isSupabaseConfigured() || !supabase) {
       setLoading(false)
       return
     }
 
-    // Get initial session
+    // 1) Carregar sessão inicial + dados do usuário
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session)
       setUser(session?.user ?? null)
       currentUserIdRef.current = session?.user?.id ?? null
+
       if (session?.user) {
-        await Promise.all([
-          fetchUserProfile(session.user.id),
-          fetchSubscription(session.user.id),
-        ])
+        try {
+          await Promise.all([
+            fetchUserProfile(session.user.id),
+            fetchSubscription(session.user.id),
+          ])
+        } catch (e) {
+          console.error('Erro ao carregar dados iniciais:', e)
+        }
       }
+      setLoading(false)
+    }).catch(() => {
+      // Garantir que loading=false mesmo se getSession falhar
       setLoading(false)
     })
 
-    // Listen for auth changes
+    // 2) Listener de eventos auth - NUNCA setar loading aqui
+    // Supabase recomenda que o callback NÃO seja async
     const {
       data: { subscription: authSubscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       const previousUserId = currentUserIdRef.current
       const newUserId = session?.user?.id ?? null
 
-      // Se mudou de usuário, limpar stores persistidos
+      // Se mudou de usuário, limpar caches
       if (previousUserId && newUserId && previousUserId !== newUserId) {
         clearPersistedStores()
         clearFamilyIdCache()
       }
 
-      // Atualizar ref do userId atual
       currentUserIdRef.current = newUserId
-
       setSession(session)
       setUser(session?.user ?? null)
-      if (session?.user) {
-        // Mostrar loading enquanto carrega dados do novo usuário
-        setLoading(true)
-        await Promise.all([
-          fetchUserProfile(session.user.id),
-          fetchSubscription(session.user.id),
-        ])
-        setLoading(false)
-      } else {
+
+      if (!session?.user) {
         setUserProfile(null)
         setSubscription(null)
       }
@@ -118,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) return
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('users')
         .select('id, email, full_name, role')
         .eq('id', userId)
@@ -135,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) return
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('plano_usuario')
         .select('*')
         .eq('user_id', userId)
@@ -151,12 +148,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     if (!supabase) throw new Error('Supabase not configured')
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
     if (error) throw error
+
+    // Buscar perfil e assinatura ANTES de retornar
+    // Assim quando a tela navegar para /app, os dados já estarão prontos
+    if (data.user) {
+      currentUserIdRef.current = data.user.id
+      clearFamilyIdCache()
+      await Promise.all([
+        fetchUserProfile(data.user.id),
+        fetchSubscription(data.user.id),
+      ])
+    }
   }
 
   const signUp = async (email: string, password: string, name: string) => {
@@ -176,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Subscription trial será criada automaticamente via trigger no banco
     if (data.user) {
+      currentUserIdRef.current = data.user.id
       await fetchUserProfile(data.user.id)
       await fetchSubscription(data.user.id)
     }
