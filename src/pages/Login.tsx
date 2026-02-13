@@ -28,8 +28,10 @@ export function Login() {
     setIsLoading(true)
     try {
       await signIn(email, password)
-      toast.success('Login realizado com sucesso!')
-      navigate('/app')
+      navigate('/app', { replace: true })
+      setTimeout(() => {
+        toast.success('Login realizado com sucesso!')
+      }, 100)
     } catch (err: any) {
       console.error('Erro no login:', err)
       setError(err.message || 'Email ou senha incorretos')

@@ -57,8 +57,11 @@ export function SignUp() {
     setIsLoading(true)
     try {
       await signUp(email, password, name)
-      toast.success('🎉 Bem-vindo! Você tem 7 dias grátis para testar tudo')
-      navigate('/app')
+      navigate('/app', { replace: true })
+      // Toast após navigate para evitar conflito de portal DOM com a troca de rota
+      setTimeout(() => {
+        toast.success('Bem-vindo! Você tem 7 dias grátis para testar tudo')
+      }, 100)
     } catch (err: any) {
       console.error('Erro no cadastro:', err)
       setError(err.message || 'Erro ao criar conta. Tente novamente.')
