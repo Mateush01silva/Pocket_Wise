@@ -13,6 +13,7 @@ import {
 import { format, parseISO, addMonths, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useCartoesStore, useTransacoesStore } from '../store'
+import { usePermissions } from '../hooks/usePermissions'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CreditCardModal } from '../components/CreditCardModal'
 import { FaturaDetailsModal } from '../components/FaturaDetailsModal'
@@ -172,6 +173,7 @@ function getFaturaFechadaPendente(
 }
 
 export function CreditCards() {
+  const { canEdit } = usePermissions()
   const cartoes = useCartoesStore((state) => state.cartoes)
   const deleteCartao = useCartoesStore((state) => state.deleteCartao)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
@@ -307,22 +309,24 @@ export function CreditCards() {
               <CreditCard size={20} style={{ color: cartao.cor || '#6b7280' }} />
               {cartao.nome}
             </CardTitle>
-            <div className="flex gap-1">
-              <button
-                onClick={() => handleEdit(cartao)}
-                className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
-                title="Editar cartão"
-              >
-                <Pencil size={14} />
-              </button>
-              <button
-                onClick={() => handleDelete(cartao)}
-                className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-red-400"
-                title="Deletar cartão"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
+            {canEdit && (
+              <div className="flex gap-1">
+                <button
+                  onClick={() => handleEdit(cartao)}
+                  className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
+                  title="Editar cartão"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  onClick={() => handleDelete(cartao)}
+                  className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-red-400"
+                  title="Deletar cartão"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            )}
           </div>
         </CardHeader>
 
@@ -460,10 +464,12 @@ export function CreditCards() {
             {cartoesAtivos.length} cartões ativos • Gerencie seus limites e faturas
           </p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
-          <Plus size={16} className="mr-2" />
-          Novo Cartão
-        </Button>
+        {canEdit && (
+          <Button onClick={() => setIsModalOpen(true)}>
+            <Plus size={16} className="mr-2" />
+            Novo Cartão
+          </Button>
+        )}
       </div>
 
       {/* Resumo Geral */}
@@ -545,10 +551,12 @@ export function CreditCards() {
             <p className="text-gray-500 mb-4">
               Adicione seu primeiro cartão para começar a gerenciar suas faturas
             </p>
-            <Button onClick={() => setIsModalOpen(true)}>
-              <Plus size={16} className="mr-2" />
-              Adicionar Cartão
-            </Button>
+            {canEdit && (
+              <Button onClick={() => setIsModalOpen(true)}>
+                <Plus size={16} className="mr-2" />
+                Adicionar Cartão
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}

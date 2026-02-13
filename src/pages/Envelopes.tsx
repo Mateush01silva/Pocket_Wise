@@ -16,6 +16,7 @@ import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useTransacoesStore } from '../store/useTransacoesStore'
 import { useCategoriasStore } from '../store/useCategoriasStore'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
+import { usePermissions } from '../hooks/usePermissions'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
 import type { EnvelopeDigital } from '../types'
@@ -24,6 +25,7 @@ type FiltroCategoria = 'todas' | 'essencial' | 'importante' | 'desejavel' | 'est
 type OrdenacaoCategoria = 'nome' | 'percentual_desc' | 'percentual_asc' | 'valor_desc'
 
 export function Envelopes() {
+  const { canEdit } = usePermissions()
   const mesRealAtual = format(startOfMonth(new Date()), 'yyyy-MM-dd')
   const [mesAtual, setMesAtual] = useState(mesRealAtual)
   const [filtro, setFiltro] = useState<FiltroCategoria>('todas')
@@ -234,16 +236,18 @@ export function Envelopes() {
               </p>
             </div>
 
-            <div className="flex gap-3 justify-center">
-              <Button onClick={handleCopiarMesAnterior} isLoading={isCreating} disabled={isCreating}>
-                <Copy size={16} className="mr-2" />
-                Copiar Mês Anterior
-              </Button>
-              <Button variant="ghost" onClick={handleCriarDoZero} isLoading={isCreating} disabled={isCreating}>
-                <Plus size={16} className="mr-2" />
-                Criar do Zero
-              </Button>
-            </div>
+            {canEdit && (
+              <div className="flex gap-3 justify-center">
+                <Button onClick={handleCopiarMesAnterior} isLoading={isCreating} disabled={isCreating}>
+                  <Copy size={16} className="mr-2" />
+                  Copiar Mês Anterior
+                </Button>
+                <Button variant="ghost" onClick={handleCriarDoZero} isLoading={isCreating} disabled={isCreating}>
+                  <Plus size={16} className="mr-2" />
+                  Criar do Zero
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -314,25 +318,27 @@ export function Envelopes() {
         </div>
 
         {/* Botões de ação */}
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsPlanningModalOpen(true)}
-          >
-            <Edit2 size={16} className="mr-2" />
-            Editar Orçamento
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDeleteOrcamento}
-            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-          >
-            <Trash2 size={16} className="mr-2" />
-            Excluir
-          </Button>
-        </div>
+        {canEdit && (
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsPlanningModalOpen(true)}
+            >
+              <Edit2 size={16} className="mr-2" />
+              Editar Orçamento
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDeleteOrcamento}
+              className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+            >
+              <Trash2 size={16} className="mr-2" />
+              Excluir
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Resumo do Orçamento - Projeção */}

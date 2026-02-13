@@ -9,9 +9,9 @@ import { cn } from '../lib/cn'
 
 interface SubscriptionCardProps {
   assinatura: AssinaturaComDetalhes
-  onEdit: (assinatura: AssinaturaComDetalhes) => void
-  onCancel: (assinatura: AssinaturaComDetalhes) => void
-  onDelete: (assinatura: AssinaturaComDetalhes) => void
+  onEdit?: (assinatura: AssinaturaComDetalhes) => void
+  onCancel?: (assinatura: AssinaturaComDetalhes) => void
+  onDelete?: (assinatura: AssinaturaComDetalhes) => void
 }
 
 export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: SubscriptionCardProps) {
@@ -104,7 +104,7 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
 
           {/* Ações */}
           <div className="flex flex-col gap-2">
-            {assinatura.ativa && (
+            {assinatura.ativa && onEdit && onCancel && (
               <>
                 <Button
                   variant="ghost"
@@ -126,7 +126,7 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
                 </Button>
               </>
             )}
-            {!assinatura.ativa && (
+            {!assinatura.ativa && onDelete && (
               <Button
                 variant="ghost"
                 size="sm"
