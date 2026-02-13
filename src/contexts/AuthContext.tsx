@@ -136,8 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const fetchSubscription = async (userId: string) => {
-    if (!supabase) return
+  const fetchSubscription = async (userId: string): Promise<Subscription | null> => {
+    if (!supabase) return null
 
     try {
       const { data, error } = await (supabase as any)
@@ -148,8 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error
       setSubscription(data)
+      return data
     } catch (error) {
       console.error('Erro ao buscar assinatura:', error)
+      return null
     }
   }
 
@@ -190,11 +192,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) throw error
 
-    // Subscription trial será criada automaticamente via trigger no banco
+    // Subscription trial é criada automaticamente via trigger no banco (handle_new_user)
+    // O trigger pode demorar alguns ms, então fazemos retry se não encontrar
     if (data.user) {
       currentUserIdRef.current = data.user.id
       await fetchUserProfile(data.user.id)
-      await fetchSubscription(data.user.id)
+
+      // Tentar buscar a subscription com retry (trigger pode não ter executado ainda)
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const sub = await fetchSubscription(data.user.id)
+        if (sub) break
+        // Esperar antes de tentar novamente (300ms, 600ms, 900ms, 1200ms)
+        await new Promise(resolve => setTimeout(resolve, 300 * (attempt + 1)))
+      }
     }
   }
 

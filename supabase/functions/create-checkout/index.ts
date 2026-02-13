@@ -101,6 +101,15 @@ async function createAsaasSubscription(
   return res.json()
 }
 
+async function getSubscriptionPayments(subscriptionId: string) {
+  const res = await fetch(
+    `${ASAAS_API_URL}/subscriptions/${subscriptionId}/payments`,
+    { headers: asaasHeaders() }
+  )
+  if (!res.ok) throw new Error(`Asaas getSubscriptionPayments: ${await res.text()}`)
+  return res.json()
+}
+
 // ============================================================================
 // MAIN HANDLER
 // ============================================================================
@@ -189,27 +198,43 @@ serve(async (req) => {
       billingType
     )
 
-    console.log('Assinatura criada:', subscription.id, '| Link:', subscription.paymentLink)
+    console.log('Assinatura criada:', subscription.id)
 
-    // 6. Salvar IDs no Supabase
+    // 6. Buscar a primeira cobrança gerada pela assinatura para obter o invoiceUrl
+    console.log('Buscando cobrança da assinatura...')
+    let paymentLink: string | null = null
+    try {
+      const paymentsData = await getSubscriptionPayments(subscription.id)
+      const firstPayment = paymentsData?.data?.[0]
+      if (firstPayment?.invoiceUrl) {
+        paymentLink = firstPayment.invoiceUrl
+        console.log('Link de pagamento encontrado:', paymentLink)
+      } else {
+        console.log('Nenhum invoiceUrl na primeira cobrança. Payment:', JSON.stringify(firstPayment))
+      }
+    } catch (paymentError) {
+      console.error('Erro ao buscar cobrança:', paymentError)
+    }
+
+    // 7. Salvar IDs no Supabase
     await supabaseAdmin
       .from('plano_usuario')
       .update({
         plan,
         asaas_customer_id: customer.id,
         asaas_subscription_id: subscription.id,
-        asaas_payment_url: subscription.paymentLink || null,
+        asaas_payment_url: paymentLink,
       })
       .eq('user_id', user.id)
 
-    // 7. Retornar resultado
+    // 8. Retornar resultado
     return new Response(
       JSON.stringify({
         success: true,
         subscription: {
           id: subscription.id,
           status: subscription.status,
-          paymentLink: subscription.paymentLink,
+          paymentLink,
         },
         customer: { id: customer.id },
       }),
