@@ -59,9 +59,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const isLearningMode = useLearningModeStore((state) => state.isEnabled)
   const toggleLearningMode = useLearningModeStore((state) => state.toggleLearningMode)
   const prefsName = useUserPreferencesStore((state) => state.nome)
-  const userAvatar = useUserPreferencesStore((state) => state.avatarUrl)
 
   const userName = userProfile?.full_name || prefsName
+  const userAvatar = userProfile?.avatar_url || null
 
   const planLabel = subscription?.status === 'active'
     ? (subscription.plan === 'annual' ? 'Plano Anual' : 'Plano Mensal')
