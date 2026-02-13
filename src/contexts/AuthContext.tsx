@@ -18,6 +18,7 @@ interface UserProfile {
   email: string
   full_name: string
   role: 'user' | 'admin'
+  avatar_url: string | null
 }
 
 interface AuthContextType {
@@ -26,6 +27,7 @@ interface AuthContextType {
   subscription: Subscription | null
   userProfile: UserProfile | null
   loading: boolean
+  refreshProfile: () => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, name: string) => Promise<void>
   signOut: () => Promise<void>
@@ -117,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await (supabase as any)
         .from('users')
-        .select('id, email, full_name, role')
+        .select('id, email, full_name, role, avatar_url')
         .eq('id', userId)
         .single()
 
@@ -190,6 +192,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const refreshProfile = async () => {
+    if (user) {
+      await fetchUserProfile(user.id)
+    }
+  }
+
   const signOut = async () => {
     if (!supabase) throw new Error('Supabase not configured')
 
@@ -255,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     subscription,
     userProfile,
     loading,
+    refreshProfile,
     signIn,
     signUp,
     signOut,

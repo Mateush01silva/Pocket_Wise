@@ -35,10 +35,9 @@ export function Settings() {
   const [isExporting, setIsExporting] = useState(false)
 
   // Auth context - dados reais do banco
-  const { user, userProfile } = useAuth()
+  const { user, userProfile, refreshProfile } = useAuth()
 
   // User preferences (local store)
-  const avatarUrl = useUserPreferencesStore((state) => state.avatarUrl)
   const moeda = useUserPreferencesStore((state) => state.moeda)
   const diaInicioCiclo = useUserPreferencesStore((state) => state.diaInicioCiclo)
   const notificacoesAtivas = useUserPreferencesStore((state) => state.notificacoesAtivas)
@@ -53,33 +52,13 @@ export function Settings() {
   const [formNome, setFormNome] = useState('')
   const [formEmail, setFormEmail] = useState('')
 
-  // Carregar dados do perfil do banco + avatar
+  // Carregar dados do perfil do banco
   useEffect(() => {
-    // Tentar dados do perfil do banco primeiro, senão fallback pro auth user
     const nome = userProfile?.full_name || user?.user_metadata?.full_name || ''
     const email = userProfile?.email || user?.email || ''
 
     if (nome) setFormNome(nome)
     if (email) setFormEmail(email)
-
-    // Sincronizar nome com o store local
-    if (nome || email) {
-      atualizarPerfil({ nome: nome || undefined, email: email || null })
-    }
-
-    // Carregar avatar_url do banco
-    const loadAvatar = async () => {
-      if (!supabase || !user) return
-      const { data } = await (supabase as any)
-        .from('users')
-        .select('avatar_url')
-        .eq('id', user.id)
-        .single()
-      if (data?.avatar_url) {
-        atualizarPerfil({ avatarUrl: data.avatar_url })
-      }
-    }
-    loadAvatar()
   }, [userProfile, user])
 
   // Stores for export
@@ -115,32 +94,29 @@ export function Settings() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Converter para base64
     const reader = new FileReader()
     reader.onloadend = async () => {
       const base64 = reader.result as string
-      atualizarPerfil({ avatarUrl: base64 })
 
-      // Salvar no Supabase
+      // Salvar no Supabase e atualizar perfil no contexto
       if (supabase && user) {
         await (supabase as any)
           .from('users')
           .update({ avatar_url: base64 })
           .eq('id', user.id)
+        await refreshProfile()
       }
     }
     reader.readAsDataURL(file)
   }
 
   const handleRemoveAvatar = async () => {
-    atualizarPerfil({ avatarUrl: null })
-
-    // Remover do Supabase
     if (supabase && user) {
       await (supabase as any)
         .from('users')
         .update({ avatar_url: null })
         .eq('id', user.id)
+      await refreshProfile()
     }
   }
 
@@ -192,9 +168,9 @@ export function Settings() {
           <div className="flex items-center gap-6">
             <div className="relative">
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-400 to-secondary-400 flex items-center justify-center overflow-hidden">
-                {avatarUrl ? (
+                {userProfile?.avatar_url ? (
                   <img
-                    src={avatarUrl}
+                    src={userProfile?.avatar_url}
                     alt="Avatar"
                     className="w-full h-full object-cover"
                   />
@@ -229,7 +205,7 @@ export function Settings() {
                   <Camera size={14} className="mr-2" />
                   Alterar foto
                 </Button>
-                {avatarUrl && (
+                {userProfile?.avatar_url && (
                   <Button
                     variant="ghost"
                     size="sm"
