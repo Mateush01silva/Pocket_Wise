@@ -54,8 +54,8 @@ export function Paywall() {
         if (sub?.status === 'active') {
           stopPolling()
           setWaitingPayment(false)
-          toast.success('Pagamento confirmado! Redirecionando...')
           navigate('/app', { replace: true })
+          setTimeout(() => toast.success('Pagamento confirmado!'), 100)
         }
       } catch {
         // Silencioso - continua tentando
@@ -77,8 +77,8 @@ export function Paywall() {
           if (sub?.status === 'active') {
             stopPolling()
             setWaitingPayment(false)
-            toast.success('Pagamento confirmado! Redirecionando...')
             navigate('/app', { replace: true })
+            setTimeout(() => toast.success('Pagamento confirmado!'), 100)
           }
         } catch {
           // Silencioso
@@ -247,8 +247,8 @@ export function Paywall() {
                 if (sub?.status === 'active') {
                   stopPolling()
                   setWaitingPayment(false)
-                  toast.success('Pagamento confirmado! Redirecionando...')
                   navigate('/app', { replace: true })
+                  setTimeout(() => toast.success('Pagamento confirmado!'), 100)
                 } else {
                   toast.info('Pagamento ainda não confirmado. Aguarde alguns instantes.')
                 }
