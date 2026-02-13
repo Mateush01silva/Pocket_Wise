@@ -5,6 +5,7 @@ import { CaixinhaModal } from '../components/CaixinhaModal'
 import { MovimentarCaixinhaModal } from '../components/MovimentarCaixinhaModal'
 import { HistoricoCaixinhaModal } from '../components/HistoricoCaixinhaModal'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
+import { usePermissions } from '../hooks/usePermissions'
 import { useTransacoesStore } from '../store'
 import { formatCurrency } from '../utils/currency'
 import { format, differenceInDays } from 'date-fns'
@@ -16,6 +17,7 @@ import { calcularSaldoAcumuladoNaoAlocado } from '../lib/financialCalculations'
 import type { Caixinha, CaixinhaComDetalhes } from '../types'
 
 export function Caixinhas() {
+  const { canEdit } = usePermissions()
   const {
     caixinhas,
     summary,
@@ -164,10 +166,12 @@ export function Caixinhas() {
             <h1 className="text-3xl font-bold text-gray-100 mb-2">Caixinhas</h1>
             <p className="text-gray-400">Gerencie seus objetivos financeiros e poupanças</p>
           </div>
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus size={16} className="mr-2" />
-            Nova Caixinha
-          </Button>
+          {canEdit && (
+            <Button onClick={() => setIsModalOpen(true)}>
+              <Plus size={16} className="mr-2" />
+              Nova Caixinha
+            </Button>
+          )}
         </div>
 
         {/* Summary Cards */}
@@ -265,10 +269,12 @@ export function Caixinhas() {
                   <p className="text-gray-500 mb-4">
                     Crie sua primeira caixinha para começar a guardar dinheiro para seus objetivos
                   </p>
-                  <Button onClick={() => setIsModalOpen(true)}>
-                    <Plus size={16} className="mr-2" />
-                    Criar Primeira Caixinha
-                  </Button>
+                  {canEdit && (
+                    <Button onClick={() => setIsModalOpen(true)}>
+                      <Plus size={16} className="mr-2" />
+                      Criar Primeira Caixinha
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -289,22 +295,24 @@ export function Caixinhas() {
                             <p className="text-xs text-gray-500">{getTipoLabel(caixinha.tipo)}</p>
                           </div>
                         </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleEdit(caixinha)}
-                            className="text-gray-400 hover:text-primary-400 p-1"
-                            title="Editar"
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(caixinha)}
-                            className="text-gray-400 hover:text-red-400 p-1"
-                            title="Deletar"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+                        {canEdit && (
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => handleEdit(caixinha)}
+                              className="text-gray-400 hover:text-primary-400 p-1"
+                              title="Editar"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(caixinha)}
+                              className="text-gray-400 hover:text-red-400 p-1"
+                              title="Deletar"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </CardHeader>
                     <CardContent>
@@ -357,28 +365,30 @@ export function Caixinhas() {
                         )}
 
                         {/* Actions */}
-                        <div className="flex gap-2 pt-2">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="flex-1"
-                            onClick={() => handleDepositar(caixinha)}
-                          >
-                            <ArrowUpCircle size={14} className="mr-1" />
-                            Depositar
-                          </Button>
-                          {caixinha.saldo_atual > 0 && (
+                        {canEdit && (
+                          <div className="flex gap-2 pt-2">
                             <Button
                               size="sm"
                               variant="secondary"
                               className="flex-1"
-                              onClick={() => handleRetirar(caixinha)}
+                              onClick={() => handleDepositar(caixinha)}
                             >
-                              <ArrowDownCircle size={14} className="mr-1" />
-                              Retirar
+                              <ArrowUpCircle size={14} className="mr-1" />
+                              Depositar
                             </Button>
-                          )}
-                        </div>
+                            {caixinha.saldo_atual > 0 && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="flex-1"
+                                onClick={() => handleRetirar(caixinha)}
+                              >
+                                <ArrowDownCircle size={14} className="mr-1" />
+                                Retirar
+                              </Button>
+                            )}
+                          </div>
+                        )}
                         <Button
                           size="sm"
                           variant="ghost"

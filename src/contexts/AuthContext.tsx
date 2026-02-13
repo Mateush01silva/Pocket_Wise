@@ -39,9 +39,15 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // Chaves localStorage que devem ser limpas ao trocar de usuário
+// Inclui TODOS os stores com persist para evitar vazamento de dados entre contas
 const PERSISTED_STORE_KEYS = [
   'pocket-wise-user-preferences',
   'learning-mode-storage',
+  'pocketwise-categorias-store',
+  'pocketwise-cartoes-store',
+  'pocketwise-contas-bancarias-store',
+  'pocketwise-orcamentos-store',
+  'pocketwise-patrimonio-store',
 ]
 
 function clearPersistedStores() {

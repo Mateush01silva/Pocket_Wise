@@ -7,9 +7,11 @@ import { SubscriptionModal } from '../components/SubscriptionModal'
 import { CancelSubscriptionModal } from '../components/CancelSubscriptionModal'
 import { SubscriptionStats } from '../components/SubscriptionStats'
 import { useAssinaturasStore } from '../store/useAssinaturasStore'
+import { usePermissions } from '../hooks/usePermissions'
 import type { Assinatura, AssinaturaComDetalhes } from '../types'
 
 export function Subscriptions() {
+  const { canEdit } = usePermissions()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
   const [editingAssinatura, setEditingAssinatura] = useState<Assinatura | undefined>()
@@ -158,10 +160,12 @@ export function Subscriptions() {
             <RefreshCw className={`w-5 h-5 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
             {isSyncing ? 'Sincronizando...' : 'Sincronizar Mês'}
           </Button>
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus className="w-5 h-5 mr-2" />
-            Nova Assinatura
-          </Button>
+          {canEdit && (
+            <Button onClick={() => setIsModalOpen(true)}>
+              <Plus className="w-5 h-5 mr-2" />
+              Nova Assinatura
+            </Button>
+          )}
         </div>
       </div>
 
@@ -237,7 +241,7 @@ export function Subscriptions() {
                   : 'Todas as suas assinaturas estão canceladas'}
               </p>
             </div>
-            {!showInactive && (
+            {!showInactive && canEdit && (
               <Button onClick={() => setIsModalOpen(true)}>
                 <Plus className="w-5 h-5 mr-2" />
                 Nova Assinatura
@@ -251,9 +255,9 @@ export function Subscriptions() {
             <SubscriptionCard
               key={assinatura.id}
               assinatura={assinatura}
-              onEdit={handleEdit}
-              onCancel={handleCancel}
-              onDelete={handleDelete}
+              onEdit={canEdit ? handleEdit : undefined}
+              onCancel={canEdit ? handleCancel : undefined}
+              onDelete={canEdit ? handleDelete : undefined}
             />
           ))}
         </div>

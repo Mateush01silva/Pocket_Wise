@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Plus, Pencil, Trash2, FolderPlus, ListPlus } from 'lucide-react'
 import { useCategoriasStore } from '../store'
+import { usePermissions } from '../hooks/usePermissions'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CategoryModal } from '../components/CategoryModal'
 import type { Categoria } from '../types'
@@ -20,6 +21,7 @@ function getSafeIcon(icon: string | null | undefined, fallback: string = ''): st
 }
 
 export function Categories() {
+  const { canEdit } = usePermissions()
   const categorias = useCategoriasStore((state) => state.categorias)
   const getSubcategorias = useCategoriasStore((state) => state.getSubcategorias)
   const deleteCategoria = useCategoriasStore((state) => state.deleteCategoria)
@@ -114,10 +116,12 @@ export function Categories() {
             detalhamento.
           </p>
         </div>
-        <Button onClick={handleNovaCategoria} size="lg">
-          <Plus size={18} className="mr-2" />
-          Nova Categoria Principal
-        </Button>
+        {canEdit && (
+          <Button onClick={handleNovaCategoria} size="lg">
+            <Plus size={18} className="mr-2" />
+            Nova Categoria Principal
+          </Button>
+        )}
       </div>
 
       {/* Categorias de Despesa */}
@@ -183,22 +187,24 @@ export function Categories() {
                           )}
                         </div>
                       </CardTitle>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleEdit(categoria)}
-                          className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
-                          title="Editar categoria"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(categoria)}
-                          className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-red-400"
-                          title="Deletar categoria"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                      {canEdit && (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleEdit(categoria)}
+                            className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
+                            title="Editar categoria"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(categoria)}
+                            className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-red-400"
+                            title="Deletar categoria"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
@@ -222,22 +228,24 @@ export function Categories() {
                                   </span>
                                 )}
                               </div>
-                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                  onClick={() => handleEdit(sub)}
-                                  className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-primary-400"
-                                  title="Editar subcategoria"
-                                >
-                                  <Pencil size={12} />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(sub)}
-                                  className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-red-400"
-                                  title="Deletar subcategoria"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
+                              {canEdit && (
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => handleEdit(sub)}
+                                    className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-primary-400"
+                                    title="Editar subcategoria"
+                                  >
+                                    <Pencil size={12} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(sub)}
+                                    className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-red-400"
+                                    title="Deletar subcategoria"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              )}
                             </li>
                           ))}
                         </ul>
@@ -247,15 +255,17 @@ export function Categories() {
                     )}
 
                     {/* Botão Adicionar Subcategoria */}
-                    <Button
-                      onClick={() => handleNovaSubcategoria(categoria)}
-                      variant="ghost"
-                      size="sm"
-                      className="w-full text-xs"
-                    >
-                      <Plus size={14} className="mr-1" />
-                      Adicionar Subcategoria
-                    </Button>
+                    {canEdit && (
+                      <Button
+                        onClick={() => handleNovaSubcategoria(categoria)}
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs"
+                      >
+                        <Plus size={14} className="mr-1" />
+                        Adicionar Subcategoria
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               )
@@ -320,22 +330,24 @@ export function Categories() {
                           )}
                         </div>
                       </CardTitle>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleEdit(categoria)}
-                          className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
-                          title="Editar categoria"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(categoria)}
-                          className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-red-400"
-                          title="Deletar categoria"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                      {canEdit && (
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleEdit(categoria)}
+                            className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
+                            title="Editar categoria"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(categoria)}
+                            className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-red-400"
+                            title="Deletar categoria"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
@@ -359,22 +371,24 @@ export function Categories() {
                                   </span>
                                 )}
                               </div>
-                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                  onClick={() => handleEdit(sub)}
-                                  className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-primary-400"
-                                  title="Editar subcategoria"
-                                >
-                                  <Pencil size={12} />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(sub)}
-                                  className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-red-400"
-                                  title="Deletar subcategoria"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
+                              {canEdit && (
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => handleEdit(sub)}
+                                    className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-primary-400"
+                                    title="Editar subcategoria"
+                                  >
+                                    <Pencil size={12} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(sub)}
+                                    className="p-1 hover:bg-dark-700/50 rounded transition-colors text-gray-500 hover:text-red-400"
+                                    title="Deletar subcategoria"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              )}
                             </li>
                           ))}
                         </ul>
@@ -384,15 +398,17 @@ export function Categories() {
                     )}
 
                     {/* Botão Adicionar Subcategoria */}
-                    <Button
-                      onClick={() => handleNovaSubcategoria(categoria)}
-                      variant="ghost"
-                      size="sm"
-                      className="w-full text-xs"
-                    >
-                      <Plus size={14} className="mr-1" />
-                      Adicionar Subcategoria
-                    </Button>
+                    {canEdit && (
+                      <Button
+                        onClick={() => handleNovaSubcategoria(categoria)}
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs"
+                      >
+                        <Plus size={14} className="mr-1" />
+                        Adicionar Subcategoria
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               )

@@ -5,6 +5,7 @@ import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, Dol
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
 import { TransactionModal } from '../components/TransactionModal'
+import { usePermissions } from '../hooks/usePermissions'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -14,6 +15,7 @@ type SortField = 'data' | 'categoria' | 'valor' | 'status' | 'forma_pagamento' |
 type SortOrder = 'asc' | 'desc'
 
 export function Transactions() {
+  const { canEdit } = usePermissions()
   const [searchParams] = useSearchParams()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingLancamento, setEditingLancamento] = useState<Lancamento | undefined>(undefined)
@@ -416,13 +418,15 @@ export function Transactions() {
   return (
     <div className="space-y-6 pb-20">
       {/* Botão flutuante Nova Transação */}
-      <button
-        onClick={handleOpenModal}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-full shadow-lg shadow-primary-500/30 transition-all hover:scale-105"
-      >
-        <Plus className="w-5 h-5" />
-        Nova Transação
-      </button>
+      {canEdit && (
+        <button
+          onClick={handleOpenModal}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-full shadow-lg shadow-primary-500/30 transition-all hover:scale-105"
+        >
+          <Plus className="w-5 h-5" />
+          Nova Transação
+        </button>
+      )}
 
       {/* Header */}
       <div className="flex items-start justify-between">
@@ -730,7 +734,7 @@ export function Transactions() {
       </div>
 
       {/* Bulk Actions */}
-      {selectedIds.length > 0 && (
+      {selectedIds.length > 0 && canEdit && (
         <Card>
           <CardContent>
             <div className="flex items-center justify-between flex-wrap gap-2">
@@ -865,7 +869,7 @@ export function Transactions() {
                         if (target.closest('input[type="checkbox"]') || target.closest('button')) {
                           return
                         }
-                        handleEditLancamento(lancamento)
+                        if (canEdit) handleEditLancamento(lancamento)
                       }}
                     >
                       <td className="p-4" onClick={(e) => e.stopPropagation()}>
@@ -942,24 +946,26 @@ export function Transactions() {
                           {lancamento.status === 'projetado' && 'Projetado'}
                         </span>
                       </td>
-                      <td className="p-4">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => handleEditLancamento(lancamento)}
-                            className="p-1 hover:bg-dark-700 rounded transition-colors text-gray-400 hover:text-primary-400"
-                            title="Editar"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSingle(lancamento.id)}
-                            className="p-1 hover:bg-dark-700 rounded transition-colors text-gray-400 hover:text-red-400"
-                            title="Deletar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+                      {canEdit && (
+                        <td className="p-4">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => handleEditLancamento(lancamento)}
+                              className="p-1 hover:bg-dark-700 rounded transition-colors text-gray-400 hover:text-primary-400"
+                              title="Editar"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSingle(lancamento.id)}
+                              className="p-1 hover:bg-dark-700 rounded transition-colors text-gray-400 hover:text-red-400"
+                              title="Deletar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}

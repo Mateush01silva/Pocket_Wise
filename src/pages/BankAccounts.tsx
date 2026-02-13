@@ -14,6 +14,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { useContasBancariasStore } from '../store/useContasBancariasStore'
+import { usePermissions } from '../hooks/usePermissions'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { BankAccountModal } from '../components/BankAccountModal'
 import { AdjustBalanceModal } from '../components/AdjustBalanceModal'
@@ -39,6 +40,7 @@ const LABEL_POR_TIPO: Record<TipoConta, string> = {
 }
 
 export function BankAccounts() {
+  const { canEdit } = usePermissions()
   const contas = useContasBancariasStore((state) => state.contas)
   const fetchContas = useContasBancariasStore((state) => state.fetchContas)
   const deleteConta = useContasBancariasStore((state) => state.deleteConta)
@@ -128,29 +130,31 @@ export function BankAccounts() {
                 </div>
               </div>
             </CardTitle>
-            <div className="flex gap-1">
-              <button
-                onClick={() => handleAdjustBalance(conta)}
-                className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-green-400"
-                title="Ajustar saldo"
-              >
-                <RefreshCw size={14} />
-              </button>
-              <button
-                onClick={() => handleEdit(conta)}
-                className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
-                title="Editar conta"
-              >
-                <Pencil size={14} />
-              </button>
-              <button
-                onClick={() => handleDelete(conta)}
-                className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-red-400"
-                title={conta.ativo ? 'Desativar conta' : 'Excluir conta'}
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
+            {canEdit && (
+              <div className="flex gap-1">
+                <button
+                  onClick={() => handleAdjustBalance(conta)}
+                  className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-green-400"
+                  title="Ajustar saldo"
+                >
+                  <RefreshCw size={14} />
+                </button>
+                <button
+                  onClick={() => handleEdit(conta)}
+                  className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-primary-400"
+                  title="Editar conta"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  onClick={() => handleDelete(conta)}
+                  className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-red-400"
+                  title={conta.ativo ? 'Desativar conta' : 'Excluir conta'}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            )}
           </div>
         </CardHeader>
 
@@ -216,10 +220,12 @@ export function BankAccounts() {
           >
             {saldosVisiveis ? <EyeOff size={16} /> : <Eye size={16} />}
           </Button>
-          <Button onClick={() => setIsModalOpen(true)}>
-            <Plus size={16} className="mr-2" />
-            Nova Conta
-          </Button>
+          {canEdit && (
+            <Button onClick={() => setIsModalOpen(true)}>
+              <Plus size={16} className="mr-2" />
+              Nova Conta
+            </Button>
+          )}
         </div>
       </div>
 
