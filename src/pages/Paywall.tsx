@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '../components/ui'
 import { Check, TrendingUp, Loader2, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { createCheckout, redirectToPayment } from '../services/paymentService'
+import { createCheckout, openPaymentWindow, redirectToPayment } from '../services/paymentService'
 import type { PlanType } from '../services/paymentService'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
@@ -34,6 +34,7 @@ export function Paywall() {
   const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null)
   const [cpfCnpj, setCpfCnpj] = useState('')
   const [waitingPayment, setWaitingPayment] = useState(false)
+  const [paymentLink, setPaymentLink] = useState<string | null>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const stopPolling = useCallback(() => {
@@ -116,20 +117,25 @@ export function Paywall() {
 
     setLoadingPlan(selectedPlan)
 
+    // Abrir janela ANTES do await para evitar bloqueio de popup do navegador
+    const paymentWindow = openPaymentWindow()
+
     try {
       const result = await createCheckout(selectedPlan, digits)
 
       if (result.subscription.paymentLink) {
-        toast.success('Redirecionando para pagamento...')
         setSelectedPlan(null)
-        redirectToPayment(result.subscription.paymentLink)
+        setPaymentLink(result.subscription.paymentLink)
+        redirectToPayment(result.subscription.paymentLink, paymentWindow)
         startPolling()
       } else {
+        paymentWindow?.close()
         toast.success('Assinatura criada! Verifique seu email para o link de pagamento.')
         setSelectedPlan(null)
         startPolling()
       }
     } catch (error) {
+      paymentWindow?.close()
       console.error('Erro ao criar checkout:', error)
       toast.error(
         error instanceof Error
@@ -241,6 +247,16 @@ export function Paywall() {
             <p className="text-sm text-gray-400 mb-4">
               Após concluir o pagamento, você será redirecionado automaticamente.
             </p>
+            {paymentLink && (
+              <a
+                href={paymentLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mb-4 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Abrir página de pagamento
+              </a>
+            )}
             <button
               onClick={async () => {
                 const sub = await refreshSubscription()
@@ -253,7 +269,7 @@ export function Paywall() {
                   toast.info('Pagamento ainda não confirmado. Aguarde alguns instantes.')
                 }
               }}
-              className="text-sm text-primary-400 hover:text-primary-300 transition-colors underline"
+              className="block mx-auto text-sm text-primary-400 hover:text-primary-300 transition-colors underline"
             >
               Já paguei, verificar agora
             </button>
