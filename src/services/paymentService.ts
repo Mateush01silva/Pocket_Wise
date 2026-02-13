@@ -61,10 +61,23 @@ export async function createCheckout(
 }
 
 /**
- * Redireciona o usuário para a página de pagamento da Asaas
+ * Abre uma janela em branco no contexto do clique do usuário.
+ * Deve ser chamada ANTES de qualquer await para evitar bloqueio de popup.
  */
-export function redirectToPayment(paymentLink: string) {
-  window.open(paymentLink, '_blank')
+export function openPaymentWindow(): Window | null {
+  return window.open('', '_blank')
+}
+
+/**
+ * Redireciona a janela já aberta para a página de pagamento da Asaas.
+ * Se a janela foi fechada/bloqueada, redireciona a página atual como fallback.
+ */
+export function redirectToPayment(paymentLink: string, paymentWindow?: Window | null) {
+  if (paymentWindow && !paymentWindow.closed) {
+    paymentWindow.location.href = paymentLink
+  } else {
+    window.open(paymentLink, '_blank')
+  }
 }
 
 /**
