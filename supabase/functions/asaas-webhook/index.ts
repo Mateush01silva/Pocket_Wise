@@ -262,16 +262,43 @@ async function handleSubscriptionCanceled(payload: AsaasWebhookPayload) {
   const userId = await resolveUserId(payload)
   if (!userId) return
 
-  const { data: updated, error } = await supabaseAdmin
+  // Verificar se o usuário ainda tem período ativo
+  const { data: sub } = await supabaseAdmin
     .from('plano_usuario')
-    .update({
-      status: 'canceled',
-      asaas_subscription_id: null,
-      updated_at: new Date().toISOString(),
-    })
+    .select('status, current_period_end, cancel_at_period_end')
     .eq('user_id', userId)
-    .select('id, status')
+    .single()
 
-  if (error) throw error
-  console.log(`Assinatura cancelada: user=${userId}`, JSON.stringify(updated))
+  // Se tem período ativo, manter acesso até o fim (cancel_at_period_end)
+  // Se não tem período ou já expirou, cancelar imediatamente
+  const hasActivePeriod = sub?.current_period_end && new Date(sub.current_period_end) > new Date()
+
+  if (hasActivePeriod && sub?.status === 'active') {
+    const { data: updated, error } = await supabaseAdmin
+      .from('plano_usuario')
+      .update({
+        cancel_at_period_end: true,
+        asaas_subscription_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+      .select('id, status, cancel_at_period_end')
+
+    if (error) throw error
+    console.log(`Assinatura marcada para cancelamento no fim do período: user=${userId}`, JSON.stringify(updated))
+  } else {
+    const { data: updated, error } = await supabaseAdmin
+      .from('plano_usuario')
+      .update({
+        status: 'canceled',
+        cancel_at_period_end: false,
+        asaas_subscription_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+      .select('id, status')
+
+    if (error) throw error
+    console.log(`Assinatura cancelada imediatamente: user=${userId}`, JSON.stringify(updated))
+  }
 }

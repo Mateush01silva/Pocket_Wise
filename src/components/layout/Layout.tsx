@@ -1,6 +1,9 @@
 import { useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { NotificationBell } from '../NotificationBell'
+import { useAuth } from '../../contexts/AuthContext'
+import { AlertTriangle } from 'lucide-react'
 
 interface LayoutProps {
   children: ReactNode
@@ -8,6 +11,18 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const { subscription, daysUntilExpiration, userProfile } = useAuth()
+
+  const days = daysUntilExpiration()
+  const isAdmin = userProfile?.role === 'admin'
+
+  // Mostrar banner se: trial ou cancelamento pendente, e faltam 7 dias ou menos
+  const showWarning = !isAdmin && days >= 0 && days <= 7 && (
+    (subscription?.status === 'trial') ||
+    (subscription?.status === 'active' && subscription?.cancel_at_period_end)
+  )
+
+  const isTrial = subscription?.status === 'trial'
 
   return (
     <div className="flex min-h-screen bg-dark-900">
@@ -59,6 +74,44 @@ export function Layout({ children }: LayoutProps) {
         </div>
 
         <div className="max-w-7xl mx-auto pt-14 lg:pt-0">
+          {/* Banner de aviso de expiração */}
+          {showWarning && (
+            <div className={`mb-6 rounded-lg p-3 flex items-center justify-between gap-3 ${
+              days <= 2
+                ? 'bg-red-500/10 border border-red-500/20'
+                : 'bg-yellow-500/10 border border-yellow-500/20'
+            }`}>
+              <div className="flex items-center gap-3">
+                <AlertTriangle size={18} className={days <= 2 ? 'text-red-400' : 'text-yellow-400'} />
+                <p className={`text-sm ${days <= 2 ? 'text-red-200' : 'text-yellow-200'}`}>
+                  {isTrial ? (
+                    days === 0
+                      ? 'Seu teste gratuito termina hoje!'
+                      : days === 1
+                        ? 'Seu teste gratuito termina amanhã!'
+                        : `Seu teste gratuito termina em ${days} dias.`
+                  ) : (
+                    days === 0
+                      ? 'Sua assinatura expira hoje!'
+                      : days === 1
+                        ? 'Sua assinatura expira amanhã!'
+                        : `Sua assinatura expira em ${days} dias.`
+                  )}
+                </p>
+              </div>
+              <Link
+                to={isTrial ? '/app/assinar' : '/app/configuracoes'}
+                className={`text-sm font-medium whitespace-nowrap ${
+                  days <= 2
+                    ? 'text-red-400 hover:text-red-300'
+                    : 'text-yellow-400 hover:text-yellow-300'
+                }`}
+              >
+                {isTrial ? 'Assinar agora' : 'Ver detalhes'}
+              </Link>
+            </div>
+          )}
+
           {children}
         </div>
       </main>

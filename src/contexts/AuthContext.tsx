@@ -10,6 +10,7 @@ interface Subscription {
   plan: 'monthly' | 'annual' | null
   trial_ends_at: string | null
   current_period_end: string | null
+  cancel_at_period_end: boolean
   created_at: string
 }
 
@@ -35,6 +36,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>
   hasAccess: () => boolean
   trialDaysRemaining: () => number
+  daysUntilExpiration: () => number
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -262,10 +264,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Se tem assinatura ativa
     if (subscription.status === 'active') {
+      // Se cancelou, manter acesso até o fim do período pago
+      if (subscription.cancel_at_period_end && subscription.current_period_end) {
+        return new Date(subscription.current_period_end) > new Date()
+      }
       return true
     }
 
     return false
+  }
+
+  const daysUntilExpiration = (): number => {
+    if (!subscription) return 0
+
+    let endDate: string | null = null
+
+    if (subscription.status === 'trial') {
+      endDate = subscription.trial_ends_at
+    } else if (subscription.status === 'active' && subscription.cancel_at_period_end) {
+      endDate = subscription.current_period_end
+    }
+
+    if (!endDate) return -1 // -1 = sem data de expiração (assinatura recorrente ativa)
+
+    const diffMs = new Date(endDate).getTime() - new Date().getTime()
+    return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
   }
 
   const trialDaysRemaining = (): number => {
@@ -295,6 +318,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetPassword,
     hasAccess,
     trialDaysRemaining,
+    daysUntilExpiration,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
