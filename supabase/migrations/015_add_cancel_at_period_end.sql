@@ -41,3 +41,52 @@ BEGIN
   RETURN FALSE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================================
+-- RPC: cancel_my_subscription
+-- ============================================================================
+-- Permite que o próprio usuário cancele sua assinatura via chamada RPC.
+-- Usa auth.uid() para segurança - só cancela a assinatura do usuário logado.
+-- Retorna current_period_end para exibir ao usuário.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION cancel_my_subscription()
+RETURNS JSON AS $$
+DECLARE
+  user_uuid UUID;
+  sub plano_usuario%ROWTYPE;
+BEGIN
+  -- Pegar o usuário autenticado
+  user_uuid := auth.uid();
+  IF user_uuid IS NULL THEN
+    RETURN json_build_object('success', false, 'error', 'Usuário não autenticado');
+  END IF;
+
+  -- Buscar assinatura
+  SELECT * INTO sub FROM plano_usuario WHERE user_id = user_uuid;
+  IF sub IS NULL THEN
+    RETURN json_build_object('success', false, 'error', 'Assinatura não encontrada');
+  END IF;
+
+  -- Validar status
+  IF sub.status != 'active' THEN
+    RETURN json_build_object('success', false, 'error', 'Assinatura não está ativa');
+  END IF;
+
+  IF sub.cancel_at_period_end = TRUE THEN
+    RETURN json_build_object('success', false, 'error', 'Assinatura já está marcada para cancelamento');
+  END IF;
+
+  -- Marcar para cancelamento no fim do período
+  UPDATE plano_usuario
+  SET cancel_at_period_end = TRUE,
+      updated_at = NOW()
+  WHERE user_id = user_uuid;
+
+  RETURN json_build_object(
+    'success', true,
+    'message', 'Assinatura será cancelada no fim do período atual',
+    'current_period_end', sub.current_period_end
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
