@@ -81,9 +81,7 @@ export function redirectToPayment(paymentLink: string, paymentWindow?: Window | 
 }
 
 /**
- * Cancela a assinatura do usuário.
- * Tenta via Edge Function (que também cancela na Asaas).
- * Se a Edge Function não estiver disponível, usa RPC direto no banco.
+ * Cancela a assinatura do usuário via Edge Function (cancela na Asaas + banco).
  * O acesso é mantido até o fim do período já pago.
  */
 export async function cancelSubscription(): Promise<{ current_period_end: string }> {
@@ -96,66 +94,31 @@ export async function cancelSubscription(): Promise<{ current_period_end: string
     throw new Error('Usuário não autenticado')
   }
 
-  // Tentar via Edge Function primeiro (cancela na Asaas + banco)
-  try {
-    const { data, error } = await supabase.functions.invoke('cancel-subscription', {
-      body: {},
-    })
+  const { data, error } = await supabase.functions.invoke('cancel-subscription', {
+    body: {},
+  })
 
-    if (!error && data?.success) {
-      return { current_period_end: data.current_period_end }
-    }
-
-    // Se o erro for que a função não existe (404), tentar fallback
-    const is404 = error?.context instanceof Response && error.context.status === 404
-    if (!is404 && error) {
-      // Erro real da Edge Function - extrair mensagem
-      let errorMessage = 'Erro ao cancelar assinatura'
-      try {
-        if (error.context instanceof Response) {
-          const errorBody = await error.context.json()
-          errorMessage = errorBody?.error || error.message
-        } else {
-          errorMessage = error.message
-        }
-      } catch {
-        errorMessage = error.message || errorMessage
+  if (error) {
+    let errorMessage = 'Erro ao cancelar assinatura'
+    try {
+      if (error.context instanceof Response) {
+        const errorBody = await error.context.json()
+        errorMessage = errorBody?.error || error.message
+      } else {
+        errorMessage = error.message
       }
-      throw new Error(errorMessage)
+    } catch {
+      errorMessage = error.message || errorMessage
     }
-
-    if (!is404 && data && !data.success) {
-      throw new Error(data?.error || 'Erro ao cancelar assinatura')
-    }
-
-    // Se chegou aqui, é 404 - tentar fallback RPC
-    console.log('Edge Function cancel-subscription não disponível, usando fallback RPC')
-  } catch (edgeFnError) {
-    // Se o erro já foi tratado acima (throw new Error), propagar
-    if (edgeFnError instanceof Error && edgeFnError.message !== 'Failed to fetch') {
-      // Verificar se é um erro de negócio (não de rede/404)
-      if (!edgeFnError.message.includes('Edge Function') &&
-          !edgeFnError.message.includes('FunctionsHttpError') &&
-          !edgeFnError.message.includes('FunctionsRelayError')) {
-        throw edgeFnError
-      }
-    }
-    console.log('Edge Function falhou, tentando fallback RPC:', edgeFnError)
+    console.error('Erro cancel-subscription:', errorMessage)
+    throw new Error(errorMessage)
   }
 
-  // Fallback: cancelar via RPC direto no banco
-  const { data: rpcData, error: rpcError } = await (supabase as any).rpc('cancel_my_subscription')
-
-  if (rpcError) {
-    console.error('Erro RPC cancel_my_subscription:', rpcError)
-    throw new Error(rpcError.message || 'Erro ao cancelar assinatura')
+  if (!data?.success) {
+    throw new Error(data?.error || 'Erro ao cancelar assinatura')
   }
 
-  if (!rpcData?.success) {
-    throw new Error(rpcData?.error || 'Erro ao cancelar assinatura')
-  }
-
-  return { current_period_end: rpcData.current_period_end }
+  return { current_period_end: data.current_period_end }
 }
 
 /**
