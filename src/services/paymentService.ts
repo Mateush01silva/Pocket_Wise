@@ -81,6 +81,46 @@ export function redirectToPayment(paymentLink: string, paymentWindow?: Window | 
 }
 
 /**
+ * Cancela a assinatura do usuário via Supabase Edge Function -> Asaas API
+ * O acesso é mantido até o fim do período já pago.
+ */
+export async function cancelSubscription(): Promise<{ current_period_end: string }> {
+  if (!supabase) {
+    throw new Error('Supabase não configurado')
+  }
+
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    throw new Error('Usuário não autenticado')
+  }
+
+  const { data, error } = await supabase.functions.invoke('cancel-subscription', {
+    body: {},
+  })
+
+  if (error) {
+    let errorMessage = 'Erro ao cancelar assinatura'
+    try {
+      if (error.context instanceof Response) {
+        const errorBody = await error.context.json()
+        errorMessage = errorBody?.error || error.message
+      } else {
+        errorMessage = error.message
+      }
+    } catch {
+      errorMessage = error.message || errorMessage
+    }
+    throw new Error(errorMessage)
+  }
+
+  if (!data?.success) {
+    throw new Error(data?.error || 'Erro ao cancelar assinatura')
+  }
+
+  return { current_period_end: data.current_period_end }
+}
+
+/**
  * Valores dos planos (espelhando o backend)
  */
 export const PLAN_PRICES = {

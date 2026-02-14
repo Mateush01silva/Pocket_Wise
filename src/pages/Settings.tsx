@@ -12,6 +12,12 @@ import {
   Mail,
   Calendar,
   DollarSign,
+  CreditCard,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Loader2,
+  XCircle,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -25,6 +31,7 @@ import { useCategoriasStore } from '../store/useCategoriasStore'
 import { useContasBancariasStore } from '../store/useContasBancariasStore'
 import { useCartoesStore } from '../store/useCartoesStore'
 import { useAuth } from '../contexts/AuthContext'
+import { cancelSubscription } from '../services/paymentService'
 import { supabase } from '../lib/supabase'
 import { cn } from '../lib/cn'
 import { toast } from 'sonner'
@@ -33,9 +40,11 @@ export function Settings() {
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  const [isCanceling, setIsCanceling] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   // Auth context - dados reais do banco
-  const { user, userProfile, refreshProfile } = useAuth()
+  const { user, userProfile, refreshProfile, subscription, refreshSubscription } = useAuth()
 
   // User preferences (local store)
   const moeda = useUserPreferencesStore((state) => state.moeda)
@@ -117,6 +126,25 @@ export function Settings() {
         .update({ avatar_url: null })
         .eq('id', user.id)
       await refreshProfile()
+    }
+  }
+
+  const handleCancelSubscription = async () => {
+    setIsCanceling(true)
+    try {
+      await cancelSubscription()
+      await refreshSubscription()
+      setShowCancelConfirm(false)
+      toast.success('Assinatura cancelada. Seu acesso continua até o fim do período pago.')
+    } catch (error) {
+      console.error('Erro ao cancelar:', error)
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Erro ao cancelar assinatura. Tente novamente.'
+      )
+    } finally {
+      setIsCanceling(false)
     }
   }
 
@@ -253,6 +281,152 @@ export function Settings() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Assinatura */}
+      {subscription && userProfile?.role !== 'admin' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard size={20} className="text-emerald-400" />
+              Assinatura
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Status da assinatura */}
+            <div className="flex items-center justify-between p-4 bg-dark-800 rounded-lg">
+              <div className="flex items-center gap-3">
+                {subscription.status === 'active' && !subscription.cancel_at_period_end && (
+                  <CheckCircle size={20} className="text-green-400" />
+                )}
+                {subscription.status === 'active' && subscription.cancel_at_period_end && (
+                  <Clock size={20} className="text-yellow-400" />
+                )}
+                {subscription.status === 'trial' && (
+                  <Clock size={20} className="text-blue-400" />
+                )}
+                {(subscription.status === 'expired' || subscription.status === 'canceled') && (
+                  <XCircle size={20} className="text-red-400" />
+                )}
+                <div>
+                  <p className="font-medium text-gray-200">
+                    {subscription.status === 'trial' && 'Teste gratuito'}
+                    {subscription.status === 'active' && !subscription.cancel_at_period_end && (
+                      `Plano ${subscription.plan === 'annual' ? 'Anual' : 'Mensal'}`
+                    )}
+                    {subscription.status === 'active' && subscription.cancel_at_period_end && (
+                      `Plano ${subscription.plan === 'annual' ? 'Anual' : 'Mensal'} (cancelado)`
+                    )}
+                    {subscription.status === 'expired' && 'Assinatura expirada'}
+                    {subscription.status === 'canceled' && 'Assinatura cancelada'}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {subscription.status === 'trial' && subscription.trial_ends_at && (
+                      `Termina em ${format(new Date(subscription.trial_ends_at), "dd 'de' MMMM", { locale: ptBR })}`
+                    )}
+                    {subscription.status === 'active' && subscription.cancel_at_period_end && subscription.current_period_end && (
+                      `Acesso até ${format(new Date(subscription.current_period_end), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}`
+                    )}
+                    {subscription.status === 'active' && !subscription.cancel_at_period_end && subscription.current_period_end && (
+                      `Renova em ${format(new Date(subscription.current_period_end), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}`
+                    )}
+                    {subscription.status === 'active' && !subscription.cancel_at_period_end && subscription.plan && (
+                      ` - ${subscription.plan === 'annual' ? 'R$ 119,90/ano' : 'R$ 12,90/mês'}`
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div>
+                {subscription.status === 'active' && !subscription.cancel_at_period_end && (
+                  <span className="px-3 py-1 bg-green-500/10 text-green-400 text-xs font-medium rounded-full">
+                    Ativa
+                  </span>
+                )}
+                {subscription.status === 'active' && subscription.cancel_at_period_end && (
+                  <span className="px-3 py-1 bg-yellow-500/10 text-yellow-400 text-xs font-medium rounded-full">
+                    Cancela no fim do ciclo
+                  </span>
+                )}
+                {subscription.status === 'trial' && (
+                  <span className="px-3 py-1 bg-blue-500/10 text-blue-400 text-xs font-medium rounded-full">
+                    Trial
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Aviso de cancelamento pendente */}
+            {subscription.status === 'active' && subscription.cancel_at_period_end && (
+              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={18} className="text-yellow-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm text-yellow-200 font-medium">Cancelamento agendado</p>
+                    <p className="text-xs text-yellow-300/70 mt-1">
+                      Sua assinatura foi cancelada, mas você mantém acesso a todas as funcionalidades
+                      até o fim do período já pago. Após essa data, será necessário assinar novamente.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Botão de cancelar */}
+            {subscription.status === 'active' && !subscription.cancel_at_period_end && (
+              <>
+                {!showCancelConfirm ? (
+                  <button
+                    onClick={() => setShowCancelConfirm(true)}
+                    className="text-sm text-gray-500 hover:text-red-400 transition-colors"
+                  >
+                    Cancelar assinatura
+                  </button>
+                ) : (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle size={18} className="text-red-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-sm text-red-200 font-medium">Tem certeza que deseja cancelar?</p>
+                        <p className="text-xs text-red-300/70 mt-1">
+                          Seu acesso continua até o fim do período atual
+                          {subscription.current_period_end && (
+                            <> ({format(new Date(subscription.current_period_end), "dd/MM/yyyy", { locale: ptBR })})</>
+                          )}.
+                          Após essa data, não será cobrado novamente.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setShowCancelConfirm(false)}
+                        disabled={isCanceling}
+                      >
+                        Voltar
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleCancelSubscription}
+                        disabled={isCanceling}
+                        className="bg-red-500/20 hover:bg-red-500/30 text-red-400"
+                      >
+                        {isCanceling ? (
+                          <span className="flex items-center gap-2">
+                            <Loader2 size={14} className="animate-spin" />
+                            Cancelando...
+                          </span>
+                        ) : (
+                          'Confirmar cancelamento'
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Preferências do App */}
       <Card>
