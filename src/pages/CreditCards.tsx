@@ -9,6 +9,7 @@ import {
   TrendingUp,
   AlertCircle,
   Eye,
+  Target,
 } from 'lucide-react'
 import { format, parseISO, addMonths, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -251,6 +252,76 @@ export function CreditCards() {
     [cartoesComEstatisticas]
   )
 
+  // Calcular parcelas pendentes (não pagas, com parcelamento)
+  const parcelasPendentes = useMemo(() => {
+    return lancamentos
+      .filter(
+        (l) =>
+          l.grupo_parcelas_id &&
+          l.parcela_atual &&
+          l.parcela_total &&
+          l.status !== 'pago' &&
+          l.parcela_total > 1
+      )
+      .sort((a, b) => new Date(a.data_vencimento_fatura || a.data).getTime() - new Date(b.data_vencimento_fatura || b.data).getTime())
+  }, [lancamentos])
+
+  // Agrupar parcelas por grupo
+  const gruposParcelas = useMemo(() => {
+    const grupos = new Map<
+      string,
+      {
+        descricao: string
+        valor: number
+        parcelas: typeof parcelasPendentes
+        cartao?: string
+      }
+    >()
+
+    parcelasPendentes.forEach((parcela) => {
+      const grupoId = parcela.grupo_parcelas_id!
+      if (!grupos.has(grupoId)) {
+        const cartao = cartoes.find((c) => c.id === parcela.cartao_id)
+        grupos.set(grupoId, {
+          descricao: parcela.observacao || 'Compra parcelada',
+          valor: parcela.valor,
+          parcelas: [],
+          cartao: cartao?.nome,
+        })
+      }
+      grupos.get(grupoId)!.parcelas.push(parcela)
+    })
+
+    return Array.from(grupos.entries()).map(([id, dados]) => ({
+      id,
+      ...dados,
+      totalParcelas: dados.parcelas.length,
+      valorTotal: dados.valor * dados.parcelas.length,
+    }))
+  }, [parcelasPendentes, cartoes])
+
+  // Calcular parcelas dos próximos 3 meses
+  const compromissosProximos3Meses = useMemo(() => {
+    const hoje = new Date()
+    let total = 0
+    for (let i = 0; i < 3; i++) {
+      const mesReferencia = startOfMonth(addMonths(hoje, i))
+      const mesFormatado = format(mesReferencia, 'yyyy-MM')
+      const parcelasMes = lancamentos.filter((l) => {
+        if (!l.grupo_parcelas_id || !l.parcela_atual || !l.parcela_total || l.status === 'pago') return false
+        const dataLancamento = new Date(l.data_vencimento_fatura || l.data)
+        return format(dataLancamento, 'yyyy-MM') === mesFormatado
+      })
+      total += parcelasMes.reduce((sum, l) => sum + l.valor, 0)
+    }
+    return total
+  }, [lancamentos])
+
+  const totalParcelasPendentes = useMemo(
+    () => parcelasPendentes.reduce((sum, p) => sum + p.valor, 0),
+    [parcelasPendentes]
+  )
+
   const handleEdit = (cartao: Cartao) => {
     setCartaoToEdit(cartao)
     setIsModalOpen(true)
@@ -474,7 +545,7 @@ export function CreditCards() {
 
       {/* Resumo Geral */}
       {cartoesAtivos.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
@@ -528,6 +599,54 @@ export function CreditCards() {
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Parcelas Pendentes</p>
+                  <p className="text-2xl font-bold text-primary-400">
+                    {formatCurrency(totalParcelasPendentes)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Total não pago</p>
+                </div>
+                <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center">
+                  <CreditCard className="text-primary-500" size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Próximos 3 Meses</p>
+                  <p className="text-2xl font-bold text-yellow-400">
+                    {formatCurrency(compromissosProximos3Meses)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Parcelas a vencer</p>
+                </div>
+                <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center">
+                  <Calendar className="text-yellow-500" size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">Parcelamentos Ativos</p>
+                  <p className="text-2xl font-bold text-gray-100">{gruposParcelas.length}</p>
+                </div>
+                <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center">
+                  <Target className="text-blue-500" size={24} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -557,6 +676,78 @@ export function CreditCards() {
                 Adicionar Cartão
               </Button>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Parcelamentos Ativos */}
+      {gruposParcelas.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Parcelamentos Ativos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {gruposParcelas.map((grupo) => (
+                <div
+                  key={grupo.id}
+                  className="p-4 bg-dark-700/30 rounded-lg hover:bg-dark-700/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-200 mb-1">
+                        {grupo.descricao}
+                      </h4>
+                      <div className="flex items-center gap-3 text-sm text-gray-400">
+                        {grupo.cartao && (
+                          <span className="flex items-center gap-1">
+                            <CreditCard size={14} />
+                            {grupo.cartao}
+                          </span>
+                        )}
+                        <span>
+                          {grupo.parcelas.length} parcelas restantes
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-primary-400">
+                        {formatCurrency(grupo.valor)}
+                        <span className="text-sm text-gray-500">/mês</span>
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Total: {formatCurrency(grupo.valorTotal)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Próximas 3 parcelas */}
+                  <div className="mt-3 pt-3 border-t border-dark-700">
+                    <p className="text-xs text-gray-500 mb-2">Próximas parcelas:</p>
+                    <div className="space-y-1">
+                      {grupo.parcelas.slice(0, 3).map((parcela) => (
+                        <div
+                          key={parcela.id}
+                          className="flex justify-between text-xs text-gray-400"
+                        >
+                          <span>
+                            Parcela {parcela.parcela_atual}/{parcela.parcela_total}
+                          </span>
+                          <span>
+                            {format(new Date(parcela.data), 'dd/MM/yyyy')}
+                          </span>
+                        </div>
+                      ))}
+                      {grupo.parcelas.length > 3 && (
+                        <p className="text-xs text-gray-500 text-center">
+                          + {grupo.parcelas.length - 3} parcelas
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

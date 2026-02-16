@@ -22,7 +22,6 @@ import {
   ComparativeReports,
   Budgets,
   Envelopes,
-  Projections,
   Subscriptions,
   Family,
   Settings,
@@ -178,7 +177,7 @@ function AppRoutes() {
               <Route path="/categories" element={<Categories />} />
               <Route path="/budgets" element={<Budgets />} />
               <Route path="/envelopes" element={<Envelopes />} />
-              <Route path="/projections" element={<Projections />} />
+              <Route path="/projections" element={<Navigate to="/credit-cards" replace />} />
               <Route path="/subscriptions" element={<Subscriptions />} />
               <Route path="/caixinhas" element={<Caixinhas />} />
               <Route path="/family" element={<Family />} />
@@ -289,13 +288,7 @@ function AppRoutes() {
           />
           <Route
             path="/app/projecoes"
-            element={
-              <PrivateRoute>
-                <Layout>
-                  <Projections />
-                </Layout>
-              </PrivateRoute>
-            }
+            element={<Navigate to="/app/cartoes" replace />}
           />
           <Route
             path="/app/assinaturas"
@@ -347,7 +340,7 @@ function AppRoutes() {
           <Route path="/categories" element={<Navigate to="/app/categorias" replace />} />
           <Route path="/budgets" element={<Navigate to="/app/envelopes" replace />} />
           <Route path="/envelopes" element={<Navigate to="/app/envelopes" replace />} />
-          <Route path="/projections" element={<Navigate to="/app/projecoes" replace />} />
+          <Route path="/projections" element={<Navigate to="/app/cartoes" replace />} />
           <Route path="/subscriptions" element={<Navigate to="/app/assinaturas" replace />} />
           <Route path="/caixinhas" element={<Navigate to="/app/caixinhas" replace />} />
           <Route path="/family" element={<Navigate to="/app/familia" replace />} />
