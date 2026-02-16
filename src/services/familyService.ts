@@ -14,7 +14,7 @@
  * 2. Remover o @ts-nocheck no topo deste arquivo
  */
 
-import { supabase, getCurrentUser, getUserFamilyId } from '../lib/supabase'
+import { supabase, getCurrentUser, getUserFamilyId, clearFamilyIdCache } from '../lib/supabase'
 import type {
   Family,
   FamilyInvite,
@@ -374,10 +374,23 @@ export const familyInvitesService = {
       return { data: null, error: new Error('You are already a member of this family') }
     }
 
-    // Atualizar o user com o family_id
-    const { error: userError } = await supabase
+    // Preservar personal_family_id antes de trocar a família ativa.
+    // Se o usuário já tem uma família própria (family_id) e personal_family_id
+    // ainda não foi definido, salvar agora para não perder o contexto pessoal.
+    const { data: userRow } = await (supabase as any)
       .from('users')
-      .update({ family_id: invite.family_id })
+      .select('family_id, personal_family_id')
+      .eq('id', currentUser.id)
+      .single()
+
+    const updatePayload: Record<string, string | null> = { family_id: invite.family_id }
+    if (userRow?.family_id && !userRow?.personal_family_id) {
+      updatePayload.personal_family_id = userRow.family_id
+    }
+
+    const { error: userError } = await (supabase as any)
+      .from('users')
+      .update(updatePayload)
       .eq('id', currentUser.id)
 
     if (userError) {
@@ -397,8 +410,11 @@ export const familyInvitesService = {
       .single()
 
     if (memberError) {
-      // Rollback - remover family_id do usuário
-      await supabase.from('users').update({ family_id: null }).eq('id', currentUser.id)
+      // Rollback - restaurar family_id anterior
+      await (supabase as any)
+        .from('users')
+        .update({ family_id: userRow?.family_id ?? null })
+        .eq('id', currentUser.id)
       return { data: null, error: memberError }
     }
 
@@ -519,6 +535,49 @@ export const familyInvitesService = {
 
     return { data: true, error: null }
   },
+
+  // ─── Multi-família ────────────────────────────────────────────────────────
+
+  async getUserFamilies(): Promise<{ families: UserFamilyInfo[]; activeFamilyId: string | null; personalFamilyId: string | null } | null> {
+    if (!supabase) return null
+
+    const { data, error } = await (supabase as any).rpc('get_user_families')
+    if (error || !data) {
+      console.error('Erro ao buscar famílias do usuário:', error)
+      return null
+    }
+
+    if (!data.success) return null
+
+    return {
+      families: data.families ?? [],
+      activeFamilyId: data.active_family_id ?? null,
+      personalFamilyId: data.personal_family_id ?? null,
+    }
+  },
+
+  async switchFamily(targetFamilyId: string): Promise<{ success: boolean; error?: string }> {
+    if (!supabase) return { success: false, error: 'Supabase não configurado' }
+
+    const { data, error } = await (supabase as any).rpc('switch_active_family', {
+      target_family_id: targetFamilyId,
+    })
+
+    if (error || !data?.success) {
+      return { success: false, error: data?.error ?? error?.message ?? 'Erro ao trocar família' }
+    }
+
+    clearFamilyIdCache()
+
+    return { success: true }
+  },
+}
+
+export interface UserFamilyInfo {
+  family_id: string
+  nome: string
+  role: 'admin' | 'editor' | 'viewer'
+  is_personal: boolean
 }
 
 // =====================================================
