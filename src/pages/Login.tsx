@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Button, Input } from '../components/ui'
 import { TrendingUp, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 export function Login() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { signIn } = useAuth()
 
   const [email, setEmail] = useState('')
@@ -28,7 +29,8 @@ export function Login() {
     setIsLoading(true)
     try {
       await signIn(email, password)
-      navigate('/app', { replace: true })
+      const redirectTo = searchParams.get('redirect') || '/app'
+      navigate(redirectTo, { replace: true })
       setTimeout(() => {
         toast.success('Login realizado com sucesso!')
       }, 100)

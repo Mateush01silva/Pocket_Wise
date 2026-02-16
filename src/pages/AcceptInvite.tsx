@@ -22,6 +22,7 @@ export function AcceptInvite() {
 
   const acceptInvite = useFamilyStore((state) => state.acceptInvite)
   const rejectInvite = useFamilyStore((state) => state.rejectInvite)
+  const storeError = useFamilyStore((state) => state.error)
 
   // Carregar convite ao montar
   useEffect(() => {
@@ -70,10 +71,12 @@ export function AcceptInvite() {
           navigate('/app/familia')
         }, 1500)
       } else {
-        toast.error('Erro ao aceitar convite. Tente novamente.')
+        const msg = storeError || 'Erro desconhecido'
+        console.error('[AcceptInvite] falhou:', msg)
+        toast.error(`Erro ao aceitar convite: ${msg}`)
       }
     } catch (err) {
-      console.error('Erro ao aceitar convite:', err)
+      console.error('[AcceptInvite] exceção:', err)
       toast.error('Erro ao aceitar convite. Tente novamente.')
     } finally {
       setIsAccepting(false)
