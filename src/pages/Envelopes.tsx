@@ -19,6 +19,8 @@ import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { usePermissions } from '../hooks/usePermissions'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
+import { LearningTooltip } from '../components/ui/LearningTooltip'
+import { learningContent } from '../lib/learningContent'
 import type { EnvelopeDigital } from '../types'
 
 type FiltroCategoria = 'todas' | 'essencial' | 'importante' | 'desejavel' | 'estouradas' | 'em_risco'
@@ -401,63 +403,71 @@ export function Envelopes() {
 
       {/* Cards de resumo */}
       <div className="grid md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">Total Orçado</span>
-              <Wallet size={16} className="text-primary-500" />
-            </div>
-            <p className="text-2xl font-bold text-gray-100">{formatCurrency(totalOrcado)}</p>
-            <p className="text-xs text-gray-500 mt-1">{todosEnvelopes.length} envelopes</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">Total Gasto</span>
-              <TrendingDown size={16} className="text-red-500" />
-            </div>
-            <p className="text-2xl font-bold text-red-400">{formatCurrency(totalGasto)}</p>
-            <p className="text-xs text-gray-500 mt-1">{percentualGeralUsado.toFixed(1)}% usado</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">Disponível</span>
-              <TrendingDown size={16} className="text-green-500" />
-            </div>
-            <p className="text-2xl font-bold text-green-400">{formatCurrency(totalDisponivel)}</p>
-            <p className="text-xs text-gray-500 mt-1">
-              {((totalDisponivel / totalOrcado) * 100).toFixed(1)}% restante
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">Saúde Geral</span>
-              <Filter size={16} className="text-gray-500" />
-            </div>
-            <div className="flex gap-2 mt-3">
-              <div className="flex-1 text-center">
-                <p className="text-lg font-bold text-green-400">{envelopesSaudaveis}</p>
-                <p className="text-xs text-gray-500">OK</p>
+        <LearningTooltip content={learningContent.envelopeTotalOrcado} position="bottom">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-gray-400">Total Orçado</span>
+                <Wallet size={16} className="text-primary-500" />
               </div>
-              <div className="flex-1 text-center">
-                <p className="text-lg font-bold text-yellow-400">{envelopesAtencao}</p>
-                <p className="text-xs text-gray-500">Atenção</p>
+              <p className="text-2xl font-bold text-gray-100">{formatCurrency(totalOrcado)}</p>
+              <p className="text-xs text-gray-500 mt-1">{todosEnvelopes.length} envelopes</p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
+
+        <LearningTooltip content={learningContent.envelopeTotalGasto} position="bottom">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-gray-400">Total Gasto</span>
+                <TrendingDown size={16} className="text-red-500" />
               </div>
-              <div className="flex-1 text-center">
-                <p className="text-lg font-bold text-red-400">{envelopesCriticos}</p>
-                <p className="text-xs text-gray-500">Crítico</p>
+              <p className="text-2xl font-bold text-red-400">{formatCurrency(totalGasto)}</p>
+              <p className="text-xs text-gray-500 mt-1">{percentualGeralUsado.toFixed(1)}% usado</p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
+
+        <LearningTooltip content={learningContent.envelopeDisponivel} position="bottom">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-gray-400">Disponível</span>
+                <TrendingDown size={16} className="text-green-500" />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <p className="text-2xl font-bold text-green-400">{formatCurrency(totalDisponivel)}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {((totalDisponivel / totalOrcado) * 100).toFixed(1)}% restante
+              </p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
+
+        <LearningTooltip content={learningContent.envelopeSaudeGeral} position="bottom">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm text-gray-400">Saúde Geral</span>
+                <Filter size={16} className="text-gray-500" />
+              </div>
+              <div className="flex gap-2 mt-3">
+                <div className="flex-1 text-center">
+                  <p className="text-lg font-bold text-green-400">{envelopesSaudaveis}</p>
+                  <p className="text-xs text-gray-500">OK</p>
+                </div>
+                <div className="flex-1 text-center">
+                  <p className="text-lg font-bold text-yellow-400">{envelopesAtencao}</p>
+                  <p className="text-xs text-gray-500">Atenção</p>
+                </div>
+                <div className="flex-1 text-center">
+                  <p className="text-lg font-bold text-red-400">{envelopesCriticos}</p>
+                  <p className="text-xs text-gray-500">Crítico</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
       </div>
 
       {/* Filtros e ordenação */}

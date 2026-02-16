@@ -20,6 +20,8 @@ import { CreditCardModal } from '../components/CreditCardModal'
 import { FaturaDetailsModal } from '../components/FaturaDetailsModal'
 import { PagarFaturaModal } from '../components/PagarFaturaModal'
 import { formatCurrency } from '../utils/currency'
+import { LearningTooltip } from '../components/ui/LearningTooltip'
+import { learningContent } from '../lib/learningContent'
 import type { Cartao, Lancamento } from '../types'
 
 /**
@@ -552,107 +554,119 @@ export function CreditCards() {
       {/* Resumo Geral */}
       {cartoesAtivos.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Limite Total</p>
-                  <p className="text-2xl font-bold text-gray-100">
-                    {formatCurrency(
-                      cartoesAtivos.reduce((sum, c) => sum + (c.limite ?? 0), 0)
-                    )}
-                  </p>
+          <LearningTooltip content={learningContent.cartaoLimiteTotal} position="bottom">
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400 mb-1">Limite Total</p>
+                    <p className="text-2xl font-bold text-gray-100">
+                      {formatCurrency(
+                        cartoesAtivos.reduce((sum, c) => sum + (c.limite ?? 0), 0)
+                      )}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center">
+                    <CreditCard className="text-primary-500" size={24} />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center">
-                  <CreditCard className="text-primary-500" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </LearningTooltip>
 
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Total a Pagar</p>
-                  <p className="text-2xl font-bold text-red-400">
-                    {formatCurrency(
-                      cartoesAtivos.reduce((sum, c) => sum + c.totalUsandoLimite, 0)
-                    )}
-                  </p>
+          <LearningTooltip content={learningContent.cartaoTotalPagar} position="bottom">
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400 mb-1">Total a Pagar</p>
+                    <p className="text-2xl font-bold text-red-400">
+                      {formatCurrency(
+                        cartoesAtivos.reduce((sum, c) => sum + c.totalUsandoLimite, 0)
+                      )}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
+                    <DollarSign className="text-red-500" size={24} />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
-                  <DollarSign className="text-red-500" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </LearningTooltip>
 
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Limite Disponível</p>
-                  <p className="text-2xl font-bold text-green-400">
-                    {formatCurrency(
-                      cartoesAtivos.reduce((sum, c) => sum + c.limiteDisponivel, 0)
-                    )}
-                  </p>
+          <LearningTooltip content={learningContent.cartaoLimiteDisponivel} position="bottom">
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400 mb-1">Limite Disponível</p>
+                    <p className="text-2xl font-bold text-green-400">
+                      {formatCurrency(
+                        cartoesAtivos.reduce((sum, c) => sum + c.limiteDisponivel, 0)
+                      )}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
+                    <TrendingUp className="text-green-500" size={24} />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
-                  <TrendingUp className="text-green-500" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </LearningTooltip>
 
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Parcelas Pendentes</p>
-                  <p className="text-2xl font-bold text-primary-400">
-                    {formatCurrency(totalParcelasPendentes)}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Total não pago</p>
+          <LearningTooltip content={learningContent.projecaoParcelasPendentes} position="bottom">
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400 mb-1">Parcelas Pendentes</p>
+                    <p className="text-2xl font-bold text-primary-400">
+                      {formatCurrency(totalParcelasPendentes)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Total não pago</p>
+                  </div>
+                  <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center">
+                    <CreditCard className="text-primary-500" size={24} />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center">
-                  <CreditCard className="text-primary-500" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </LearningTooltip>
 
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Próximos 3 Meses</p>
-                  <p className="text-2xl font-bold text-yellow-400">
-                    {formatCurrency(compromissosProximos3Meses)}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">Parcelas a vencer</p>
+          <LearningTooltip content={learningContent.projecaoProximos3Meses} position="bottom">
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400 mb-1">Próximos 3 Meses</p>
+                    <p className="text-2xl font-bold text-yellow-400">
+                      {formatCurrency(compromissosProximos3Meses)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">Parcelas a vencer</p>
+                  </div>
+                  <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center">
+                    <Calendar className="text-yellow-500" size={24} />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center">
-                  <Calendar className="text-yellow-500" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </LearningTooltip>
 
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Parcelamentos Ativos</p>
-                  <p className="text-2xl font-bold text-gray-100">{gruposParcelas.length}</p>
+          <LearningTooltip content={learningContent.projecaoParcelamentosAtivos} position="bottom">
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-400 mb-1">Parcelamentos Ativos</p>
+                    <p className="text-2xl font-bold text-gray-100">{gruposParcelas.length}</p>
+                  </div>
+                  <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center">
+                    <Target className="text-blue-500" size={24} />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center">
-                  <Target className="text-blue-500" size={24} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </LearningTooltip>
         </div>
       )}
 

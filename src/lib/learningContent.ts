@@ -422,7 +422,41 @@ export const learningContent = {
   } as LearningContent,
 
   // =============================================
-  // PÁGINA DE PROJEÇÕES
+  // PÁGINA DE CARTÕES DE CRÉDITO
+  // =============================================
+
+  cartaoLimiteTotal: {
+    titulo: 'Limite Total',
+    descricao: 'Soma dos limites de todos os seus cartões de crédito ativos. Representa o máximo que você pode gastar no crédito.',
+    comoFunciona: 'O sistema soma o limite cadastrado de cada cartão ativo.',
+    comoCalculado: 'Limite Cartão 1 + Limite Cartão 2 + ... = Limite Total',
+    exemplo: 'Nubank R$ 5.000 + Itaú R$ 8.000 + Inter R$ 3.000 = Limite Total R$ 16.000.',
+    porqueImportante: 'Saber seu limite total evita surpresas ao fazer compras. Limite alto não significa que pode gastar tudo!',
+    dicaPratica: 'O ideal é usar no máximo 30% do limite total. Isso mantém um bom score de crédito.',
+  } as LearningContent,
+
+  cartaoTotalPagar: {
+    titulo: 'Total a Pagar',
+    descricao: 'Soma de todas as compras feitas nos cartões que ainda não foram pagas. Inclui compras à vista e parcelas.',
+    comoFunciona: 'Soma todas as transações de cartão com status "projetado" (compras reais que consomem o limite).',
+    comoCalculado: 'Soma de compras não pagas em todos os cartões ativos',
+    exemplo: 'R$ 800 no Nubank + R$ 1.200 no Itaú = R$ 2.000 a pagar.',
+    porqueImportante: 'Esse valor vai sair da sua conta quando as faturas vencerem. Garanta que terá saldo!',
+    dicaPratica: 'Se esse valor está alto, evite novas compras no crédito até pagar as faturas pendentes.',
+  } as LearningContent,
+
+  cartaoLimiteDisponivel: {
+    titulo: 'Limite Disponível',
+    descricao: 'Quanto de limite você ainda pode usar nos seus cartões. É o limite total menos o que já foi gasto.',
+    comoFunciona: 'Para cada cartão, subtrai o total de compras não pagas do limite. Depois soma todos.',
+    comoCalculado: 'Limite Total - Total a Pagar = Limite Disponível',
+    exemplo: 'Limite Total R$ 16.000 - Total a Pagar R$ 2.000 = Limite Disponível R$ 14.000.',
+    porqueImportante: 'Mostra sua capacidade de compra restante. Limite disponível baixo = hora de frear os gastos.',
+    dicaPratica: 'Mantenha pelo menos 70% do limite disponível para emergências e imprevistos.',
+  } as LearningContent,
+
+  // =============================================
+  // PÁGINA DE PROJEÇÕES (conteúdo reutilizado em Cartões)
   // =============================================
 
   projecaoSaldoProximoMes: {
