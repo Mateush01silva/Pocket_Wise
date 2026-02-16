@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { supabase, isSupabaseConfigured, clearFamilyIdCache } from '../lib/supabase'
+import { familyInvitesService } from '../services/familyService'
+import type { UserFamilyInfo } from '../services/familyService'
 import type { User, Session } from '@supabase/supabase-js'
 
 interface Subscription {
@@ -28,6 +30,11 @@ interface AuthContextType {
   subscription: Subscription | null
   userProfile: UserProfile | null
   loading: boolean
+  userFamilies: UserFamilyInfo[]
+  activeFamilyId: string | null
+  personalFamilyId: string | null
+  switchFamily: (familyId: string) => Promise<{ success: boolean; error?: string }>
+  refreshFamilies: () => Promise<void>
   refreshProfile: () => Promise<void>
   refreshSubscription: () => Promise<Subscription | null>
   signIn: (email: string, password: string) => Promise<void>
@@ -65,6 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [userFamilies, setUserFamilies] = useState<UserFamilyInfo[]>([])
+  const [activeFamilyId, setActiveFamilyId] = useState<string | null>(null)
+  const [personalFamilyId, setPersonalFamilyId] = useState<string | null>(null)
   const currentUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -84,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await Promise.all([
             fetchUserProfile(session.user.id),
             fetchSubscription(session.user.id),
+            fetchUserFamilies(),
           ])
         } catch (e) {
           console.error('Erro ao carregar dados iniciais:', e)
@@ -158,6 +169,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const fetchUserFamilies = async () => {
+    const result = await familyInvitesService.getUserFamilies()
+    if (result) {
+      setUserFamilies(result.families)
+      setActiveFamilyId(result.activeFamilyId)
+      setPersonalFamilyId(result.personalFamilyId)
+    }
+  }
+
+  const switchFamily = async (familyId: string) => {
+    const result = await familyInvitesService.switchFamily(familyId)
+    if (result.success) {
+      setActiveFamilyId(familyId)
+      // Recarregar dados das famílias para sincronizar
+      await fetchUserFamilies()
+    }
+    return result
+  }
+
+  const refreshFamilies = async () => {
+    await fetchUserFamilies()
+  }
+
   const signIn = async (email: string, password: string) => {
     if (!supabase) throw new Error('Supabase not configured')
 
@@ -176,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await Promise.all([
         fetchUserProfile(data.user.id),
         fetchSubscription(data.user.id),
+        fetchUserFamilies(),
       ])
     }
   }
@@ -232,6 +267,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     currentUserIdRef.current = null
     setUserProfile(null)
     setSubscription(null)
+    setUserFamilies([])
+    setActiveFamilyId(null)
+    setPersonalFamilyId(null)
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   }
@@ -310,6 +348,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     subscription,
     userProfile,
     loading,
+    userFamilies,
+    activeFamilyId,
+    personalFamilyId,
+    switchFamily,
+    refreshFamilies,
     refreshProfile,
     refreshSubscription,
     signIn,

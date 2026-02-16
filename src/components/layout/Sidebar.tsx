@@ -22,6 +22,7 @@ import { useUserPreferencesStore } from '../../store/useUserPreferencesStore'
 import { useAuth } from '../../contexts/AuthContext'
 import { LearningTooltipMenu } from '../ui/LearningTooltip'
 import { learningContent } from '../../lib/learningContent'
+import { FamilySwitcher } from '../ui/FamilySwitcher'
 
 interface NavItem {
   name: string
@@ -136,6 +137,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {/* Footer: User info + Learning Mode */}
       <div className="p-4 border-t border-dark-700/50 space-y-3">
+        {/* Seletor de família (só aparece se o usuário pertencer a mais de uma família) */}
+        <FamilySwitcher />
+
         {/* User info */}
         <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-dark-800/50">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-secondary-400 flex items-center justify-center shrink-0 overflow-hidden">

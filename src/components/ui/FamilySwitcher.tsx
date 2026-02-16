@@ -1,0 +1,105 @@
+import { useState } from 'react'
+import { ChevronDown, Home, Users, Check, Loader2 } from 'lucide-react'
+import { cn } from '../../lib/cn'
+import { useAuth } from '../../contexts/AuthContext'
+import { toast } from 'sonner'
+
+export function FamilySwitcher() {
+  const { userFamilies, activeFamilyId, personalFamilyId, switchFamily } = useAuth()
+  const [open, setOpen] = useState(false)
+  const [switching, setSwitching] = useState(false)
+
+  // Só renderizar se o usuário pertencer a mais de uma família
+  if (userFamilies.length <= 1) return null
+
+  const activeFamily = userFamilies.find((f) => f.family_id === activeFamilyId)
+  const isPersonalActive = activeFamilyId === personalFamilyId
+
+  const handleSwitch = async (familyId: string) => {
+    if (familyId === activeFamilyId || switching) return
+    setOpen(false)
+    setSwitching(true)
+    try {
+      const result = await switchFamily(familyId)
+      if (result.success) {
+        // Recarregar a página para que todos os stores busquem dados da nova família
+        window.location.reload()
+      } else {
+        toast.error(result.error ?? 'Erro ao trocar de família')
+      }
+    } finally {
+      setSwitching(false)
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        disabled={switching}
+        className={cn(
+          'w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200',
+          'bg-dark-800/50 border border-dark-700/50 hover:border-primary-500/30 hover:bg-dark-800',
+          'text-left'
+        )}
+      >
+        {switching ? (
+          <Loader2 className="w-4 h-4 text-primary-400 animate-spin shrink-0" />
+        ) : isPersonalActive ? (
+          <Home className="w-4 h-4 text-primary-400 shrink-0" />
+        ) : (
+          <Users className="w-4 h-4 text-secondary-400 shrink-0" />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-gray-400">Contexto ativo</p>
+          <p className="text-sm font-medium text-gray-200 truncate">
+            {switching ? 'Trocando...' : (activeFamily?.nome ?? 'Minha Família')}
+          </p>
+        </div>
+        <ChevronDown
+          className={cn(
+            'w-4 h-4 text-gray-500 shrink-0 transition-transform duration-200',
+            open && 'rotate-180'
+          )}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute bottom-full left-0 right-0 mb-1 bg-dark-800 border border-dark-700/50 rounded-lg shadow-xl overflow-hidden z-50">
+          <p className="text-xs text-gray-500 px-3 pt-2 pb-1 uppercase tracking-wider">
+            Suas famílias
+          </p>
+          {userFamilies.map((family) => {
+            const isActive = family.family_id === activeFamilyId
+            const isPersonal = family.family_id === personalFamilyId
+            return (
+              <button
+                key={family.family_id}
+                onClick={() => handleSwitch(family.family_id)}
+                className={cn(
+                  'w-full flex items-center gap-3 px-3 py-2.5 transition-all duration-150 text-left',
+                  isActive
+                    ? 'bg-primary-500/10 text-primary-300'
+                    : 'text-gray-300 hover:bg-dark-700/70 hover:text-white'
+                )}
+              >
+                {isPersonal ? (
+                  <Home className="w-4 h-4 shrink-0 text-primary-400" />
+                ) : (
+                  <Users className="w-4 h-4 shrink-0 text-secondary-400" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{family.nome}</p>
+                  <p className="text-xs text-gray-500 capitalize">
+                    {isPersonal ? 'Minha conta' : family.role}
+                  </p>
+                </div>
+                {isActive && <Check className="w-4 h-4 text-primary-400 shrink-0" />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
