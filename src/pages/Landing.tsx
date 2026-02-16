@@ -1,15 +1,79 @@
-import { CheckCircle, TrendingUp, PiggyBank, Bell, Users, ArrowRight, Check } from 'lucide-react'
+import { CheckCircle, TrendingUp, PiggyBank, Bell, Users, ArrowRight, Check, Smartphone, ChevronDown, Download, BarChart3, DollarSign } from 'lucide-react'
 import { Button } from '../components/ui'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getPlatformStats, type PlatformStats } from '../services/statsService'
+
+function AnimatedCounter({ end, duration = 2000, prefix = '', suffix = '' }: { end: number; duration?: number; prefix?: string; suffix?: string }) {
+  const [count, setCount] = useState(0)
+  const [hasStarted, setHasStarted] = useState(false)
+
+  useEffect(() => {
+    if (!hasStarted || end === 0) return
+
+    let startTime: number
+    let animationFrame: number
+
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp
+      const progress = Math.min((timestamp - startTime) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3) // easeOutCubic
+      setCount(Math.floor(eased * end))
+
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate)
+      }
+    }
+
+    animationFrame = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(animationFrame)
+  }, [end, duration, hasStarted])
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setHasStarted(true)
+        }
+      },
+      { threshold: 0.3 }
+    )
+
+    const el = document.getElementById('stats-section')
+    if (el) observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  if (end >= 1_000_000) {
+    const value = (count / 1_000_000).toFixed(1).replace('.', ',')
+    return <>{prefix}{value}M{suffix}</>
+  }
+  if (end >= 1_000) {
+    const value = (count / 1_000).toFixed(1).replace('.', ',')
+    return <>{prefix}{value}K{suffix}</>
+  }
+  return <>{prefix}{count.toLocaleString('pt-BR')}{suffix}</>
+}
 
 export function Landing() {
   const navigate = useNavigate()
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
+  const [installGuideOpen, setInstallGuideOpen] = useState(false)
+  const [stats, setStats] = useState<PlatformStats>({
+    totalUsers: 0,
+    totalTransactions: 0,
+    totalMoneyManaged: 0,
+  })
+
+  useEffect(() => {
+    getPlatformStats().then(setStats)
+  }, [])
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
   }
+
+  const hasStats = stats.totalUsers > 0 || stats.totalTransactions > 0 || stats.totalMoneyManaged > 0
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-dark-900 via-dark-800 to-dark-900">
@@ -68,6 +132,55 @@ export function Landing() {
         </div>
       </section>
 
+      {/* Stats Section - Números da plataforma */}
+      {hasStats && (
+        <section id="stats-section" className="py-16 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-100 mb-12">
+              Números que comprovam a confiança
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-gradient-to-br from-primary-500/10 to-primary-500/5 border border-primary-500/20 rounded-2xl p-8 text-center">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-14 h-14 bg-primary-500/20 rounded-full flex items-center justify-center">
+                    <Users className="w-7 h-7 text-primary-400" />
+                  </div>
+                </div>
+                <div className="text-4xl sm:text-5xl font-bold text-gray-100 mb-2">
+                  <AnimatedCounter end={stats.totalUsers} prefix="" suffix="+" />
+                </div>
+                <p className="text-gray-400 text-lg">Usuários ativos</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-secondary-500/10 to-secondary-500/5 border border-secondary-500/20 rounded-2xl p-8 text-center">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-14 h-14 bg-secondary-500/20 rounded-full flex items-center justify-center">
+                    <BarChart3 className="w-7 h-7 text-secondary-400" />
+                  </div>
+                </div>
+                <div className="text-4xl sm:text-5xl font-bold text-gray-100 mb-2">
+                  <AnimatedCounter end={stats.totalTransactions} prefix="" suffix="+" />
+                </div>
+                <p className="text-gray-400 text-lg">Transações registradas</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/20 rounded-2xl p-8 text-center">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-14 h-14 bg-green-500/20 rounded-full flex items-center justify-center">
+                    <DollarSign className="w-7 h-7 text-green-400" />
+                  </div>
+                </div>
+                <div className="text-4xl sm:text-5xl font-bold text-gray-100 mb-2">
+                  <AnimatedCounter end={stats.totalMoneyManaged} prefix="R$ " />
+                </div>
+                <p className="text-gray-400 text-lg">Já administrados na plataforma</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Problema Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-dark-800/50">
         <div className="max-w-6xl mx-auto">
@@ -91,7 +204,7 @@ export function Landing() {
 
           <div className="text-center">
             <p className="text-2xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-secondary-400 mb-4">
-              O Pocket_Wise resolve isso
+              O Pocket Wise resolve isso
             </p>
           </div>
         </div>
@@ -146,7 +259,7 @@ export function Landing() {
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-dark-800/50">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-bold text-center text-gray-100 mb-16">
-            Por que escolher o Pocket_Wise?
+            Por que escolher o Pocket Wise?
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -182,8 +295,103 @@ export function Landing() {
         </div>
       </section>
 
+      {/* Instale no Celular - PWA Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-gradient-to-br from-primary-500/10 to-secondary-500/10 border border-primary-500/30 rounded-2xl p-8 sm:p-12">
+            <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
+              <div className="w-20 h-20 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-2xl flex items-center justify-center flex-shrink-0">
+                <Smartphone className="w-10 h-10 text-white" />
+              </div>
+              <div className="text-center sm:text-left">
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-100 mb-2">
+                  Instale no seu celular
+                </h2>
+                <p className="text-gray-400 text-lg">
+                  Use o Pocket Wise como um aplicativo nativo, direto na tela inicial do seu celular. Sem precisar baixar na loja!
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
+              <div className="flex items-center gap-3 text-gray-300">
+                <Download className="w-5 h-5 text-green-400" />
+                <span>Rápido e leve</span>
+              </div>
+              <div className="flex items-center gap-3 text-gray-300">
+                <Smartphone className="w-5 h-5 text-primary-400" />
+                <span>Funciona como app nativo</span>
+              </div>
+              <div className="flex items-center gap-3 text-gray-300">
+                <CheckCircle className="w-5 h-5 text-secondary-400" />
+                <span>Sem ocupar espaço</span>
+              </div>
+            </div>
+
+            {/* Botão para abrir passo a passo */}
+            <button
+              onClick={() => setInstallGuideOpen(!installGuideOpen)}
+              className="w-full flex items-center justify-between bg-dark-700/50 hover:bg-dark-700/80 border border-dark-600 rounded-xl px-6 py-4 transition-colors"
+            >
+              <span className="font-semibold text-gray-100">Como instalar? Veja o passo a passo</span>
+              <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${installGuideOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {installGuideOpen && (
+              <div className="mt-6 space-y-6">
+                {/* Android / Chrome */}
+                <div className="bg-dark-800/60 rounded-xl p-6 border border-dark-600">
+                  <h3 className="text-lg font-bold text-gray-100 mb-4 flex items-center gap-2">
+                    <span className="text-2xl">🤖</span> Android (Chrome)
+                  </h3>
+                  <ol className="space-y-3">
+                    {[
+                      'Abra o Pocket Wise no navegador Chrome',
+                      'Toque no menu (3 pontinhos) no canto superior direito',
+                      'Selecione "Instalar aplicativo" ou "Adicionar à tela inicial"',
+                      'Confirme tocando em "Instalar"',
+                      'Pronto! O ícone aparecerá na sua tela inicial',
+                    ].map((step, i) => (
+                      <li key={i} className="flex items-start gap-3 text-gray-300">
+                        <span className="flex-shrink-0 w-7 h-7 bg-primary-500/20 text-primary-400 rounded-full flex items-center justify-center text-sm font-bold">
+                          {i + 1}
+                        </span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+
+                {/* iPhone / Safari */}
+                <div className="bg-dark-800/60 rounded-xl p-6 border border-dark-600">
+                  <h3 className="text-lg font-bold text-gray-100 mb-4 flex items-center gap-2">
+                    <span className="text-2xl">🍎</span> iPhone (Safari)
+                  </h3>
+                  <ol className="space-y-3">
+                    {[
+                      'Abra o Pocket Wise no navegador Safari',
+                      'Toque no botão de compartilhar (ícone de quadrado com seta para cima)',
+                      'Role para baixo e toque em "Adicionar à Tela de Início"',
+                      'Edite o nome se quiser e toque em "Adicionar"',
+                      'Pronto! O app aparecerá na sua tela inicial como um app normal',
+                    ].map((step, i) => (
+                      <li key={i} className="flex items-start gap-3 text-gray-300">
+                        <span className="flex-shrink-0 w-7 h-7 bg-secondary-500/20 text-secondary-400 rounded-full flex items-center justify-center text-sm font-bold">
+                          {i + 1}
+                        </span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
       {/* Preços Section */}
-      <section id="precos" className="py-20 px-4 sm:px-6 lg:px-8">
+      <section id="precos" className="py-20 px-4 sm:px-6 lg:px-8 bg-dark-800/50">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-bold text-center text-gray-100 mb-4">
             Comece grátis por 7 dias
@@ -259,7 +467,7 @@ export function Landing() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-dark-800/50">
+      <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-bold text-center text-gray-100 mb-16">
             Perguntas Frequentes
@@ -285,7 +493,7 @@ export function Landing() {
               },
               {
                 q: 'Funciona no celular?',
-                a: 'Perfeitamente! Design responsivo mobile-first.',
+                a: 'Perfeitamente! Design responsivo e pode ser instalado como app na tela inicial do seu celular.',
               },
               {
                 q: 'O que acontece após os 7 dias?',
@@ -312,7 +520,7 @@ export function Landing() {
       </section>
 
       {/* CTA Final */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-dark-800/50">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-100 mb-6">
             Pronto para ter controle total das suas finanças?
@@ -336,11 +544,6 @@ export function Landing() {
                 <TrendingUp className="w-5 h-5 text-white" />
               </div>
               <span className="text-xl font-bold text-gray-100">Pocket<span className="text-primary-500">Wise</span></span>
-            </div>
-
-            <div className="flex items-center gap-6 text-sm text-gray-400">
-              <button className="hover:text-gray-200 transition-colors">Termos de Uso</button>
-              <button className="hover:text-gray-200 transition-colors">Política de Privacidade</button>
             </div>
 
             <p className="text-sm text-gray-500">
