@@ -80,7 +80,10 @@ function getTransacoesFaturaAtual(
     if (l.forma_pagamento !== 'credito') return false
     if (l.status === 'pago') return false
 
-    const mesFatura = calcularMesFatura(l.data, diaFechamento)
+    // Para parcelas com data_vencimento_fatura, usar esse campo
+    const mesFatura = l.data_vencimento_fatura
+      ? startOfMonth(parseISO(l.data_vencimento_fatura))
+      : calcularMesFatura(l.data, diaFechamento)
     return mesFatura.getTime() === faturaAtualTime
   })
 }
@@ -117,7 +120,10 @@ function getFaturaFechadaPendente(
   const faturasPorMes = new Map<number, Lancamento[]>()
 
   transacoesNaoPagas.forEach((t) => {
-    const mesFatura = calcularMesFatura(t.data, diaFechamento)
+    // Para parcelas com data_vencimento_fatura, usar esse campo
+    const mesFatura = t.data_vencimento_fatura
+      ? startOfMonth(parseISO(t.data_vencimento_fatura))
+      : calcularMesFatura(t.data, diaFechamento)
     const key = mesFatura.getTime()
     if (!faturasPorMes.has(key)) {
       faturasPorMes.set(key, [])

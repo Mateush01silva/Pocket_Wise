@@ -67,9 +67,13 @@ export function FaturaDetailsModal({
     return categoria?.nome || 'Categoria desconhecida'
   }
 
-  // Agrupar por ciclo de faturamento (baseado na data de compra e dia de fechamento)
+  // Agrupar por ciclo de faturamento
+  // Para parcelas com data_vencimento_fatura, usar esse campo para determinar o mês da fatura
+  // Para transações normais, calcular baseado na data de compra e dia de fechamento
   const transacoesPorMes = transacoes.reduce((acc, t) => {
-    const mesFatura = calcularMesFatura(t.data, diaFechamento)
+    const mesFatura = t.data_vencimento_fatura
+      ? startOfMonth(parseISO(t.data_vencimento_fatura))
+      : calcularMesFatura(t.data, diaFechamento)
     const { inicio, fim } = getPeriodoCiclo(mesFatura, diaFechamento)
 
     // Chave: "Janeiro 2026 (14/dez - 13/jan)"
@@ -84,11 +88,11 @@ export function FaturaDetailsModal({
     return acc
   }, {} as Record<string, Lancamento[]>)
 
-  // Ordenar por mês (mais recente primeiro)
+  // Ordenar por mês (mais próximo primeiro - faturas mais urgentes no topo)
   const mesesOrdenados = Object.entries(transacoesPorMes).sort((a, b) => {
     const [, , timestampA] = a[0].split('|')
     const [, , timestampB] = b[0].split('|')
-    return parseInt(timestampB) - parseInt(timestampA)
+    return parseInt(timestampA) - parseInt(timestampB)
   })
 
   return (
