@@ -392,7 +392,8 @@ export const useFamilyStore = create<FamilyStore>()(
         }
 
         if (data) {
-          // Recarregar tudo após aceitar convite
+          // Recarregar tudo após aceitar convite (resetar initialized para forçar recarga)
+          set({ initialized: false })
           await get().initialize()
           return true
         }
