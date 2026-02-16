@@ -15,7 +15,7 @@ import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter
 import { calcularSaldoProjetado, calcularFaturasAtuaisCartao, filtrarPorPeriodo, calcularSaldoAcumuladoNaoAlocado } from '../lib/financialCalculations'
 import { format, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
+import { PieChart, Pie, Cell, Sector, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts'
 import { useNavigate } from 'react-router-dom'
 import { LearningTooltip } from '../components/ui/LearningTooltip'
 import { learningContent } from '../lib/learningContent'
@@ -675,6 +675,7 @@ export function Dashboard() {
                           paddingAngle={3}
                           cornerRadius={6}
                           stroke="none"
+                          inactiveShape={(props: any) => <Sector {...props} opacity={1} />}
                         >
                           {gastosPorCategoria.map((_entry, index) => (
                             <Cell key={`cell-${index}`} fill={`url(#catGrad-${index})`} />
