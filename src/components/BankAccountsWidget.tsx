@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from './ui'
-import { useContasBancariasStore } from '../store'
+import { useContasBancariasStore, useTransacoesStore } from '../store'
 import { formatCurrency } from '../utils/currency'
 import { Landmark, Plus, ArrowRight } from 'lucide-react'
 
@@ -9,12 +9,13 @@ export function BankAccountsWidget() {
   const contas = useContasBancariasStore((state) => state.contas)
   const fetchContas = useContasBancariasStore((state) => state.fetchContas)
   const getSaldoTotal = useContasBancariasStore((state) => state.getSaldoTotal)
+  const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const navigate = useNavigate()
 
-  // Buscar contas ao montar
+  // Buscar contas ao montar e quando transações mudam (saldo pode ter sido atualizado)
   useEffect(() => {
     fetchContas()
-  }, [fetchContas])
+  }, [fetchContas, lancamentos])
 
   const contasAtivas = useMemo(
     () => contas.filter((c) => c.ativo).slice(0, 4), // Mostrar apenas as 4 primeiras
