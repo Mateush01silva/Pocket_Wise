@@ -349,8 +349,10 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
         return categoriasBudget.map((catBudget) => {
           const categoria = categorias.find((c) => c.id === catBudget.categoria_id)
           const valorGasto = calcularGastoPorCategoria(lancamentos, catBudget.categoria_id, orcamento.mes_referencia)
-          const valorDisponivel = catBudget.valor_orcado - valorGasto
-          const percentualUsado = catBudget.valor_orcado > 0 ? (valorGasto / catBudget.valor_orcado) * 100 : 0
+          const valorDisponivel = Math.round((catBudget.valor_orcado - valorGasto) * 100) / 100
+          const percentualUsado = catBudget.valor_orcado > 0
+            ? Math.round((valorGasto / catBudget.valor_orcado) * 10000) / 100
+            : 0
 
           return {
             ...catBudget,

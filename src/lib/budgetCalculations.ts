@@ -51,7 +51,7 @@ export function calcularGastoPorCategoria(
 ): number {
   const anoMes = mesReferencia.substring(0, 7) // YYYY-MM
 
-  return lancamentos
+  const total = lancamentos
     .filter((l) => {
       // Para transações de cartão com data_vencimento_fatura, usar o mês da fatura
       // Isso garante que compras após o fechamento contam no mês seguinte
@@ -71,6 +71,8 @@ export function calcularGastoPorCategoria(
       )
     })
     .reduce((sum, l) => sum + l.valor, 0)
+
+  return Math.round(total * 100) / 100
 }
 
 /**
@@ -246,7 +248,9 @@ export function calcularCategoriasEmRisco(
 
   for (const catBudget of categoriasBudgetDespesa) {
     const gastoCategoria = calcularGastoPorCategoria(lancamentos, catBudget.categoria_id, mesReferencia)
-    const percentualUsado = catBudget.valor_orcado > 0 ? (gastoCategoria / catBudget.valor_orcado) * 100 : 0
+    const percentualUsado = catBudget.valor_orcado > 0
+      ? Math.round((gastoCategoria / catBudget.valor_orcado) * 10000) / 100
+      : 0
 
     if (percentualUsado >= 80) {
       const categoria = categorias.find((c) => c.id === catBudget.categoria_id)
@@ -256,7 +260,7 @@ export function calcularCategoriasEmRisco(
           valor_orcado: catBudget.valor_orcado,
           valor_gasto: gastoCategoria,
           percentual_usado: percentualUsado,
-          margem_restante: catBudget.valor_orcado - gastoCategoria,
+          margem_restante: Math.round((catBudget.valor_orcado - gastoCategoria) * 100) / 100,
         })
       }
     }
@@ -342,8 +346,10 @@ export function gerarEnvelopesDigitais(
   return categoriasBudgetDespesa.map((catBudget) => {
     const categoria = categorias.find((c) => c.id === catBudget.categoria_id)!
     const valorGasto = calcularGastoPorCategoria(lancamentos, catBudget.categoria_id, mesReferencia)
-    const valorDisponivel = catBudget.valor_orcado - valorGasto
-    const percentualUsado = catBudget.valor_orcado > 0 ? (valorGasto / catBudget.valor_orcado) * 100 : 0
+    const valorDisponivel = Math.round((catBudget.valor_orcado - valorGasto) * 100) / 100
+    const percentualUsado = catBudget.valor_orcado > 0
+      ? Math.round((valorGasto / catBudget.valor_orcado) * 10000) / 100
+      : 0
 
     let status: SaudeFinanceira = 'saudavel'
     if (percentualUsado > 100) status = 'critico'

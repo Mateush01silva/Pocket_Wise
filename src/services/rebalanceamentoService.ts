@@ -285,7 +285,7 @@ export async function analisarEstouroCategoria(
     const lancamentosParaCalculo = (lancamentos && lancamentos.length > 0) ? lancamentos : lancamentosDoMes
     const valorGasto = lancamentosParaCalculo?.reduce((sum, l) => sum + l.valor, 0) || 0
     const valorOrcado = catBudget.valor_orcado || 0
-    const valorDisponivel = valorOrcado - valorGasto
+    const valorDisponivel = Math.round((valorOrcado - valorGasto) * 100) / 100
 
     console.log('💵 Cálculo final:', {
       lancamentosUsados: lancamentosParaCalculo?.length || 0,
@@ -337,13 +337,15 @@ export async function analisarEstouroCategoria(
         .lt('data', dataFim) // Primeiro dia do próximo mês
 
       const gasto = catLancamentos?.reduce((sum, l) => sum + l.valor, 0) || 0
-      const disponivel = (cat.valor_orcado || 0) - gasto
+      const disponivel = Math.round(((cat.valor_orcado || 0) - gasto) * 100) / 100
 
       categoriasComSaldo.push({
         ...cat,
         valor_gasto: gasto,
         valor_disponivel: disponivel,
-        percentual_usado: cat.valor_orcado > 0 ? (gasto / cat.valor_orcado) * 100 : 0,
+        percentual_usado: cat.valor_orcado > 0
+          ? Math.round((gasto / cat.valor_orcado) * 10000) / 100
+          : 0,
       })
     }
 
@@ -429,11 +431,12 @@ export const rebalanceamentoService = {
       }
 
       // Atualizar valor_orcado da categoria origem (diminuir)
+      const novoValorOrigem = Math.round((catOrigem.valor_orcado - input.valor_transferido) * 100) / 100
       const { error: errorOrigem } = await supabase
         // @ts-ignore
         .from('categorias_budget')
         .update({
-          valor_orcado: catOrigem.valor_orcado - input.valor_transferido,
+          valor_orcado: novoValorOrigem,
         })
         .eq('id', catOrigem.id)
 
@@ -443,11 +446,12 @@ export const rebalanceamentoService = {
       }
 
       // Atualizar valor_orcado da categoria destino (aumentar)
+      const novoValorDestino = Math.round((catDestino.valor_orcado + input.valor_transferido) * 100) / 100
       const { error: errorDestino } = await supabase
         // @ts-ignore
         .from('categorias_budget')
         .update({
-          valor_orcado: catDestino.valor_orcado + input.valor_transferido,
+          valor_orcado: novoValorDestino,
         })
         .eq('id', catDestino.id)
 
