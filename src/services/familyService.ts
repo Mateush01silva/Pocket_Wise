@@ -527,131 +527,42 @@ export const familyMembersService = {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
-    const currentUser = await getCurrentUser()
-    if (!currentUser) {
-      return { data: null, error: new Error('User not authenticated') }
+    const { data, error } = await (supabase as any).rpc('update_member_role', {
+      member_id: input.id,
+      new_role: input.role,
+    })
+
+    if (error) {
+      return { data: null, error }
     }
 
-    // Buscar o membro para verificar a família
-    const { data: member, error: memberError } = await supabase
-    // @ts-ignore
-      .from('family_members')
-      .select('family_id, user_id')
-      .eq('id', input.id)
-      .single()
-
-    if (memberError || !member) {
-      return { data: null, error: memberError || new Error('Member not found') }
+    if (!data?.success) {
+      return { data: null, error: new Error(data?.error ?? 'Erro ao atualizar permissão') }
     }
 
-    // Verificar se o usuário é admin
-    const { data: currentMember } = await supabase
-    // @ts-ignore
-      .from('family_members')
-      .select('role')
-      .eq('family_id', member.family_id)
-      .eq('user_id', currentUser.id)
-      .single()
-
-    if (!currentMember || currentMember.role !== 'admin') {
-      return { data: null, error: new Error('Only admins can update member roles') }
-    }
-
-    // Não permitir remover o último admin
-    if (input.role !== 'admin') {
-      const { data: admins } = await supabase
-    // @ts-ignore
-        .from('family_members')
-        .select('id')
-        .eq('family_id', member.family_id)
-        .eq('role', 'admin')
-
-      if (admins && admins.length === 1 && admins[0].id === input.id) {
-        return { data: null, error: new Error('Cannot remove the last admin') }
-      }
-    }
-
-    // Atualizar a role
-    const { data: updatedMember, error: updateError } = await supabase
-    // @ts-ignore
-      .from('family_members')
-      .update({ role: input.role })
-      .eq('id', input.id)
-      .select()
-      .single()
-
-    return { data: updatedMember, error: updateError }
+    return { data: { id: input.id, role: input.role } as FamilyMember, error: null }
   },
 
   /**
    * Remover um membro da família (apenas admin)
+   * Usa RPC SECURITY DEFINER para poder atualizar users.family_id do membro removido,
+   * contornando a RLS que só permite ao usuário atualizar o próprio perfil.
    */
   async removeMember(memberId: string): Promise<DbResult<boolean>> {
     if (!supabase) {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
-    const currentUser = await getCurrentUser()
-    if (!currentUser) {
-      return { data: null, error: new Error('User not authenticated') }
+    const { data, error } = await (supabase as any).rpc('remove_family_member', {
+      member_id: memberId,
+    })
+
+    if (error) {
+      return { data: null, error }
     }
 
-    // Buscar o membro
-    const { data: member, error: memberError } = await supabase
-    // @ts-ignore
-      .from('family_members')
-      .select('family_id, user_id, role')
-      .eq('id', memberId)
-      .single()
-
-    if (memberError || !member) {
-      return { data: null, error: memberError || new Error('Member not found') }
-    }
-
-    // Não permitir remover a si mesmo
-    if (member.user_id === currentUser.id) {
-      return { data: null, error: new Error('You cannot remove yourself from the family') }
-    }
-
-    // Verificar se o usuário é admin
-    const { data: currentMember } = await supabase
-    // @ts-ignore
-      .from('family_members')
-      .select('role')
-      .eq('family_id', member.family_id)
-      .eq('user_id', currentUser.id)
-      .single()
-
-    if (!currentMember || currentMember.role !== 'admin') {
-      return { data: null, error: new Error('Only admins can remove members') }
-    }
-
-    // Não permitir remover o último admin
-    if (member.role === 'admin') {
-      const { data: admins } = await supabase
-    // @ts-ignore
-        .from('family_members')
-        .select('id')
-        .eq('family_id', member.family_id)
-        .eq('role', 'admin')
-
-      if (admins && admins.length === 1) {
-        return { data: null, error: new Error('Cannot remove the last admin') }
-      }
-    }
-
-    // Remover o family_id do usuário
-    await supabase.from('users').update({ family_id: null }).eq('id', member.user_id)
-
-    // Remover o membro
-    const { error: deleteError } = await supabase
-    // @ts-ignore
-      .from('family_members')
-      .delete()
-      .eq('id', memberId)
-
-    if (deleteError) {
-      return { data: null, error: deleteError }
+    if (!data?.success) {
+      return { data: null, error: new Error(data?.error ?? 'Erro ao remover membro') }
     }
 
     return { data: true, error: null }
