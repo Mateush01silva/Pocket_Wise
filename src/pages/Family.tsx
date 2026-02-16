@@ -50,6 +50,7 @@ export function Family() {
     initialize,
     deleteInvite,
     removeMember,
+    updateMemberRole,
     updateFamily,
     isAdmin,
   } = useFamilyStore()
@@ -118,6 +119,15 @@ export function Family() {
       toast.success(`${memberName} foi removido da família`)
     } else {
       toast.error('Erro ao remover membro')
+    }
+  }
+
+  const handleChangeRole = async (memberId: string, newRole: 'admin' | 'editor' | 'viewer') => {
+    const success = await updateMemberRole(memberId, newRole)
+    if (success) {
+      toast.success('Permissão atualizada')
+    } else {
+      toast.error('Erro ao atualizar permissão')
     }
   }
 
@@ -484,14 +494,31 @@ export function Family() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span
-                          className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${getRoleColor(
-                            member.role
-                          )}`}
-                        >
-                          {getRoleIcon(member.role)}
-                          {getRoleLabel(member.role)}
-                        </span>
+                        {currentUserIsAdmin && !isCurrentUser ? (
+                          <select
+                            value={member.role}
+                            onChange={(e) =>
+                              handleChangeRole(
+                                member.id,
+                                e.target.value as 'admin' | 'editor' | 'viewer'
+                              )
+                            }
+                            className="text-xs px-2 py-1 rounded border border-dark-600 bg-dark-700 text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary-500 cursor-pointer"
+                          >
+                            <option value="admin">👑 Admin</option>
+                            <option value="editor">✏️ Editor</option>
+                            <option value="viewer">👁 Visualizador</option>
+                          </select>
+                        ) : (
+                          <span
+                            className={`text-xs px-2 py-1 rounded flex items-center gap-1 ${getRoleColor(
+                              member.role
+                            )}`}
+                          >
+                            {getRoleIcon(member.role)}
+                            {getRoleLabel(member.role)}
+                          </span>
+                        )}
                         {canRemove && (
                           <Button
                             variant="ghost"
