@@ -201,7 +201,7 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
           <label className="block text-sm font-medium text-gray-300 mb-1">
             Ícone
           </label>
-          <div className="grid grid-cols-8 gap-2">
+          <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-2">
             {ICONE_OPTIONS.map((icone) => (
               <button
                 key={icone}

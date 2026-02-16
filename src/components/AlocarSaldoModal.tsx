@@ -158,14 +158,15 @@ export function AlocarSaldoModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}
     >
       <div
         className={cn(
-          'bg-dark-900 border border-dark-700 rounded-xl shadow-xl',
-          'w-full max-w-lg max-h-[90vh] flex flex-col',
-          'animate-in fade-in zoom-in-95 duration-200'
+          'bg-dark-900 border border-dark-700 shadow-xl',
+          'w-full sm:max-w-lg max-h-[100dvh] sm:max-h-[85vh] flex flex-col',
+          'rounded-t-2xl sm:rounded-xl',
+          'animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200'
         )}
         onClick={(e) => e.stopPropagation()}
       >
@@ -190,7 +191,7 @@ export function AlocarSaldoModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 min-h-0">
           {/* Saldo disponível */}
           <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
             <p className="text-sm text-gray-400 mb-1">Saldo disponível para alocar</p>

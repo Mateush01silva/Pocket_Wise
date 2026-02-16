@@ -97,7 +97,7 @@ export function NotificationBell() {
       {isOpen && (
         <div
           className={cn(
-            'absolute right-0 mt-2 w-80 z-50',
+            'absolute right-0 mt-2 w-[calc(100vw-2rem)] sm:w-80 z-50',
             'bg-dark-900 border border-dark-700 rounded-xl shadow-xl',
             'animate-in fade-in slide-in-from-top-2 duration-200'
           )}

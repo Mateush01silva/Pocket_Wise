@@ -96,14 +96,15 @@ export function PagarFaturaModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
       onClick={handleClose}
     >
       <div
         className={cn(
-          'bg-dark-900 border border-dark-700 rounded-xl shadow-xl',
-          'w-full max-w-lg max-h-[90vh] flex flex-col',
-          'animate-in fade-in zoom-in-95 duration-200'
+          'bg-dark-900 border border-dark-700 shadow-xl',
+          'w-full sm:max-w-lg max-h-[100dvh] sm:max-h-[85vh] flex flex-col',
+          'rounded-t-2xl sm:rounded-xl',
+          'animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200'
         )}
         onClick={(e) => e.stopPropagation()}
       >
@@ -127,14 +128,14 @@ export function PagarFaturaModal({
           <button
             onClick={handleClose}
             disabled={isLoading}
-            className="p-2 rounded-lg hover:bg-dark-800 transition-colors text-gray-400 hover:text-gray-200 disabled:opacity-50"
+            className="p-2 rounded-lg hover:bg-dark-800 transition-colors text-gray-400 hover:text-gray-200 disabled:opacity-50 min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 min-h-0">
           {/* Resumo da Fatura */}
           <div className={cn(
             'p-4 rounded-lg border',
@@ -193,7 +194,7 @@ export function PagarFaturaModal({
                       disabled={isLoading}
                       className={cn(
                         'w-full p-3 rounded-lg border transition-all text-left',
-                        'flex items-center gap-3',
+                        'flex items-center gap-3 min-h-[56px]',
                         isSelected
                           ? 'bg-primary-500/10 border-primary-500/50'
                           : 'bg-dark-800 border-dark-700 hover:border-dark-600',
@@ -264,12 +265,12 @@ export function PagarFaturaModal({
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 p-4 border-t border-dark-700 shrink-0">
+        <div className="flex gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-dark-700 shrink-0 bg-dark-900">
           <Button
             variant="ghost"
             onClick={handleClose}
             disabled={isLoading}
-            className="flex-1"
+            className="flex-1 min-h-[44px]"
           >
             Cancelar
           </Button>
@@ -278,7 +279,7 @@ export function PagarFaturaModal({
             disabled={!contaSelecionada || isLoading || contasAtivas.length === 0}
             isLoading={isLoading}
             className={cn(
-              'flex-1',
+              'flex-1 min-h-[44px]',
               fatura.vencida
                 ? 'bg-red-600 hover:bg-red-700'
                 : 'bg-green-600 hover:bg-green-700'
