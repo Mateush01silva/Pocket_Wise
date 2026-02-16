@@ -66,9 +66,10 @@ export function AcceptInvite() {
 
       if (success) {
         toast.success('Convite aceito! Bem-vindo à família!')
-        // Redirecionar para a página da família
+        // Reload completo para que o AuthContext recarregue userFamilies
+        // e o FamilySwitcher apareça com as duas famílias disponíveis
         setTimeout(() => {
-          navigate('/app/familia')
+          window.location.href = '/app/familia'
         }, 1500)
       } else {
         const msg = storeError || 'Erro desconhecido'
