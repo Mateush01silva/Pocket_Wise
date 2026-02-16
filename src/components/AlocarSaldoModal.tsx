@@ -51,7 +51,7 @@ export function AlocarSaldoModal({
     [alocacoes]
   )
 
-  const saldoRestante = saldoDisponivel - totalAlocado
+  const saldoRestante = Math.round((saldoDisponivel - totalAlocado) * 100) / 100
 
   // Resetar alocações quando o modal abre
   useEffect(() => {
@@ -70,7 +70,7 @@ export function AlocarSaldoModal({
   const handleDistribuirIgualmente = () => {
     if (caixinhasAtivas.length === 0) return
 
-    const valorPorCaixinha = Math.floor(saldoDisponivel / caixinhasAtivas.length)
+    const valorPorCaixinha = Math.floor((saldoDisponivel / caixinhasAtivas.length) * 100) / 100
     const novasAlocacoes: Record<string, number> = {}
 
     caixinhasAtivas.forEach((c) => {
@@ -123,7 +123,7 @@ export function AlocarSaldoModal({
       return
     }
 
-    if (totalAlocado > saldoDisponivel) {
+    if (Math.round(totalAlocado * 100) > Math.round(saldoDisponivel * 100)) {
       toast.error('Total alocado excede o saldo disponível')
       return
     }
@@ -295,7 +295,7 @@ export function AlocarSaldoModal({
             <span
               className={cn(
                 'font-semibold',
-                totalAlocado > saldoDisponivel ? 'text-red-400' : 'text-green-400'
+                Math.round(totalAlocado * 100) > Math.round(saldoDisponivel * 100) ? 'text-red-400' : 'text-green-400'
               )}
             >
               {formatCurrency(totalAlocado)}
@@ -313,7 +313,7 @@ export function AlocarSaldoModal({
             </span>
           </div>
 
-          {totalAlocado > saldoDisponivel && (
+          {Math.round(totalAlocado * 100) > Math.round(saldoDisponivel * 100) && (
             <div className="flex items-center gap-2 p-2 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400">
               <AlertCircle size={14} />
               Total excede o saldo disponível
@@ -327,7 +327,7 @@ export function AlocarSaldoModal({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={totalAlocado <= 0 || totalAlocado > saldoDisponivel || isLoading}
+              disabled={totalAlocado <= 0 || Math.round(totalAlocado * 100) > Math.round(saldoDisponivel * 100) || isLoading}
               isLoading={isLoading}
               className="flex-1 bg-green-600 hover:bg-green-700"
             >

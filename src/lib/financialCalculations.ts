@@ -216,14 +216,15 @@ export function calcularSaldoAcumuladoNaoAlocado(
       })
       .reduce((sum, t) => sum + t.valor, 0)
 
-    const saldoDisponivel = saldoBruto - totalAlocado
+    // Arredondar para 2 casas decimais para evitar problemas de ponto flutuante
+    const saldoDisponivel = Math.round((saldoBruto - totalAlocado) * 100) / 100
 
-    // Apenas incluir meses com saldo positivo disponível
+    // Apenas incluir meses com saldo positivo disponível (> R$ 0,00)
     if (saldoDisponivel > 0) {
       mesesComSaldo.push({
         mesRef,
-        saldoBruto,
-        totalAlocado,
+        saldoBruto: Math.round(saldoBruto * 100) / 100,
+        totalAlocado: Math.round(totalAlocado * 100) / 100,
         saldoDisponivel,
       })
     }
@@ -232,10 +233,9 @@ export function calcularSaldoAcumuladoNaoAlocado(
     mesAtual = addMonths(mesAtual, 1)
   }
 
-  const totalDisponivel = mesesComSaldo.reduce(
-    (sum, m) => sum + m.saldoDisponivel,
-    0
-  )
+  const totalDisponivel = Math.round(
+    mesesComSaldo.reduce((sum, m) => sum + m.saldoDisponivel, 0) * 100
+  ) / 100
 
   return { totalDisponivel, mesesComSaldo }
 }
