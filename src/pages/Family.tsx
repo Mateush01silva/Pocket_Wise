@@ -53,6 +53,7 @@ export function Family() {
     updateMemberRole,
     updateFamily,
     isAdmin,
+    error: familyError,
   } = useFamilyStore()
 
   // Modal states
@@ -118,7 +119,8 @@ export function Family() {
     if (success) {
       toast.success(`${memberName} foi removido da família`)
     } else {
-      toast.error('Erro ao remover membro')
+      const msg = useFamilyStore.getState().error
+      toast.error(msg ? `Erro: ${msg}` : 'Erro ao remover membro')
     }
   }
 
@@ -127,7 +129,8 @@ export function Family() {
     if (success) {
       toast.success('Permissão atualizada')
     } else {
-      toast.error('Erro ao atualizar permissão')
+      const msg = useFamilyStore.getState().error
+      toast.error(msg ? `Erro: ${msg}` : 'Erro ao atualizar permissão')
     }
   }
 
