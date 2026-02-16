@@ -21,9 +21,9 @@ export function DetectorEstouro({
   )
   const [isModalOpen, setIsModalOpen] = useState(false)
 
-  // Detectar categorias estouradas
+  // Detectar categorias estouradas (tolerância de R$ 0,01 para evitar falsos positivos por arredondamento)
   const categoriasEstouradas = categoriasBudget.filter(
-    (cat) => cat.valor_disponivel !== undefined && cat.valor_disponivel < 0
+    (cat) => cat.valor_disponivel !== undefined && cat.valor_disponivel < -0.01
   )
 
   if (categoriasEstouradas.length === 0) {
