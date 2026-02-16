@@ -175,17 +175,28 @@ export function Envelopes() {
   }, [orcamentoAtual, getProjecaoMensal, transacoesCaixinhas, categoriasBudget, lancamentos])
 
   // Filtrar transações do envelope selecionado
-  // Inclui 'pago' e 'projetado' para corresponder ao cálculo de valor_gasto
+  // Usa mesma lógica de calcularGastoPorCategoria para consistência:
+  // - Para cartão de crédito com data_vencimento_fatura, usa o mês da fatura
+  // - Para demais transações, usa o mês da data da transação
+  // - Inclui 'pago' e 'projetado' para corresponder ao cálculo de valor_gasto
   const getEnvelopeTransactions = (envelope: EnvelopeDigital | null) => {
     if (!envelope || !orcamentoAtual) return []
 
     const anoMes = orcamentoAtual.mes_referencia.substring(0, 7)
     return lancamentos.filter(
-      (l) =>
-        l.categoria_id === envelope.categoria.id &&
-        l.tipo === 'despesa' &&
-        l.data.substring(0, 7) === anoMes &&
-        (l.status === 'pago' || l.status === 'projetado')
+      (l) => {
+        // Mesma lógica de data que calcularGastoPorCategoria
+        const lancamentoMes = (l.forma_pagamento === 'credito' && l.data_vencimento_fatura)
+          ? l.data_vencimento_fatura.substring(0, 7)
+          : l.data.substring(0, 7)
+
+        return (
+          l.categoria_id === envelope.categoria.id &&
+          l.tipo === 'despesa' &&
+          lancamentoMes === anoMes &&
+          (l.status === 'pago' || l.status === 'projetado')
+        )
+      }
     ).sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
   }
 
