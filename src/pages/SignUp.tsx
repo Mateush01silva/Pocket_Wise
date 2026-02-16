@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Button, Input } from '../components/ui'
 import { TrendingUp, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -7,10 +7,11 @@ import { toast } from 'sonner'
 
 export function SignUp() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { signUp } = useAuth()
 
   const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(searchParams.get('email') || '')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -57,7 +58,8 @@ export function SignUp() {
     setIsLoading(true)
     try {
       await signUp(email, password, name)
-      navigate('/app', { replace: true })
+      const redirectTo = searchParams.get('redirect') || '/app'
+      navigate(redirectTo, { replace: true })
       // Toast após navigate para evitar conflito de portal DOM com a troca de rota
       setTimeout(() => {
         toast.success('Bem-vindo! Você tem 7 dias grátis para testar tudo')
