@@ -313,7 +313,8 @@ export const familyInvitesService = {
 
   /**
    * Aceitar um convite
-   * O usuário deve estar autenticado e o email deve corresponder
+   * Usa RPC SECURITY DEFINER para contornar a política RLS que só permite
+   * admins inserirem em family_members.
    */
   async acceptInvite(token: string): Promise<DbResult<FamilyMember>> {
     if (!supabase) {
@@ -325,111 +326,21 @@ export const familyInvitesService = {
       return { data: null, error: new Error('User not authenticated') }
     }
 
-    const { data: authUser } = await supabase.auth.getUser()
-    if (!authUser.user?.email) {
-      return { data: null, error: new Error('User email not found') }
+    const { data, error } = await (supabase as any).rpc('accept_family_invite', {
+      invite_token: token,
+    })
+
+    if (error) {
+      return { data: null, error }
     }
 
-    // Buscar o convite
-    const { data: invite, error: inviteError } = await supabase
-    // @ts-ignore
-      .from('family_invites')
-      .select('*')
-      .eq('token', token)
-      .single()
-
-    if (inviteError || !invite) {
-      return { data: null, error: inviteError || new Error('Invite not found') }
+    if (!data?.success) {
+      return { data: null, error: new Error(data?.error ?? 'Erro ao aceitar convite') }
     }
 
-    // Verificar se o email corresponde
-    if (invite.invited_email.toLowerCase() !== authUser.user.email.toLowerCase()) {
-      return {
-        data: null,
-        error: new Error('This invite was sent to a different email address'),
-      }
-    }
+    clearFamilyIdCache()
 
-    // Verificar status e expiração
-    if (invite.status !== 'pending') {
-      return { data: null, error: new Error(`Invite is ${invite.status}`) }
-    }
-
-    if (new Date(invite.expires_at) < new Date()) {
-    // @ts-ignore
-      await supabase.from('family_invites').update({ status: 'expired' }).eq('id', invite.id)
-      return { data: null, error: new Error('Invite has expired') }
-    }
-
-    // Verificar se o usuário já é membro da família
-    const { data: existingMember } = await supabase
-    // @ts-ignore
-      .from('family_members')
-      .select('*')
-      .eq('family_id', invite.family_id)
-      .eq('user_id', currentUser.id)
-      .single()
-
-    if (existingMember) {
-      return { data: null, error: new Error('You are already a member of this family') }
-    }
-
-    // Preservar personal_family_id antes de trocar a família ativa.
-    // Se o usuário já tem uma família própria (family_id) e personal_family_id
-    // ainda não foi definido, salvar agora para não perder o contexto pessoal.
-    const { data: userRow } = await (supabase as any)
-      .from('users')
-      .select('family_id, personal_family_id')
-      .eq('id', currentUser.id)
-      .single()
-
-    const updatePayload: Record<string, string | null> = { family_id: invite.family_id }
-    if (userRow?.family_id && !userRow?.personal_family_id) {
-      updatePayload.personal_family_id = userRow.family_id
-    }
-
-    const { error: userError } = await (supabase as any)
-      .from('users')
-      .update(updatePayload)
-      .eq('id', currentUser.id)
-
-    if (userError) {
-      return { data: null, error: userError }
-    }
-
-    // Adicionar como membro
-    const { data: member, error: memberError } = await supabase
-    // @ts-ignore
-      .from('family_members')
-      .insert({
-        family_id: invite.family_id,
-        user_id: currentUser.id,
-        role: invite.role,
-      })
-      .select()
-      .single()
-
-    if (memberError) {
-      // Rollback - restaurar family_id anterior
-      await (supabase as any)
-        .from('users')
-        .update({ family_id: userRow?.family_id ?? null })
-        .eq('id', currentUser.id)
-      return { data: null, error: memberError }
-    }
-
-    // Marcar convite como aceito
-    await supabase
-    // @ts-ignore
-      .from('family_invites')
-      .update({
-        status: 'accepted',
-        accepted_at: new Date().toISOString(),
-        accepted_by: currentUser.id,
-      })
-      .eq('id', invite.id)
-
-    return { data: member, error: null }
+    return { data: { id: data.member_id, family_id: data.family_id, role: data.role } as FamilyMember, error: null }
   },
 
   /**
