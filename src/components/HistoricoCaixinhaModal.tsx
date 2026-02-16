@@ -72,14 +72,15 @@ export function HistoricoCaixinhaModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}
     >
       <div
         className={cn(
-          'bg-dark-900 border border-dark-700 rounded-xl shadow-xl',
-          'w-full max-w-lg max-h-[85vh] flex flex-col',
-          'animate-in fade-in zoom-in-95 duration-200'
+          'bg-dark-900 border border-dark-700 shadow-xl',
+          'w-full sm:max-w-lg max-h-[100dvh] sm:max-h-[85vh] flex flex-col',
+          'rounded-t-2xl sm:rounded-xl',
+          'animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200'
         )}
         onClick={(e) => e.stopPropagation()}
       >

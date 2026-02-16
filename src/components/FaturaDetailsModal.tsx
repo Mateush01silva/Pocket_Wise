@@ -96,32 +96,32 @@ export function FaturaDetailsModal({
   })
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-dark-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 sm:p-4">
+      <div className="bg-dark-800 shadow-xl sm:max-w-3xl w-full max-h-[100dvh] sm:max-h-[85vh] flex flex-col rounded-t-2xl sm:rounded-lg">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-dark-700">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-100 flex items-center gap-2">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-dark-700">
+          <div className="min-w-0">
+            <h2 className="text-lg sm:text-2xl font-bold text-gray-100 flex items-center gap-2">
               <div
-                className="w-3 h-3 rounded-full"
+                className="w-3 h-3 rounded-full shrink-0"
                 style={{ backgroundColor: cartaoCor }}
               />
-              Fatura - {cartaoNome}
+              <span className="truncate">Fatura - {cartaoNome}</span>
             </h2>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-xs sm:text-sm text-gray-400 mt-1">
               {transacoes.length} transação(ões) • Total: {formatCurrency(totalFatura)}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-dark-700 rounded-full transition-colors text-gray-400 hover:text-gray-200"
+            className="p-2 hover:bg-dark-700 rounded-full transition-colors text-gray-400 hover:text-gray-200 min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 min-h-0">
           {mesesOrdenados.map(([chave, transacoesDoMes]) => {
             const [mesLabel, periodoLabel] = chave.split('|')
             const totalMes = transacoesDoMes.reduce((sum, t) => sum + t.valor, 0)
@@ -200,7 +200,7 @@ export function FaturaDetailsModal({
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-dark-700 bg-dark-800/50">
+        <div className="p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6 border-t border-dark-700 bg-dark-800/50 shrink-0">
           <div className="flex items-center justify-between">
             <span className="text-gray-400">Total da Fatura</span>
             <span className="text-2xl font-bold text-primary-400">

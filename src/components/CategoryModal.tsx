@@ -313,7 +313,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
           <label className="block text-sm font-medium text-gray-300 mb-2">
             Ícone (Emoji selecionado: {formData.icone || EMOJI_DEFAULT})
           </label>
-          <div className="grid grid-cols-10 gap-1 max-h-32 overflow-y-auto p-2 bg-dark-700 rounded-lg border border-dark-600">
+          <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1 max-h-32 overflow-y-auto p-2 bg-dark-700 rounded-lg border border-dark-600">
             {EMOJIS_DISPONIVEIS[formData.tipo as 'despesa' | 'receita' || 'despesa'].map((emoji) => (
               <button
                 key={emoji}
@@ -338,7 +338,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
         {/* Cor */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">Cor</label>
-          <div className="grid grid-cols-9 gap-2">
+          <div className="grid grid-cols-6 sm:grid-cols-7 md:grid-cols-9 gap-2">
             {CORES_DISPONIVEIS.map((cor) => (
               <button
                 key={cor}

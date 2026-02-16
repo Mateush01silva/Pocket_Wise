@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, type ReactNode } from 'react'
-import { GraduationCap, Lightbulb, Calculator, Target, BookOpen } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
+import { GraduationCap, Lightbulb, Calculator, Target, BookOpen, X } from 'lucide-react'
 import { useLearningModeStore } from '../../store/useLearningModeStore'
 import { cn } from '../../lib/cn'
 
@@ -37,7 +37,7 @@ export function LearningTooltip({
     if (!isLearningMode) return
     timeoutRef.current = setTimeout(() => {
       setIsVisible(true)
-    }, 300) // pequeno delay para evitar tooltips acidentais
+    }, 300)
   }
 
   const handleMouseLeave = () => {
@@ -47,32 +47,67 @@ export function LearningTooltip({
     setIsVisible(false)
   }
 
+  // Touch/click support: toggle on tap
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (!isLearningMode) return
+    e.stopPropagation()
+    setIsVisible((prev) => !prev)
+  }, [isLearningMode])
+
+  // Close tooltip when clicking/touching outside
+  useEffect(() => {
+    if (!isVisible) return
+
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target as Node) &&
+        tooltipRef.current && !tooltipRef.current.contains(e.target as Node)
+      ) {
+        setIsVisible(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
+  }, [isVisible])
+
   useEffect(() => {
     if (isVisible && triggerRef.current && tooltipRef.current) {
       const triggerRect = triggerRef.current.getBoundingClientRect()
       const tooltipRect = tooltipRef.current.getBoundingClientRect()
       const padding = 12
+      const isMobile = window.innerWidth < 640
 
       let top = 0
       let left = 0
 
-      switch (position) {
-        case 'top':
-          top = triggerRect.top - tooltipRect.height - padding
-          left = triggerRect.left + (triggerRect.width / 2) - (tooltipRect.width / 2)
-          break
-        case 'bottom':
-          top = triggerRect.bottom + padding
-          left = triggerRect.left + (triggerRect.width / 2) - (tooltipRect.width / 2)
-          break
-        case 'left':
-          top = triggerRect.top + (triggerRect.height / 2) - (tooltipRect.height / 2)
-          left = triggerRect.left - tooltipRect.width - padding
-          break
-        case 'right':
-          top = triggerRect.top + (triggerRect.height / 2) - (tooltipRect.height / 2)
-          left = triggerRect.right + padding
-          break
+      if (isMobile) {
+        // On mobile, position below the trigger, full width
+        top = triggerRect.bottom + padding
+        left = padding
+      } else {
+        switch (position) {
+          case 'top':
+            top = triggerRect.top - tooltipRect.height - padding
+            left = triggerRect.left + (triggerRect.width / 2) - (tooltipRect.width / 2)
+            break
+          case 'bottom':
+            top = triggerRect.bottom + padding
+            left = triggerRect.left + (triggerRect.width / 2) - (tooltipRect.width / 2)
+            break
+          case 'left':
+            top = triggerRect.top + (triggerRect.height / 2) - (tooltipRect.height / 2)
+            left = triggerRect.left - tooltipRect.width - padding
+            break
+          case 'right':
+            top = triggerRect.top + (triggerRect.height / 2) - (tooltipRect.height / 2)
+            left = triggerRect.right + padding
+            break
+        }
       }
 
       // Ajustar para não sair da tela
@@ -102,7 +137,8 @@ export function LearningTooltip({
       ref={triggerRef}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={cn('relative inline-block', className)}
+      onClick={handleClick}
+      className={cn('relative inline-block cursor-pointer', className)}
     >
       {/* Indicador visual de que há conteúdo educativo */}
       <div className="relative">
@@ -114,7 +150,7 @@ export function LearningTooltip({
       {isVisible && (
         <div
           ref={tooltipRef}
-          className="fixed z-[9999] w-80 max-w-[90vw] animate-in fade-in-0 zoom-in-95 duration-200"
+          className="fixed z-[9999] w-80 max-w-[calc(100vw-24px)] animate-in fade-in-0 zoom-in-95 duration-200"
           style={{ top: tooltipPosition.top, left: tooltipPosition.left }}
           onMouseEnter={() => setIsVisible(true)}
           onMouseLeave={handleMouseLeave}
@@ -122,19 +158,31 @@ export function LearningTooltip({
           <div className="bg-dark-800 border border-dark-600 rounded-xl shadow-2xl shadow-black/50 overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 px-4 py-3 border-b border-dark-600">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-                  <GraduationCap className="w-4 h-4 text-white" />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                    <GraduationCap className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-100">{content.titulo}</h3>
+                    <p className="text-xs text-amber-400/80">Modo Aprendizagem</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-gray-100">{content.titulo}</h3>
-                  <p className="text-xs text-amber-400/80">Modo Aprendizagem</p>
-                </div>
+                {/* Close button visible on mobile */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsVisible(false)
+                  }}
+                  className="sm:hidden p-1.5 rounded-lg hover:bg-dark-700/50 text-gray-400 min-w-[36px] min-h-[36px] flex items-center justify-center"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
             {/* Content */}
-            <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+            <div className="p-4 space-y-3 max-h-[50vh] overflow-y-auto overscroll-contain">
               {/* Descrição principal */}
               <p className="text-sm text-gray-300 leading-relaxed">
                 {content.descricao}
@@ -249,22 +297,63 @@ export function LearningTooltipMenu({
     setIsVisible(false)
   }
 
+  // Touch/click support: toggle on tap (prevents navigation when in learning mode)
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (!isLearningMode) return
+    e.preventDefault()
+    e.stopPropagation()
+    setIsVisible((prev) => !prev)
+  }, [isLearningMode])
+
+  // Close tooltip when clicking/touching outside
+  useEffect(() => {
+    if (!isVisible) return
+
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (
+        triggerRef.current && !triggerRef.current.contains(e.target as Node) &&
+        tooltipRef.current && !tooltipRef.current.contains(e.target as Node)
+      ) {
+        setIsVisible(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
+  }, [isVisible])
+
   useEffect(() => {
     if (isVisible && triggerRef.current && tooltipRef.current) {
       const triggerRect = triggerRef.current.getBoundingClientRect()
       const tooltipRect = tooltipRef.current.getBoundingClientRect()
       const padding = 8
+      const isMobile = window.innerWidth < 1024
 
-      let top = triggerRect.top + (triggerRect.height / 2) - (tooltipRect.height / 2)
-      let left = triggerRect.right + padding
+      let top: number
+      let left: number
+
+      if (isMobile) {
+        // On mobile/tablet, position below the trigger item
+        top = triggerRect.bottom + padding
+        left = padding
+      } else {
+        // On desktop, position to the right of the sidebar item
+        top = triggerRect.top + (triggerRect.height / 2) - (tooltipRect.height / 2)
+        left = triggerRect.right + padding
+      }
 
       // Ajustar para não sair da tela
       const viewportWidth = window.innerWidth
       const viewportHeight = window.innerHeight
 
       if (left + tooltipRect.width > viewportWidth - padding) {
-        left = triggerRect.left - tooltipRect.width - padding
+        left = isMobile ? padding : triggerRect.left - tooltipRect.width - padding
       }
+      if (left < padding) left = padding
       if (top < padding) top = padding
       if (top + tooltipRect.height > viewportHeight - padding) {
         top = viewportHeight - tooltipRect.height - padding
@@ -283,26 +372,43 @@ export function LearningTooltipMenu({
       ref={triggerRef}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={cn('relative', className)}
+      onClick={handleClick}
+      className={cn('relative cursor-pointer', className)}
     >
       {children}
 
       {isVisible && (
         <div
           ref={tooltipRef}
-          className="fixed z-[9999] w-72 animate-in fade-in-0 slide-in-from-left-2 duration-200"
+          className={cn(
+            'fixed z-[9999] animate-in fade-in-0 duration-200',
+            'w-72 max-w-[calc(100vw-16px)]',
+            'lg:slide-in-from-left-2'
+          )}
           style={{ top: tooltipPosition.top, left: tooltipPosition.left }}
           onMouseEnter={() => setIsVisible(true)}
           onMouseLeave={handleMouseLeave}
         >
           <div className="bg-dark-800 border border-dark-600 rounded-lg shadow-xl shadow-black/50 overflow-hidden">
             <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 px-3 py-2 border-b border-dark-600">
-              <div className="flex items-center gap-2">
-                <GraduationCap className="w-4 h-4 text-amber-400" />
-                <span className="text-xs font-semibold text-gray-100">{content.titulo}</span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-semibold text-gray-100">{content.titulo}</span>
+                </div>
+                {/* Close button for mobile/tablet */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsVisible(false)
+                  }}
+                  className="lg:hidden p-1 rounded text-gray-400 hover:text-gray-200 min-w-[28px] min-h-[28px] flex items-center justify-center"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
-            <div className="p-3 space-y-2">
+            <div className="p-3 space-y-2 max-h-[40vh] overflow-y-auto overscroll-contain">
               <p className="text-xs text-gray-300 leading-relaxed">
                 {content.descricao}
               </p>

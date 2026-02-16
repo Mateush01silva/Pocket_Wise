@@ -51,7 +51,7 @@ export function Modal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -60,7 +60,7 @@ export function Modal({
 
       {/* Modal */}
       <div
-        className={`relative w-full ${maxWidthClasses[maxWidth]} bg-dark-900 border border-dark-700/50 rounded-xl shadow-2xl max-h-[90vh] flex flex-col`}
+        className={`relative w-full ${maxWidthClasses[maxWidth]} bg-dark-900 border border-dark-700/50 shadow-2xl max-h-[100dvh] sm:max-h-[85vh] flex flex-col rounded-t-2xl sm:rounded-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -75,14 +75,14 @@ export function Modal({
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="shrink-0"
+            className="shrink-0 min-w-[44px] min-h-[44px]"
           >
             <X className="w-5 h-5" />
           </Button>
         </div>
 
         {/* Content - Scrollable */}
-        <div className="p-4 sm:p-6 overflow-y-auto">{children}</div>
+        <div className="p-4 sm:p-6 overflow-y-auto overscroll-contain min-h-0">{children}</div>
       </div>
     </div>
   )

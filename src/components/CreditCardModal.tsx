@@ -239,7 +239,7 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
         {/* Cor */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-2">Cor</label>
-          <div className="grid grid-cols-9 gap-2">
+          <div className="grid grid-cols-6 sm:grid-cols-7 md:grid-cols-9 gap-2">
             {CORES_DISPONIVEIS.map((cor) => (
               <button
                 key={cor}
