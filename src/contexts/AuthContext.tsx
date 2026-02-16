@@ -290,6 +290,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return true
     }
 
+    // Membros convidados para a família de outra pessoa têm acesso
+    // pelo plano do dono da família — não precisam de assinatura própria
+    const isInvitedMember = userFamilies.some(f => !f.is_personal)
+    if (isInvitedMember) return true
+
     if (!subscription) return false
 
     // Se está em trial, verificar se ainda não expirou
@@ -313,6 +318,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const daysUntilExpiration = (): number => {
+    // Membros convidados não têm data de expiração própria
+    const isInvitedMember = userFamilies.some(f => !f.is_personal)
+    if (isInvitedMember) return -1
+
     if (!subscription) return 0
 
     let endDate: string | null = null
