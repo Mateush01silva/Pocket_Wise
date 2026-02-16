@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, Home, Users, Check, Loader2 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { useAuth } from '../../contexts/AuthContext'
-import { toast } from 'react-hot-toast'
+import { toast } from 'sonner'
 
 export function FamilySwitcher() {
   const { userFamilies, activeFamilyId, personalFamilyId, switchFamily } = useAuth()
