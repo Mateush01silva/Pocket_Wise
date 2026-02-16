@@ -37,9 +37,12 @@ import { formatCurrency } from '../utils/currency'
  * Calcula o gasto total de uma categoria em um determinado mês
  *
  * Para transações de cartão de crédito:
- * - Considera pelo mês da COMPRA (data), não pelo mês do vencimento da fatura
- * - Inclui status 'projetado' pois o gasto já foi "comprometido"
- * - Isso permite controle do orçamento mesmo antes de pagar a fatura
+ * - Usa o mês da FATURA (data_vencimento_fatura), não o mês da compra
+ * - Compras feitas após o fechamento do cartão vão para o mês seguinte
+ * - Isso reflete quando o gasto realmente será pago
+ *
+ * Para outras transações:
+ * - Usa o mês da transação (data)
  */
 export function calcularGastoPorCategoria(
   lancamentos: Lancamento[],
@@ -50,7 +53,11 @@ export function calcularGastoPorCategoria(
 
   return lancamentos
     .filter((l) => {
-      const lancamentoMes = l.data.substring(0, 7)
+      // Para transações de cartão com data_vencimento_fatura, usar o mês da fatura
+      // Isso garante que compras após o fechamento contam no mês seguinte
+      const lancamentoMes = (l.forma_pagamento === 'credito' && l.data_vencimento_fatura)
+        ? l.data_vencimento_fatura.substring(0, 7)
+        : l.data.substring(0, 7)
 
       // Status válidos: 'pago' OU 'projetado' (cartão de crédito)
       // Não considera 'pendente' porque ainda não foi efetivado
@@ -343,12 +350,18 @@ export function gerarEnvelopesDigitais(
     else if (percentualUsado >= 80) status = 'atencao'
 
     // Filtrar últimas transações do mês de referência
+    // Para cartão de crédito, usar mês da fatura para consistência com o cálculo de gastos
     const ultimasTransacoes = lancamentos
-      .filter((l) =>
-        l.categoria_id === catBudget.categoria_id &&
-        l.tipo === 'despesa' &&
-        l.data.substring(0, 7) === anoMes
-      )
+      .filter((l) => {
+        const mesTx = (l.forma_pagamento === 'credito' && l.data_vencimento_fatura)
+          ? l.data_vencimento_fatura.substring(0, 7)
+          : l.data.substring(0, 7)
+        return (
+          l.categoria_id === catBudget.categoria_id &&
+          l.tipo === 'despesa' &&
+          mesTx === anoMes
+        )
+      })
       .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
       .slice(0, 3)
 

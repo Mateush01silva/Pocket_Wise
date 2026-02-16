@@ -180,9 +180,9 @@ export function Dashboard() {
     return saldoMesAnterior > 0 && caixinhasInitialized && caixinhas.some(c => c.ativa)
   }, [saldoMesAnterior, caixinhasInitialized, caixinhas])
 
-  // Get recent transactions (last 5) - criar cópia antes de ordenar!
+  // Get recent transactions (last 5) - ordenar por data de cadastro (created_at)
   const transacoesRecentes = [...lancamentos]
-    .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5)
 
   // Chart data - Gastos por Categoria (apenas despesas do mês atual) - SEM useMemo para evitar loops
@@ -202,9 +202,16 @@ export function Dashboard() {
     return acc
   }, {} as Record<string, { categoria_id: string; nome: string; total: number; cor: string }>)
 
-  const gastosPorCategoria = Object.values(grouped)
+  const gastosPorCategoriaRaw = Object.values(grouped)
     .sort((a, b) => b.total - a.total)
     .slice(0, 10) // Top 10
+
+  const totalDespesasMes = gastosPorCategoriaRaw.reduce((sum, g) => sum + g.total, 0)
+
+  const gastosPorCategoria = gastosPorCategoriaRaw.map(g => ({
+    ...g,
+    percentual: totalDespesasMes > 0 ? (g.total / totalDespesasMes) * 100 : 0,
+  }))
 
   // Chart data - Receitas x Despesas (últimos 6 meses) - SEM useMemo para evitar loops
   const hoje = new Date()
@@ -641,35 +648,77 @@ export function Dashboard() {
                 Gastos por Categoria (Mês Atual)
               </h2>
               {gastosPorCategoria.length > 0 ? (
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={gastosPorCategoria}
-                        dataKey="total"
-                        nameKey="nome"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        fill="#8884d8"
-                        label={(entry: any) => `${entry.nome}: ${formatCurrency(entry.total)}`}
-                        labelLine={false}
-                      >
-                        {gastosPorCategoria.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.cor || COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: number | undefined) => value ? formatCurrency(value) : 'R$ 0,00'}
-                        contentStyle={{
-                          backgroundColor: '#1F2937',
-                          border: '1px solid #374151',
-                          borderRadius: '8px',
-                          color: '#F3F4F6'
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="flex flex-col lg:flex-row items-center gap-6">
+                  {/* Donut Chart */}
+                  <div className="h-64 w-64 shrink-0 relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <defs>
+                          {gastosPorCategoria.map((entry, index) => {
+                            const color = entry.cor || COLORS[index % COLORS.length]
+                            return (
+                              <linearGradient key={`grad-${index}`} id={`catGrad-${index}`} x1="0" y1="0" x2="1" y2="1">
+                                <stop offset="0%" stopColor={color} stopOpacity={1} />
+                                <stop offset="100%" stopColor={color} stopOpacity={0.7} />
+                              </linearGradient>
+                            )
+                          })}
+                        </defs>
+                        <Pie
+                          data={gastosPorCategoria}
+                          dataKey="total"
+                          nameKey="nome"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={100}
+                          paddingAngle={3}
+                          cornerRadius={6}
+                          stroke="none"
+                        >
+                          {gastosPorCategoria.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={`url(#catGrad-${index})`} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number | undefined, _name: any, props: any) => {
+                            const pct = props?.payload?.percentual
+                            return value ? `${formatCurrency(value)} (${pct?.toFixed(1)}%)` : 'R$ 0,00'
+                          }}
+                          contentStyle={{
+                            backgroundColor: '#1F2937',
+                            border: '1px solid #374151',
+                            borderRadius: '8px',
+                            color: '#F3F4F6'
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    {/* Centro do donut */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <p className="text-xs text-gray-500">Total</p>
+                      <p className="text-lg font-bold text-gray-100">{formatCurrency(totalDespesasMes)}</p>
+                    </div>
+                  </div>
+
+                  {/* Legenda com percentuais */}
+                  <div className="flex-1 w-full space-y-2 max-h-64 overflow-y-auto">
+                    {gastosPorCategoria.map((entry, index) => (
+                      <div key={entry.categoria_id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-dark-700/30 transition-colors">
+                        <div
+                          className="w-3 h-3 rounded-full shrink-0"
+                          style={{ backgroundColor: entry.cor || COLORS[index % COLORS.length] }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-gray-300 truncate">{entry.nome}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-semibold text-gray-200">{formatCurrency(entry.total)}</p>
+                          <p className="text-xs text-gray-500">{entry.percentual.toFixed(1)}%</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div className="h-80 flex items-center justify-center text-gray-500">
