@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['Logo_PocketWise.jpeg'],
+      includeAssets: ['__Logo_PocketWise-removebg-preview.png', 'Logo_PocketWise.jpeg'],
       manifest: {
         name: 'Pocket Wise - Controle Financeiro',
         short_name: 'Pocket Wise',
@@ -23,15 +23,15 @@ export default defineConfig({
         categories: ['finance', 'productivity'],
         icons: [
           {
-            src: 'Logo_PocketWise.jpeg',
+            src: '__Logo_PocketWise-removebg-preview.png',
             sizes: '192x192',
-            type: 'image/jpeg',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: 'Logo_PocketWise.jpeg',
+            src: '__Logo_PocketWise-removebg-preview.png',
             sizes: '512x512',
-            type: 'image/jpeg',
+            type: 'image/png',
             purpose: 'any',
           },
           {
