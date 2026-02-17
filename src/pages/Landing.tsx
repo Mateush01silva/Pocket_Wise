@@ -81,11 +81,9 @@ export function Landing() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-dark-900/80 backdrop-blur-lg border-b border-dark-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img
-              src="/__Logo_PocketWise-removebg-preview.png"
-              alt="PocketWise"
-              className="w-8 h-8 object-contain"
-            />
+            <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-white" />
+            </div>
             <span className="text-xl font-bold text-gray-100">Pocket<span className="text-primary-500">Wise</span></span>
           </div>
 
@@ -542,11 +540,9 @@ export function Landing() {
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2">
-              <img
-                src="/Logo_PocketWise.jpeg"
-                alt="PocketWise"
-                className="w-8 h-8 rounded-lg object-cover"
-              />
+              <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-white" />
+              </div>
               <span className="text-xl font-bold text-gray-100">Pocket<span className="text-primary-500">Wise</span></span>
             </div>
 

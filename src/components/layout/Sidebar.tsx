@@ -6,6 +6,7 @@ import {
   Landmark,
   BarChart3,
   Settings,
+  Wallet,
   Users,
   FolderTree,
   Package,
@@ -85,11 +86,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Logo */}
       <div className="p-6 border-b border-dark-700/50">
         <div className="flex items-center gap-3">
-          <img
-            src="/__Logo_PocketWise-removebg-preview.png"
-            alt="PocketWise"
-            className="w-10 h-10 object-contain shrink-0"
-          />
+          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center">
+            <Wallet className="w-6 h-6 text-white" />
+          </div>
           <div>
             <h1 className="text-xl font-bold gradient-text">PocketWise</h1>
             <p className="text-xs text-gray-500">Gestão Financeira</p>
