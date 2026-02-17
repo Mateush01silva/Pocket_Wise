@@ -146,19 +146,11 @@ export function PossoComprarFloating() {
             'bg-gradient-to-r from-secondary-500 to-secondary-600',
             'hover:from-secondary-400 hover:to-secondary-500',
             'shadow-lg shadow-secondary-500/30',
-            'transition-all duration-200 hover:scale-105',
-            'group'
+            'transition-all duration-200 hover:scale-105'
           )}
           title="Posso Comprar?"
         >
           <ShoppingCart className="w-6 h-6 text-white" />
-
-          {/* Label tooltip (não aprendizagem) */}
-          {!isLearningMode && (
-            <span className="absolute right-16 bg-dark-800 text-white text-sm px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-dark-600">
-              Posso Comprar?
-            </span>
-          )}
         </button>
       </div>
 

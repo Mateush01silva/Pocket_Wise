@@ -82,9 +82,9 @@ export function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img
-              src="/Logo_PocketWise.jpeg"
+              src="/__Logo_PocketWise-removebg-preview.png"
               alt="PocketWise"
-              className="w-8 h-8 rounded-lg object-cover"
+              className="w-8 h-8 object-contain"
             />
             <span className="text-xl font-bold text-gray-100">Pocket<span className="text-primary-500">Wise</span></span>
           </div>

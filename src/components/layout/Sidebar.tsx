@@ -86,9 +86,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       <div className="p-6 border-b border-dark-700/50">
         <div className="flex items-center gap-3">
           <img
-            src="/Logo_PocketWise.jpeg"
+            src="/__Logo_PocketWise-removebg-preview.png"
             alt="PocketWise"
-            className="w-10 h-10 rounded-lg object-cover shrink-0"
+            className="w-10 h-10 object-contain shrink-0"
           />
           <div>
             <h1 className="text-xl font-bold gradient-text">PocketWise</h1>
