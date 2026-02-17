@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
-import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw, Clock, Pause, Eye } from 'lucide-react'
+import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw, Clock, Pause, Eye, User } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
+import { useFamilyStore } from '../store/useFamilyStore'
 import { TransactionModal } from '../components/TransactionModal'
 import { usePermissions } from '../hooks/usePermissions'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
@@ -25,6 +26,7 @@ export function Transactions() {
   const [filterCategoria, setFilterCategoria] = useState<string>('all')
   const [filterFormaPagamento, setFilterFormaPagamento] = useState<string>('all')
   const [filterCartao, setFilterCartao] = useState<string>('all')
+  const [filterCriadoPor, setFilterCriadoPor] = useState<string>('all')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilterValue>({
     tipo: 'mes-atual',
     dataInicio: startOfMonth(new Date()),
@@ -93,6 +95,7 @@ export function Transactions() {
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
   const cartoes = useCartoesStore((state) => state.cartoes)
+  const familyMembers = useFamilyStore((state) => state.members)
   const deleteLancamento = useTransacoesStore((state) => state.deleteLancamento)
   const marcarComoPago = useTransacoesStore((state) => state.marcarComoPago)
   const updateLancamento = useTransacoesStore((state) => state.updateLancamento)
@@ -142,6 +145,14 @@ export function Transactions() {
     const cartao = cartoes.find(c => c.id === cartaoId)
     return cartao?.nome || 'Cartão desconhecido'
   }, [cartoes])
+
+  // Get member name by user_id
+  const getMemberName = useCallback((userId: string | null) => {
+    if (!userId) return 'Desconhecido'
+    const member = familyMembers.find(m => m.user_id === userId)
+    if (!member) return 'Desconhecido'
+    return member.user_name || member.user_email || 'Desconhecido'
+  }, [familyMembers])
 
   // Translate payment method
   const translatePaymentMethod = useCallback((method: string) => {
@@ -233,6 +244,9 @@ export function Transactions() {
       // Filter by card
       if (filterCartao !== 'all' && lancamento.cartao_id !== filterCartao) return false
 
+      // Filter by who created (criado_por)
+      if (filterCriadoPor !== 'all' && lancamento.criado_por !== filterCriadoPor) return false
+
       // Filter by date range (usando PeriodFilter)
       // Se toggle ativo: usa data_vencimento_fatura para crédito (mês que será pago)
       // Se toggle desativado: usa data da compra sempre
@@ -265,7 +279,7 @@ export function Transactions() {
         if (!isNaN(max) && lancamento.valor > max) return false
       }
 
-      // Search term (category name, subcategory name, observacao, or value)
+      // Search term (category name, subcategory name, observacao, value, or creator name)
       if (searchTerm) {
         const search = searchTerm.toLowerCase().trim()
         const catName = getCategoryName(lancamento.categoria_id).toLowerCase()
@@ -275,9 +289,10 @@ export function Transactions() {
         const obs = lancamento.observacao?.toLowerCase() || ''
         const valorStr = lancamento.valor.toString()
         const valorFormatado = formatCurrency(lancamento.valor).toLowerCase()
+        const memberName = getMemberName(lancamento.criado_por).toLowerCase()
 
-        // Busca por texto (categoria, subcategoria, observação) ou valor
-        const matchesText = catName.includes(search) || subCatName.includes(search) || obs.includes(search)
+        // Busca por texto (categoria, subcategoria, observação, responsável) ou valor
+        const matchesText = catName.includes(search) || subCatName.includes(search) || obs.includes(search) || memberName.includes(search)
         const matchesValue = valorStr.includes(search.replace(',', '.')) ||
                            valorFormatado.includes(search) ||
                            search.replace(/[^\d,.-]/g, '').replace(',', '.') === valorStr
@@ -317,7 +332,7 @@ export function Transactions() {
     })
 
     return result
-  }, [lancamentos, filterTipo, filterStatus, filterCategoria, filterSubcategoria, filterFormaPagamento, filterCartao, periodFilter, valorMin, valorMax, searchTerm, sortField, sortOrder, getCategoryName, filtrarPorDataFatura])
+  }, [lancamentos, filterTipo, filterStatus, filterCategoria, filterSubcategoria, filterFormaPagamento, filterCartao, filterCriadoPor, periodFilter, valorMin, valorMax, searchTerm, sortField, sortOrder, getCategoryName, getMemberName, filtrarPorDataFatura])
 
   // Limpar filtros avançados
   const clearAdvancedFilters = useCallback(() => {
@@ -343,7 +358,7 @@ export function Transactions() {
   // Reset para página 1 quando filtros mudam
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, filterTipo, filterStatus, filterCategoria, filterSubcategoria, filterFormaPagamento, filterCartao, periodFilter, valorMin, valorMax, filtrarPorDataFatura])
+  }, [searchTerm, filterTipo, filterStatus, filterCategoria, filterSubcategoria, filterFormaPagamento, filterCartao, filterCriadoPor, periodFilter, valorMin, valorMax, filtrarPorDataFatura])
 
   // Pagination
   const totalPages = Math.ceil(filteredLancamentos.length / itemsPerPage)
@@ -542,7 +557,7 @@ export function Transactions() {
               <div className="relative col-span-1 md:col-span-2 lg:col-span-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
-                  placeholder="Buscar categoria, descrição, valor..."
+                  placeholder="Buscar categoria, descrição, valor ou responsável..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -628,6 +643,21 @@ export function Transactions() {
                   ...cartoes.map(cartao => ({ value: cartao.id, label: cartao.nome })),
                 ]}
               />
+
+              {/* Filter by who created (Lançado por) - só aparece quando há múltiplos membros */}
+              {familyMembers.length > 1 && (
+                <Select
+                  value={filterCriadoPor}
+                  onChange={(e) => setFilterCriadoPor(e.target.value)}
+                  options={[
+                    { value: 'all', label: 'Todos os responsáveis' },
+                    ...familyMembers.map(member => ({
+                      value: member.user_id,
+                      label: member.user_name || member.user_email || 'Membro',
+                    })),
+                  ]}
+                />
+              )}
             </div>
 
             {/* Filtros Avançados */}
@@ -846,13 +876,21 @@ export function Transactions() {
                       <SortIcon field="status" />
                     </div>
                   </th>
+                  {familyMembers.length > 1 && (
+                    <th className="text-left p-4 text-sm font-medium text-gray-400">
+                      <div className="flex items-center gap-1">
+                        <User size={13} />
+                        Lançado por
+                      </div>
+                    </th>
+                  )}
                   <th className="text-center p-4 text-sm font-medium text-gray-400 w-20">Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedLancamentos.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-12 text-gray-500">
+                    <td colSpan={familyMembers.length > 1 ? 10 : 9} className="text-center py-12 text-gray-500">
                       {filteredLancamentos.length === 0 && lancamentos.length === 0
                         ? 'Nenhuma transação encontrada. Adicione sua primeira transação!'
                         : 'Nenhuma transação encontrada com os filtros aplicados.'}
@@ -946,6 +984,18 @@ export function Transactions() {
                           {lancamento.status === 'projetado' && 'Projetado'}
                         </span>
                       </td>
+                      {familyMembers.length > 1 && (
+                        <td className="p-4">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-5 h-5 rounded-full bg-primary-500/20 flex items-center justify-center shrink-0">
+                              <User size={11} className="text-primary-400" />
+                            </div>
+                            <p className="text-xs text-gray-400 truncate max-w-[100px]">
+                              {getMemberName(lancamento.criado_por)}
+                            </p>
+                          </div>
+                        </td>
+                      )}
                       {canEdit && (
                         <td className="p-4">
                           <div className="flex items-center justify-center gap-1">
