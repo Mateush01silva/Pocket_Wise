@@ -53,7 +53,6 @@ export function Family() {
     updateMemberRole,
     updateFamily,
     isAdmin,
-    error: familyError,
   } = useFamilyStore()
 
   // Modal states
