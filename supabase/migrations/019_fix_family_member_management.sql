@@ -18,6 +18,9 @@
 --
 -- 4. personal_family_id inexistente: Se a migration 016 não foi aplicada,
 --    a coluna personal_family_id não existe e a RPC 018 falha com erro SQL.
+--
+-- NOTA: A tabela `families` NÃO possui coluna owner_id. O dono de uma família
+--       é determinado pelo registro em family_members com role = 'admin'.
 -- ============================================================================
 
 -- ============================================================================
@@ -28,21 +31,21 @@ ALTER TABLE users
 
 -- ============================================================================
 -- 2. Corrigir a política INSERT de family_members (remover o problema circular)
---    Adicionar exceção para o dono da família poder adicionar o primeiro membro.
+--    Quando uma família nova é criada (sem membros ainda), qualquer usuário
+--    autenticado pode se inserir como o primeiro admin (bootstrap).
 -- ============================================================================
 DROP POLICY IF EXISTS "Admins can insert family members" ON family_members;
 
 CREATE POLICY "Admins can insert family members"
   ON family_members FOR INSERT
   WITH CHECK (
-    -- O dono da família pode sempre inserir membros (necessário para o primeiro INSERT)
-    EXISTS (
-      SELECT 1 FROM families
-      WHERE id = family_members.family_id
-        AND owner_id = auth.uid()
+    -- Família ainda sem membros: permite o primeiro INSERT (bootstrap do admin criador)
+    NOT EXISTS (
+      SELECT 1 FROM family_members fm
+      WHERE fm.family_id = family_members.family_id
     )
     OR
-    -- Admins existentes também podem inserir
+    -- Admins existentes também podem inserir novos membros
     EXISTS (
       SELECT 1 FROM family_members fm
       WHERE fm.user_id = auth.uid()
@@ -53,34 +56,40 @@ CREATE POLICY "Admins can insert family members"
 
 -- ============================================================================
 -- 3. Inserir criadores ausentes em family_members
---    Cobre qualquer família cujo owner_id não tem entrada como admin.
+--    Cobre qualquer usuário que tem family_id mas não tem entrada em
+--    family_members. Usa users.family_id como fonte de verdade.
 --    Idempotente graças ao NOT EXISTS.
 -- ============================================================================
 INSERT INTO family_members (family_id, user_id, role)
-SELECT f.id, f.owner_id, 'admin'::family_role
-FROM families f
-WHERE f.owner_id IS NOT NULL
+SELECT u.family_id, u.id, 'admin'::family_role
+FROM users u
+WHERE u.family_id IS NOT NULL
   AND NOT EXISTS (
     SELECT 1 FROM family_members fm
-    WHERE fm.family_id = f.id
-      AND fm.user_id = f.owner_id
+    WHERE fm.family_id = u.family_id
+      AND fm.user_id = u.id
   );
 
 -- ============================================================================
--- 4. Popular personal_family_id para donos de família que ainda não têm
+-- 4. Popular personal_family_id para usuários que ainda não têm
+--    Considera como "família pessoal" a família onde o usuário é admin.
 -- ============================================================================
 UPDATE users u
-SET personal_family_id = (
-  SELECT f.id FROM families f WHERE f.owner_id = u.id LIMIT 1
-)
+SET personal_family_id = u.family_id
 WHERE u.personal_family_id IS NULL
-  AND EXISTS (SELECT 1 FROM families f WHERE f.owner_id = u.id);
+  AND u.family_id IS NOT NULL
+  AND EXISTS (
+    SELECT 1 FROM family_members fm
+    WHERE fm.family_id = u.family_id
+      AND fm.user_id = u.id
+      AND fm.role = 'admin'
+  );
 
 -- ============================================================================
 -- 5. Recriar a RPC remove_family_member de forma mais robusta
 --    - Usa NULL em vez de personal_family_id diretamente no UPDATE
 --      (mais seguro: restaura para personal_family_id se existir, senão NULL)
---    - Valida admin também pelo families.owner_id como fallback
+--    - Valida admin apenas via family_members (families não tem owner_id)
 -- ============================================================================
 CREATE OR REPLACE FUNCTION remove_family_member(member_id UUID)
 RETURNS JSON AS $$
@@ -107,17 +116,12 @@ BEGIN
     RETURN json_build_object('success', false, 'error', 'Você não pode remover a si mesmo');
   END IF;
 
-  -- Verificar se o solicitante é admin desta família
-  -- Aceita tanto via family_members quanto via families.owner_id (fallback)
+  -- Verificar se o solicitante é admin desta família via family_members
   SELECT EXISTS (
     SELECT 1 FROM family_members fm
     WHERE fm.family_id = member_rec.family_id
       AND fm.user_id = caller_uuid
       AND fm.role = 'admin'
-  ) OR EXISTS (
-    SELECT 1 FROM families f
-    WHERE f.id = member_rec.family_id
-      AND f.owner_id = caller_uuid
   ) INTO is_caller_admin;
 
   IF NOT is_caller_admin THEN
@@ -165,7 +169,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================================
 -- 6. Recriar a RPC update_member_role de forma mais robusta
---    - Valida admin também pelo families.owner_id como fallback
+--    - Valida admin apenas via family_members (families não tem owner_id)
 -- ============================================================================
 CREATE OR REPLACE FUNCTION update_member_role(member_id UUID, new_role TEXT)
 RETURNS JSON AS $$
@@ -191,16 +195,12 @@ BEGIN
     RETURN json_build_object('success', false, 'error', 'Membro não encontrado');
   END IF;
 
-  -- Verificar se o solicitante é admin (family_members OU owner_id)
+  -- Verificar se o solicitante é admin via family_members
   SELECT EXISTS (
     SELECT 1 FROM family_members fm
     WHERE fm.family_id = member_rec.family_id
       AND fm.user_id = caller_uuid
       AND fm.role = 'admin'
-  ) OR EXISTS (
-    SELECT 1 FROM families f
-    WHERE f.id = member_rec.family_id
-      AND f.owner_id = caller_uuid
   ) INTO is_caller_admin;
 
   IF NOT is_caller_admin THEN
