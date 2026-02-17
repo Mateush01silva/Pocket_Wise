@@ -556,14 +556,16 @@ export function Dashboard() {
 
       {/* Detector de Estouro */}
       {orcamentoAtual && (
-        <DetectorEstouro
-          categoriasBudget={getCategoriasBudgetComDados(orcamentoAtual.id)}
-          orcamentoId={orcamentoAtual.id}
-          onRebalanceado={async () => {
-            // Recarregar dados após rebalanceamento
-            await initializeOrcamentos()
-          }}
-        />
+        <LearningTooltip content={learningContent.detectorEstouro} position="bottom" className="block">
+          <DetectorEstouro
+            categoriasBudget={getCategoriasBudgetComDados(orcamentoAtual.id)}
+            orcamentoId={orcamentoAtual.id}
+            onRebalanceado={async () => {
+              // Recarregar dados após rebalanceamento
+              await initializeOrcamentos()
+            }}
+          />
+        </LearningTooltip>
       )}
 
       {/* Budget Empty State */}
@@ -646,6 +648,7 @@ export function Dashboard() {
       {lancamentos.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Gastos por Categoria */}
+          <LearningTooltip content={learningContent.graficoGastosPorCategoria} position="bottom" className="block">
           <Card>
             <CardContent>
               <h2 className="text-lg font-semibold text-gray-100 mb-4">
@@ -732,8 +735,10 @@ export function Dashboard() {
               )}
             </CardContent>
           </Card>
+          </LearningTooltip>
 
           {/* Receitas x Despesas */}
+          <LearningTooltip content={learningContent.graficoReceitasDespesas} position="bottom" className="block">
           <Card>
             <CardContent>
               <h2 className="text-lg font-semibold text-gray-100 mb-4">
@@ -773,6 +778,7 @@ export function Dashboard() {
               </div>
             </CardContent>
           </Card>
+          </LearningTooltip>
         </div>
       )}
 

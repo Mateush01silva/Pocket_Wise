@@ -7,6 +7,8 @@ import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useCategoriasStore } from '../store/useCategoriasStore'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
+import { LearningTooltip } from './ui/LearningTooltip'
+import { learningContent } from '../lib/learningContent'
 
 export function PossoComprarFloating() {
   const [isOpen, setIsOpen] = useState(false)
@@ -64,27 +66,29 @@ export function PossoComprarFloating() {
   return (
     <>
       {/* Floating Action Button */}
-      <button
-        onClick={handleOpen}
-        className={cn(
-          'fixed bottom-24 right-6 z-40',
-          'flex items-center justify-center',
-          'w-14 h-14 rounded-full',
-          'bg-gradient-to-r from-secondary-500 to-secondary-600',
-          'hover:from-secondary-400 hover:to-secondary-500',
-          'shadow-lg shadow-secondary-500/30',
-          'transition-all duration-200 hover:scale-105',
-          'group'
-        )}
-        title="Posso Comprar?"
-      >
-        <ShoppingCart className="w-6 h-6 text-white" />
+      <LearningTooltip content={learningContent.orcamentoPossoComprar} position="left">
+        <button
+          onClick={handleOpen}
+          className={cn(
+            'fixed bottom-24 right-6 z-40',
+            'flex items-center justify-center',
+            'w-14 h-14 rounded-full',
+            'bg-gradient-to-r from-secondary-500 to-secondary-600',
+            'hover:from-secondary-400 hover:to-secondary-500',
+            'shadow-lg shadow-secondary-500/30',
+            'transition-all duration-200 hover:scale-105',
+            'group'
+          )}
+          title="Posso Comprar?"
+        >
+          <ShoppingCart className="w-6 h-6 text-white" />
 
-        {/* Tooltip */}
-        <span className="absolute right-16 bg-dark-800 text-white text-sm px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-dark-600">
-          Posso Comprar?
-        </span>
-      </button>
+          {/* Tooltip */}
+          <span className="absolute right-16 bg-dark-800 text-white text-sm px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-dark-600">
+            Posso Comprar?
+          </span>
+        </button>
+      </LearningTooltip>
 
       {/* Modal Overlay */}
       {isOpen && (

@@ -617,6 +617,56 @@ export const learningContent = {
     porqueImportante: 'R$ 200 de aumento em R$ 800 é mais grave que R$ 200 em R$ 3.000.',
     dicaPratica: 'Variações acima de 20% merecem atenção especial.',
   } as LearningContent,
+
+  // =============================================
+  // GRÁFICOS DA DASHBOARD
+  // =============================================
+
+  graficoGastosPorCategoria: {
+    titulo: 'Gastos por Categoria',
+    descricao: 'Gráfico de rosca que mostra como seus gastos do mês atual estão distribuídos entre as categorias. Cada fatia representa uma categoria e seu peso no total de despesas.',
+    comoFunciona: 'O sistema agrupa todas as despesas pagas no mês por categoria e calcula o percentual de cada uma em relação ao total.',
+    comoCalculado: '% da Categoria = (Gasto na Categoria ÷ Total de Despesas) × 100',
+    exemplo: 'Se você gastou R$ 1.200 em Alimentação e o total de despesas foi R$ 4.000, Alimentação representa 30% do gráfico.',
+    porqueImportante: 'Visualizar a distribuição dos gastos revela hábitos que passam despercebidos. Talvez o lazer esteja consumindo mais do que você imagina!',
+    dicaPratica: 'Nenhuma categoria deveria representar mais de 40% dos seus gastos. Se uma domina, avalie se é essencial ou pode ser reduzida.',
+  } as LearningContent,
+
+  graficoReceitasDespesas: {
+    titulo: 'Receitas x Despesas (6 Meses)',
+    descricao: 'Gráfico de barras comparando suas receitas e despesas mês a mês nos últimos 6 meses. Permite identificar tendências e meses problemáticos.',
+    comoFunciona: 'Para cada mês, exibe duas barras: uma verde para receitas e uma vermelha para despesas. A diferença entre elas é o saldo do mês.',
+    exemplo: 'Se a barra verde sempre fica acima da vermelha, você está no positivo. Se as barras vermelhas foram crescendo, é um sinal de alerta.',
+    porqueImportante: 'Tendências de longo prazo são mais relevantes que um único mês. Um mês ruim pode ser pontual; uma sequência de meses ruins exige ação.',
+    dicaPratica: 'O ideal é a barra verde sempre maior que a vermelha, com a diferença entre elas crescendo ao longo dos meses — isso significa que você está poupando cada vez mais.',
+  } as LearningContent,
+
+  // =============================================
+  // STATUS DE TRANSAÇÕES
+  // =============================================
+
+  statusTransacao: {
+    titulo: 'Status da Transação',
+    descricao: 'Indica em que estágio está cada lançamento financeiro: Pago, Pendente ou Projetado.',
+    comoFunciona: 'Pago: dinheiro já saiu ou entrou. Pendente: já ocorreu mas ainda não foi quitado. Projetado: planejado para o futuro, ainda não aconteceu.',
+    exemplo: 'Conta de luz que venceu mas não paguei = Pendente. Parcela do cartão que vai vencer semana que vem = Projetado. Salário já creditado = Pago.',
+    porqueImportante: 'Separar o que já aconteceu do que ainda vai acontecer permite ter uma visão realista do saldo atual versus o saldo futuro.',
+    dicaPratica: 'Marque como "Pago" assim que efetuar o pagamento. Isso mantém seu saldo sempre atualizado e evita contar dinheiro que ainda não saiu.',
+  } as LearningContent,
+
+  // =============================================
+  // DETECTOR DE ESTOURO
+  // =============================================
+
+  detectorEstouro: {
+    titulo: 'Detector de Estouro',
+    descricao: 'Alerta inteligente que identifica categorias onde seus gastos já ultrapassaram ou estão próximos de ultrapassar o limite do orçamento definido.',
+    comoFunciona: 'Monitora continuamente cada categoria com orçamento e dispara alertas em dois níveis: Atenção (80-100% do limite) e Crítico (acima de 100%).',
+    comoCalculado: '% Usado = (Gasto Real ÷ Orçamento da Categoria) × 100',
+    exemplo: 'Orçamento de Alimentação: R$ 1.000. Gasto atual: R$ 850 = 85% (Atenção). Gasto de R$ 1.100 = 110% (Crítico).',
+    porqueImportante: 'Permite agir preventivamente antes de estourar completamente o orçamento. É muito mais fácil corrigir em 85% do que tentar recuperar depois de 130%.',
+    dicaPratica: 'Ao ver um alerta de Atenção, pause os gastos nessa categoria até o fim do mês ou transfira saldo de outra categoria que está sobrando.',
+  } as LearningContent,
 }
 
 export default learningContent
