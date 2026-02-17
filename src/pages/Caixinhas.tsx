@@ -144,6 +144,7 @@ export function Caixinhas() {
           isOpen={true}
           onClose={handleCloseHistorico}
           caixinha={historicoCaixinha}
+          canEdit={canEdit}
         />
       )}
 

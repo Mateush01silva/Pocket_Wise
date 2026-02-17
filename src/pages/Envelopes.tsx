@@ -622,6 +622,7 @@ export function Envelopes() {
             valorGasto={envelope.valor_gasto}
             categoriaBudgetId={envelope.id}
             prioridade={envelope.prioridade}
+            canEdit={canEdit}
           />
         )
       })()}

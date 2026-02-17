@@ -434,8 +434,8 @@ export function Transactions() {
           <h1 className="text-3xl font-bold text-gray-100 mb-2">Transações</h1>
           <p className="text-gray-400">Gerencie todas as suas receitas e despesas</p>
         </div>
-        {/* Ferramentas de correção de fatura - compacto */}
-        {totalTransacoesCredito > 0 && (
+        {/* Ferramentas de correção de fatura - compacto (apenas admin/editor) */}
+        {canEdit && totalTransacoesCredito > 0 && (
           <div className="flex items-center gap-2">
             {transacoesSemFatura > 0 && (
               <button
