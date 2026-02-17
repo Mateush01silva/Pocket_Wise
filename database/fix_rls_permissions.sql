@@ -134,12 +134,21 @@ CREATE POLICY "Users can manage own envelopes"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
--- FAMILIES: Usuários podem ver e gerenciar suas próprias famílias
+-- FAMILIES: Usuários podem ver a família a que pertencem (via users.family_id ou family_members)
+-- NOTA: families não possui owner_id. Membership é determinada por family_members.
 DROP POLICY IF EXISTS "Users can manage own family" ON families;
 CREATE POLICY "Users can manage own family"
   ON families FOR ALL
-  USING (auth.uid() = owner_id)
-  WITH CHECK (auth.uid() = owner_id);
+  USING (
+    id IN (SELECT family_id FROM users WHERE id = auth.uid())
+    OR
+    id IN (SELECT family_id FROM family_members WHERE user_id = auth.uid())
+  )
+  WITH CHECK (
+    id IN (SELECT family_id FROM users WHERE id = auth.uid())
+    OR
+    id IN (SELECT family_id FROM family_members WHERE user_id = auth.uid() AND role = 'admin')
+  );
 
 -- ============================================================================
 -- 5. VERIFICAÇÃO FINAL
