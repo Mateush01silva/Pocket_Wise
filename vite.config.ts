@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['pwa-192x192.svg', 'pwa-512x512.svg', 'apple-touch-icon.svg'],
+      includeAssets: ['Logo_PocketWise.jpeg'],
       manifest: {
         name: 'Pocket Wise - Controle Financeiro',
         short_name: 'Pocket Wise',
@@ -23,27 +23,27 @@ export default defineConfig({
         categories: ['finance', 'productivity'],
         icons: [
           {
-            src: 'pwa-192x192.svg',
+            src: 'Logo_PocketWise.jpeg',
             sizes: '192x192',
-            type: 'image/svg+xml',
+            type: 'image/jpeg',
             purpose: 'any',
           },
           {
-            src: 'pwa-512x512.svg',
+            src: 'Logo_PocketWise.jpeg',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/jpeg',
             purpose: 'any',
           },
           {
-            src: 'pwa-512x512.svg',
+            src: 'Logo_PocketWise.jpeg',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/jpeg',
             purpose: 'maskable',
           },
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,jpeg,jpg}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

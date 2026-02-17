@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Button, Input } from '../components/ui'
-import { TrendingUp, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from 'sonner'
 
@@ -48,9 +48,11 @@ export function Login() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-7 h-7 text-white" />
-            </div>
+            <img
+              src="/Logo_PocketWise.jpeg"
+              alt="PocketWise"
+              className="w-12 h-12 rounded-lg object-cover"
+            />
             <span className="text-3xl font-bold text-gray-100">Pocket<span className="text-primary-500">Wise</span></span>
           </div>
           <h1 className="text-2xl font-bold text-gray-100 mb-2">Bem-vindo de volta!</h1>

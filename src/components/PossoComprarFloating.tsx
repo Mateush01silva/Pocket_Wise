@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react'
-import { ShoppingCart, AlertCircle, CheckCircle, AlertTriangle, X } from 'lucide-react'
+import { ShoppingCart, AlertCircle, CheckCircle, AlertTriangle, X, GraduationCap, Lightbulb, Target, BookOpen } from 'lucide-react'
 import { CurrencyInput } from './ui/CurrencyInput'
 import { Select } from './ui/Select'
 import { Button } from './ui/Button'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useCategoriasStore } from '../store/useCategoriasStore'
+import { useLearningModeStore } from '../store/useLearningModeStore'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
-import { LearningTooltip } from './ui/LearningTooltip'
 import { learningContent } from '../lib/learningContent'
 
 export function PossoComprarFloating() {
@@ -15,7 +15,9 @@ export function PossoComprarFloating() {
   const [valor, setValor] = useState(0)
   const [categoriaId, setCategoriaId] = useState('')
   const [resultado, setResultado] = useState<ReturnType<typeof simularCompra> | null>(null)
+  const [showLearningTooltip, setShowLearningTooltip] = useState(false)
 
+  const isLearningMode = useLearningModeStore((state) => state.isEnabled)
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
   const simularCompra = useOrcamentosStore((state) => state.simularCompra)
   const categoriasRaw = useCategoriasStore((state) => state.categorias)
@@ -65,12 +67,80 @@ export function PossoComprarFloating() {
 
   return (
     <>
+      {/* Learning Mode Tooltip - posicionado fixo acima do botão */}
+      {isLearningMode && showLearningTooltip && (
+        <div
+          className="fixed z-[9999] w-80 max-w-[calc(100vw-24px)] animate-in fade-in-0 zoom-in-95 duration-200"
+          style={{ bottom: 'calc(6rem + 3.5rem + 14px)', right: '24px' }}
+          onMouseEnter={() => setShowLearningTooltip(true)}
+          onMouseLeave={() => setShowLearningTooltip(false)}
+        >
+          <div className="bg-dark-800 border border-dark-600 rounded-xl shadow-2xl shadow-black/50 overflow-hidden">
+            <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 px-4 py-3 border-b border-dark-600">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                  <GraduationCap className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-100">{learningContent.orcamentoPossoComprar.titulo}</h3>
+                  <p className="text-xs text-amber-400/80">Modo Aprendizagem</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 space-y-3 max-h-72 overflow-y-auto overscroll-contain">
+              <p className="text-sm text-gray-300 leading-relaxed">
+                {learningContent.orcamentoPossoComprar.descricao}
+              </p>
+              {learningContent.orcamentoPossoComprar.comoFunciona && (
+                <div className="bg-dark-700/50 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <BookOpen className="w-4 h-4 text-blue-400" />
+                    <span className="text-xs font-semibold text-blue-400 uppercase tracking-wide">Como funciona</span>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed">{learningContent.orcamentoPossoComprar.comoFunciona}</p>
+                </div>
+              )}
+              {learningContent.orcamentoPossoComprar.exemplo && (
+                <div className="bg-dark-700/50 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Lightbulb className="w-4 h-4 text-yellow-400" />
+                    <span className="text-xs font-semibold text-yellow-400 uppercase tracking-wide">Exemplo prático</span>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed italic">"{learningContent.orcamentoPossoComprar.exemplo}"</p>
+                </div>
+              )}
+              {learningContent.orcamentoPossoComprar.porqueImportante && (
+                <div className="bg-dark-700/50 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target className="w-4 h-4 text-green-400" />
+                    <span className="text-xs font-semibold text-green-400 uppercase tracking-wide">Por que isso importa</span>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed">{learningContent.orcamentoPossoComprar.porqueImportante}</p>
+                </div>
+              )}
+              {learningContent.orcamentoPossoComprar.dicaPratica && (
+                <div className="bg-gradient-to-r from-primary-500/10 to-secondary-500/10 rounded-lg p-3 border border-primary-500/20">
+                  <p className="text-xs text-primary-300 leading-relaxed">
+                    <span className="font-semibold">Dica:</span> {learningContent.orcamentoPossoComprar.dicaPratica}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating Action Button */}
-      <LearningTooltip content={learningContent.orcamentoPossoComprar} position="left">
+      <div className="fixed bottom-24 right-6 z-40">
+        {/* Indicador de modo aprendizagem */}
+        {isLearningMode && (
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full animate-pulse shadow-lg shadow-amber-500/50 z-10 pointer-events-none" />
+        )}
         <button
           onClick={handleOpen}
+          onMouseEnter={() => isLearningMode && setShowLearningTooltip(true)}
+          onMouseLeave={() => setShowLearningTooltip(false)}
           className={cn(
-            'fixed bottom-24 right-6 z-40',
             'flex items-center justify-center',
             'w-14 h-14 rounded-full',
             'bg-gradient-to-r from-secondary-500 to-secondary-600',
@@ -83,12 +153,14 @@ export function PossoComprarFloating() {
         >
           <ShoppingCart className="w-6 h-6 text-white" />
 
-          {/* Tooltip */}
-          <span className="absolute right-16 bg-dark-800 text-white text-sm px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-dark-600">
-            Posso Comprar?
-          </span>
+          {/* Label tooltip (não aprendizagem) */}
+          {!isLearningMode && (
+            <span className="absolute right-16 bg-dark-800 text-white text-sm px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-dark-600">
+              Posso Comprar?
+            </span>
+          )}
         </button>
-      </LearningTooltip>
+      </div>
 
       {/* Modal Overlay */}
       {isOpen && (
