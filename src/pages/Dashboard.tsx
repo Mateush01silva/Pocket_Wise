@@ -265,12 +265,12 @@ export function Dashboard() {
   const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#06B6D4', '#84CC16']
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4 md:space-y-8">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-100 mb-2">Dashboard</h1>
-          <p className="text-gray-400">Visão geral das suas finanças</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-100 mb-1 md:mb-2">Dashboard</h1>
+          <p className="text-sm md:text-base text-gray-400">Visão geral das suas finanças</p>
         </div>
         {canEdit && (
           <Button onClick={handleOpenModal} className="gap-2">
@@ -288,7 +288,7 @@ export function Dashboard() {
       </Card>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4">
         {/* Receitas do Período */}
         <LearningTooltip content={learningContent.receitas} position="bottom">
           <Card hover>
@@ -399,7 +399,7 @@ export function Dashboard() {
 
       {/* Budget Section */}
       {orcamentoAtual && projecao && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           {/* Budget Health Card */}
           <LearningTooltip content={learningContent.saudeFinanceira} position="bottom">
             <Card hover>
@@ -646,7 +646,7 @@ export function Dashboard() {
 
       {/* Charts Section */}
       {lancamentos.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
           {/* Gastos por Categoria */}
           <LearningTooltip content={learningContent.graficoGastosPorCategoria} position="bottom" className="block">
           <Card>
@@ -655,9 +655,9 @@ export function Dashboard() {
                 Gastos por Categoria (Mês Atual)
               </h2>
               {gastosPorCategoria.length > 0 ? (
-                <div className="flex flex-col lg:flex-row items-center gap-6">
+                <div className="flex flex-col lg:flex-row items-center gap-4">
                   {/* Donut Chart */}
-                  <div className="h-64 w-64 shrink-0 relative">
+                  <div className="h-52 w-52 md:h-64 md:w-64 shrink-0 relative">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <defs>
