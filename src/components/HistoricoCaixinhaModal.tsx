@@ -13,12 +13,14 @@ interface HistoricoCaixinhaModalProps {
   isOpen: boolean
   onClose: () => void
   caixinha: CaixinhaComDetalhes
+  canEdit?: boolean
 }
 
 export function HistoricoCaixinhaModal({
   isOpen,
   onClose,
   caixinha,
+  canEdit = true,
 }: HistoricoCaixinhaModalProps) {
   const [undoingId, setUndoingId] = useState<string | null>(null)
 
@@ -181,21 +183,23 @@ export function HistoricoCaixinhaModal({
                         </div>
                       </div>
 
-                      {/* Undo button */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleUndo(transacao)}
-                        disabled={isUndoing || undoingId !== null}
-                        className="shrink-0 p-1.5 h-8 w-8 opacity-60 hover:opacity-100"
-                        title="Desfazer movimentação"
-                      >
-                        {isUndoing ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <Undo2 size={14} className="text-red-400" />
-                        )}
-                      </Button>
+                      {/* Undo button — oculto para viewers */}
+                      {canEdit && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleUndo(transacao)}
+                          disabled={isUndoing || undoingId !== null}
+                          className="shrink-0 p-1.5 h-8 w-8 opacity-60 hover:opacity-100"
+                          title="Desfazer movimentação"
+                        >
+                          {isUndoing ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Undo2 size={14} className="text-red-400" />
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )

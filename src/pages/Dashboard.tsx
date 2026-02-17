@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom'
 import { LearningTooltip } from '../components/ui/LearningTooltip'
 import { learningContent } from '../lib/learningContent'
 import { PossoComprarFloating } from '../components/PossoComprarFloating'
+import { usePermissions } from '../hooks/usePermissions'
 
 export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -33,6 +34,7 @@ export function Dashboard() {
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
   const navigate = useNavigate()
+  const { canEdit } = usePermissions()
 
   // Caixinhas store para alocação de saldo
   const caixinhasInitialized = useCaixinhasStore((state) => state.initialized)
@@ -270,10 +272,12 @@ export function Dashboard() {
           <h1 className="text-3xl font-bold text-gray-100 mb-2">Dashboard</h1>
           <p className="text-gray-400">Visão geral das suas finanças</p>
         </div>
-        <Button onClick={handleOpenModal} className="gap-2">
-          <Plus className="w-5 h-5" />
-          Nova Transação
-        </Button>
+        {canEdit && (
+          <Button onClick={handleOpenModal} className="gap-2">
+            <Plus className="w-5 h-5" />
+            Nova Transação
+          </Button>
+        )}
       </div>
 
       {/* Filtro de Período */}

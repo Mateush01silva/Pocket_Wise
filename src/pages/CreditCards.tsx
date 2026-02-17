@@ -467,14 +467,16 @@ export function CreditCards() {
                   {formatCurrency(cartao.faturaFechadaPendente.total)}
                 </span>
               </div>
-              <Button
-                onClick={() => handlePagarFatura(cartao)}
-                className={`w-full ${cartao.faturaFechadaPendente.vencida ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
-                size="sm"
-              >
-                <DollarSign size={14} className="mr-2" />
-                {cartao.faturaFechadaPendente.vencida ? 'Pagar Fatura Vencida' : 'Pagar Fatura'}
-              </Button>
+              {canEdit && (
+                <Button
+                  onClick={() => handlePagarFatura(cartao)}
+                  className={`w-full ${cartao.faturaFechadaPendente.vencida ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
+                  size="sm"
+                >
+                  <DollarSign size={14} className="mr-2" />
+                  {cartao.faturaFechadaPendente.vencida ? 'Pagar Fatura Vencida' : 'Pagar Fatura'}
+                </Button>
+              )}
             </div>
           )}
 

@@ -21,6 +21,7 @@ interface CategoryTransactionsModalProps {
   valorGasto: number
   categoriaBudgetId?: string  // ID da categoria budget para permitir edição
   prioridade?: CategoriaPrioridade // Prioridade atual do envelope
+  canEdit?: boolean
 }
 
 export function CategoryTransactionsModal({
@@ -34,6 +35,7 @@ export function CategoryTransactionsModal({
   valorGasto,
   categoriaBudgetId,
   prioridade,
+  canEdit = true,
 }: CategoryTransactionsModalProps) {
   const [isEditingBudget, setIsEditingBudget] = useState(false)
   const [novoValorOrcado, setNovoValorOrcado] = useState(valorOrcado)
@@ -140,7 +142,7 @@ export function CategoryTransactionsModal({
                 <span className="text-lg font-semibold text-gray-100">
                   {formatCurrency(valorOrcado)}
                 </span>
-                {categoriaBudgetId && (
+                {categoriaBudgetId && canEdit && (
                   <Button
                     size="sm"
                     variant="ghost"

@@ -151,15 +151,17 @@ export function Subscriptions() {
           <p className="text-gray-400 mt-1">Gerencie suas assinaturas recorrentes</p>
         </div>
         <div className="flex gap-3">
-          <Button
-            variant="secondary"
-            onClick={handleSyncSubscriptions}
-            disabled={isSyncing || isRegenerating}
-            title="Gera os lançamentos de assinaturas para o mês atual"
-          >
-            <RefreshCw className={`w-5 h-5 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? 'Sincronizando...' : 'Sincronizar Mês'}
-          </Button>
+          {canEdit && (
+            <Button
+              variant="secondary"
+              onClick={handleSyncSubscriptions}
+              disabled={isSyncing || isRegenerating}
+              title="Gera os lançamentos de assinaturas para o mês atual"
+            >
+              <RefreshCw className={`w-5 h-5 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Sincronizando...' : 'Sincronizar Mês'}
+            </Button>
+          )}
           {canEdit && (
             <Button onClick={() => setIsModalOpen(true)}>
               <Plus className="w-5 h-5 mr-2" />
