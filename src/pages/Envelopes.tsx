@@ -212,7 +212,7 @@ export function Envelopes() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-100 mb-2">Envelopes Digitais</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-100 mb-1 md:mb-2">Envelopes Digitais</h1>
 
           {/* Seletor de Mês e Ano */}
           <div className="flex items-center gap-3 mt-2">
@@ -308,7 +308,7 @@ export function Envelopes() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-100 mb-2">Envelopes Digitais</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-100 mb-1 md:mb-2">Envelopes Digitais</h1>
 
           {/* Seletor de Mês e Ano */}
           <div className="flex items-center gap-3">
@@ -413,7 +413,7 @@ export function Envelopes() {
       )}
 
       {/* Cards de resumo */}
-      <div className="grid md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         <LearningTooltip content={learningContent.envelopeTotalOrcado} position="bottom">
           <Card>
             <CardContent className="pt-6">
@@ -594,7 +594,7 @@ export function Envelopes() {
             Mostrando {envelopesFiltrados.length} de {todosEnvelopes.length} envelopes
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {envelopesFiltrados.map((envelope) => (
               <EnvelopeCard
                 key={envelope.categoria.id}

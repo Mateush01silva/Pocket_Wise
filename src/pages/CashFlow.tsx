@@ -181,7 +181,7 @@ export function CashFlow() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-100 mb-2">Fluxo de Caixa</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-100 mb-1 md:mb-2">Fluxo de Caixa</h1>
         <p className="text-gray-400">
           Acompanhe a evolução diária do seu saldo e evite surpresas
         </p>
@@ -190,10 +190,10 @@ export function CashFlow() {
       {/* Period Selector */}
       <Card>
         <CardContent>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Calendar className="w-5 h-5 text-gray-400" />
-            <span className="text-sm text-gray-400 mr-3">Visualizar:</span>
-            <div className="flex gap-2">
+            <span className="text-sm text-gray-400 mr-1">Visualizar:</span>
+            <div className="flex flex-wrap gap-2">
               {(['7d', '15d', '30d', '60d', '90d'] as ViewPeriod[]).map((period) => (
                 <Button
                   key={period}
@@ -248,7 +248,7 @@ export function CashFlow() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
         <LearningTooltip content={learningContent.fluxoSaldoInicial} position="bottom">
           <Card hover>
             <CardContent>
@@ -321,7 +321,7 @@ export function CashFlow() {
             Evolução do Saldo
           </h2>
           {dailyBalances.length > 0 ? (
-            <div className="h-96">
+            <div className="h-64 md:h-96">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={dailyBalances}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />

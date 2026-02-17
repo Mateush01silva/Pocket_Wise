@@ -444,14 +444,14 @@ export function Transactions() {
       )}
 
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="text-3xl font-bold text-gray-100 mb-2">Transações</h1>
-          <p className="text-gray-400">Gerencie todas as suas receitas e despesas</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-100 mb-1 md:mb-2">Transações</h1>
+          <p className="text-sm md:text-base text-gray-400">Gerencie todas as suas receitas e despesas</p>
         </div>
         {/* Ferramentas de correção de fatura - compacto (apenas admin/editor) */}
         {canEdit && totalTransacoesCredito > 0 && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {transacoesSemFatura > 0 && (
               <button
                 onClick={handleAtualizarTransacoesAntigas}
@@ -478,54 +478,54 @@ export function Transactions() {
 
       {/* Transaction Summary - Moved to top */}
       {filteredLancamentos.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-2 md:gap-4">
           <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Total Receitas</p>
-                  <p className="text-2xl font-bold text-green-400">
+            <CardContent className="py-3 md:py-4 px-3 md:px-6">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm text-gray-400 mb-1">Receitas</p>
+                  <p className="text-base md:text-2xl font-bold text-green-400 truncate">
                     {formatCurrency(totals.totalReceitas)}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
-                  <TrendingUp className="text-green-500" size={24} />
+                <div className="w-8 h-8 md:w-12 md:h-12 bg-green-500/10 rounded-full flex items-center justify-center shrink-0 hidden sm:flex">
+                  <TrendingUp className="text-green-500" size={20} />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Total Despesas</p>
-                  <p className="text-2xl font-bold text-red-400">
+            <CardContent className="py-3 md:py-4 px-3 md:px-6">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm text-gray-400 mb-1">Despesas</p>
+                  <p className="text-base md:text-2xl font-bold text-red-400 truncate">
                     {formatCurrency(totals.totalDespesas)}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
-                  <TrendingDown className="text-red-500" size={24} />
+                <div className="w-8 h-8 md:w-12 md:h-12 bg-red-500/10 rounded-full flex items-center justify-center shrink-0 hidden sm:flex">
+                  <TrendingDown className="text-red-500" size={20} />
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-400 mb-1">Saldo</p>
-                  <p className={`text-2xl font-bold ${
+            <CardContent className="py-3 md:py-4 px-3 md:px-6">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm text-gray-400 mb-1">Saldo</p>
+                  <p className={`text-base md:text-2xl font-bold truncate ${
                     totals.saldo >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {formatCurrency(totals.saldo)}
                   </p>
                 </div>
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                <div className={`w-8 h-8 md:w-12 md:h-12 rounded-full flex items-center justify-center shrink-0 hidden sm:flex ${
                   totals.saldo >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
                 }`}>
-                  <DollarSign className={totals.saldo >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
+                  <DollarSign className={totals.saldo >= 0 ? 'text-green-500' : 'text-red-500'} size={20} />
                 </div>
               </div>
             </CardContent>
@@ -552,7 +552,7 @@ export function Transactions() {
 
           {/* Filters */}
           <div className="pt-2 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
               {/* Search */}
               <div className="relative col-span-1 md:col-span-2 lg:col-span-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />

@@ -537,10 +537,10 @@ export function CreditCards() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 md:space-y-8">
+      <div className="flex flex-wrap justify-between items-center gap-2">
         <div>
-          <h1 className="text-3xl font-bold text-gray-100 mb-2">Cartões de Crédito</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-100 mb-1 md:mb-2">Cartões de Crédito</h1>
           <p className="text-gray-400">
             {cartoesAtivos.length} cartões ativos • Gerencie seus limites e faturas
           </p>
