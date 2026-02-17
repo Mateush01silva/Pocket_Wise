@@ -6,7 +6,6 @@ import {
   Landmark,
   BarChart3,
   Settings,
-  Wallet,
   Users,
   FolderTree,
   Package,

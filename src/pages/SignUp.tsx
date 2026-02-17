@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Button, Input } from '../components/ui'
-import { TrendingUp, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from 'sonner'
 
