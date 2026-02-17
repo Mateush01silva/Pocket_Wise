@@ -22,7 +22,6 @@ export function AcceptInvite() {
 
   const acceptInvite = useFamilyStore((state) => state.acceptInvite)
   const rejectInvite = useFamilyStore((state) => state.rejectInvite)
-  const storeError = useFamilyStore((state) => state.error)
 
   // Carregar convite ao montar
   useEffect(() => {
@@ -72,7 +71,9 @@ export function AcceptInvite() {
           window.location.href = '/app/familia'
         }, 1500)
       } else {
-        const msg = storeError || 'Erro desconhecido'
+        // Lê o erro diretamente do store (não da closure renderizada) para
+        // evitar o bug de stale state onde storeError ainda é null após o await.
+        const msg = useFamilyStore.getState().error || 'Erro ao aceitar convite'
         console.error('[AcceptInvite] falhou:', msg)
         toast.error(`Erro ao aceitar convite: ${msg}`)
       }
