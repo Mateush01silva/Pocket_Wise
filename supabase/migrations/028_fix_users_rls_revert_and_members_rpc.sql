@@ -49,7 +49,7 @@ RETURNS TABLE (
   user_name       TEXT,
   patrimonio_base DECIMAL(15, 2),
   user_created_at TIMESTAMPTZ
-) SECURITY DEFINER AS $$
+AS $$
 DECLARE
   user_uuid UUID;
 BEGIN
@@ -85,6 +85,6 @@ BEGIN
   WHERE fm.family_id = p_family_id
   ORDER BY fm.joined_at ASC;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION get_family_members_with_user(UUID) TO authenticated;
