@@ -85,6 +85,6 @@ BEGIN
   WHERE fm.family_id = p_family_id
   ORDER BY fm.joined_at ASC;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION get_family_members_with_user(UUID) TO authenticated;
