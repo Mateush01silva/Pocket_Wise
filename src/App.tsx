@@ -11,6 +11,7 @@ import {
   Login,
   SignUp,
   ForgotPassword,
+  ResetPassword,
   Paywall,
   // App pages
   Dashboard,
@@ -200,6 +201,7 @@ function AppRoutes() {
           <Route path="/login" element={<Login />} />
           <Route path="/cadastro" element={<SignUp />} />
           <Route path="/recuperar-senha" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/convite/:token" element={<AcceptInvite />} />
           <Route path="/app/assinar" element={<Paywall />} />
 
