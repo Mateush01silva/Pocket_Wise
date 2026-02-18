@@ -61,8 +61,8 @@ SELECT
   f.nome as family_name,
   u.nome as invited_by_name
 FROM family_invites fi
-JOIN families f ON fi.family_id = f.id
-JOIN users u ON fi.invited_by = u.id;
+LEFT JOIN families f ON fi.family_id = f.id
+LEFT JOIN users u ON fi.invited_by = u.id;
 
 -- =====================================================
 -- FIX 3: v_orcamentos_resumo
