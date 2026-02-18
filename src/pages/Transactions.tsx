@@ -151,7 +151,7 @@ export function Transactions() {
     if (!userId) return 'Desconhecido'
     const member = familyMembers.find(m => m.user_id === userId)
     if (!member) return 'Desconhecido'
-    return member.user_name || member.user_email || 'Desconhecido'
+    return member.user_name || 'Desconhecido'
   }, [familyMembers])
 
   // Translate payment method
@@ -653,7 +653,7 @@ export function Transactions() {
                     { value: 'all', label: 'Todos os responsáveis' },
                     ...familyMembers.map(member => ({
                       value: member.user_id,
-                      label: member.user_name || member.user_email || 'Membro',
+                      label: member.user_name || 'Membro',
                     })),
                   ]}
                 />

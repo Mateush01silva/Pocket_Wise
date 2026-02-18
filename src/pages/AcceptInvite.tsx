@@ -209,7 +209,6 @@ export function AcceptInvite() {
                 <div>
                   <p className="text-sm text-gray-400">Convidado por</p>
                   <p className="text-gray-200">{invite.invited_by_name}</p>
-                  <p className="text-xs text-gray-500">{invite.invited_by_email}</p>
                 </div>
               </div>
             </div>
@@ -307,7 +306,6 @@ export function AcceptInvite() {
               <div>
                 <p className="text-sm text-gray-400">Convidado por</p>
                 <p className="text-gray-200">{invite.invited_by_name}</p>
-                <p className="text-xs text-gray-500">{invite.invited_by_email}</p>
               </div>
             </div>
           </div>
