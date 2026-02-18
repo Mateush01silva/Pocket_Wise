@@ -6,12 +6,15 @@
 -- Data: 2026-02-18
 -- Ref: https://supabase.com/docs/guides/database/database-linter?lint=0002_auth_users_exposed
 --      https://supabase.com/docs/guides/database/database-linter?lint=0010_security_definer_view
+--
+-- Nota: Todas as views usam DROP + CREATE para evitar o erro 42P16
+-- (CREATE OR REPLACE VIEW não permite alterar colunas nem opções como security_invoker
+--  em algumas versões do PostgreSQL/Supabase)
 
 -- =====================================================
 -- FIX 1: family_members_with_user
 -- Problemas: auth_users_exposed + security_definer_view
--- Solução: Recriar a view sem JOIN com auth.users + security_invoker = true
--- Nota: DROP + CREATE necessário pois CREATE OR REPLACE não permite remover colunas
+-- Solução: Recriar sem JOIN auth.users + security_invoker = true
 -- =====================================================
 
 DROP VIEW IF EXISTS family_members_with_user CASCADE;
@@ -34,8 +37,7 @@ JOIN users u ON fm.user_id = u.id;
 -- =====================================================
 -- FIX 2: family_invites_with_details
 -- Problemas: auth_users_exposed + security_definer_view
--- Solução: Recriar a view sem JOIN com auth.users + security_invoker = true
--- Nota: DROP + CREATE necessário pois CREATE OR REPLACE não permite remover colunas
+-- Solução: Recriar sem JOIN auth.users + security_invoker = true
 -- =====================================================
 
 DROP VIEW IF EXISTS family_invites_with_details CASCADE;
@@ -65,10 +67,12 @@ JOIN users u ON fi.invited_by = u.id;
 -- =====================================================
 -- FIX 3: v_orcamentos_resumo
 -- Problema: security_definer_view
--- Solução: Adicionar security_invoker = true
+-- Solução: Recriar com security_invoker = true
 -- =====================================================
 
-CREATE OR REPLACE VIEW v_orcamentos_resumo
+DROP VIEW IF EXISTS v_orcamentos_resumo CASCADE;
+
+CREATE VIEW v_orcamentos_resumo
 WITH (security_invoker = true)
 AS
 SELECT
@@ -89,10 +93,12 @@ GROUP BY o.id;
 -- =====================================================
 -- FIX 4: rebalanceamentos_com_detalhes
 -- Problema: security_definer_view
--- Solução: Adicionar security_invoker = true
+-- Solução: Recriar com security_invoker = true
 -- =====================================================
 
-CREATE OR REPLACE VIEW rebalanceamentos_com_detalhes
+DROP VIEW IF EXISTS rebalanceamentos_com_detalhes CASCADE;
+
+CREATE VIEW rebalanceamentos_com_detalhes
 WITH (security_invoker = true)
 AS
 SELECT
@@ -124,10 +130,12 @@ LEFT JOIN users u ON hr.realizado_por = u.id;
 -- =====================================================
 -- FIX 5: caixinhas_with_creator
 -- Problema: security_definer_view
--- Solução: Adicionar security_invoker = true
+-- Solução: Recriar com security_invoker = true
 -- =====================================================
 
-CREATE OR REPLACE VIEW caixinhas_with_creator
+DROP VIEW IF EXISTS caixinhas_with_creator CASCADE;
+
+CREATE VIEW caixinhas_with_creator
 WITH (security_invoker = true)
 AS
 SELECT
