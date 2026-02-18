@@ -49,6 +49,7 @@ RETURNS TABLE (
   user_name       TEXT,
   patrimonio_base DECIMAL(15, 2),
   user_created_at TIMESTAMPTZ
+)
 AS $$
 DECLARE
   user_uuid UUID;
