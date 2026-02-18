@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Button, Input } from '../components/ui'
 import { Eye, EyeOff, AlertCircle, CheckCircle, KeyRound, XCircle } from 'lucide-react'
@@ -6,12 +6,37 @@ import { supabase } from '../lib/supabase'
 
 type Mode = 'loading' | 'error' | 'form' | 'success'
 
+// Ler o hash SINCRONAMENTE na inicialização do módulo, antes que o
+// Supabase limpe assincronamente os parâmetros da URL.
+const _rawHash = typeof window !== 'undefined' ? window.location.hash.substring(1) : ''
+const _hashParams = new URLSearchParams(_rawHash)
+const INITIAL_ERROR = _hashParams.get('error')
+const INITIAL_ERROR_CODE = _hashParams.get('error_code')
+const INITIAL_ERROR_DESC = _hashParams.get('error_description')
+const INITIAL_ACCESS_TOKEN = _hashParams.get('access_token')
+const INITIAL_TYPE = _hashParams.get('type')
+
 export function ResetPassword() {
   const navigate = useNavigate()
 
-  const [mode, setMode] = useState<Mode>('loading')
-  const [errorTitle, setErrorTitle] = useState('')
-  const [errorMessage, setErrorMessage] = useState('')
+  const [mode, setMode] = useState<Mode>(() => {
+    if (INITIAL_ERROR) return 'error'
+    if (INITIAL_ACCESS_TOKEN && INITIAL_TYPE === 'recovery') return 'form'
+    return 'loading'
+  })
+
+  const [errorTitle, setErrorTitle] = useState(() => {
+    if (!INITIAL_ERROR) return ''
+    return INITIAL_ERROR_CODE === 'otp_expired' ? 'Link expirado' : 'Link inválido'
+  })
+
+  const [errorMessage, setErrorMessage] = useState(() => {
+    if (!INITIAL_ERROR) return ''
+    if (INITIAL_ERROR_CODE === 'otp_expired') {
+      return 'Este link de recuperação expirou. Os links são válidos por 1 hora e só podem ser usados uma vez.'
+    }
+    return (INITIAL_ERROR_DESC?.replace(/\+/g, ' ') || 'O link de recuperação é inválido ou já foi utilizado.')
+  })
 
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -20,48 +45,21 @@ export function ResetPassword() {
   const [isLoading, setIsLoading] = useState(false)
   const [formError, setFormError] = useState('')
 
+  const settledRef = useRef(false)
+
   // Password strength
   const passwordStrength = () => {
-    if (!password) return { level: 0, text: '', color: '' }
-    if (password.length < 6) return { level: 1, text: 'Muito fraca', color: 'text-red-400' }
-    if (password.length < 8) return { level: 2, text: 'Fraca', color: 'text-yellow-400' }
-    if (password.length < 12) return { level: 3, text: 'Boa', color: 'text-green-400' }
-    return { level: 4, text: 'Forte', color: 'text-green-400' }
+    if (!password) return { text: '', color: '' }
+    if (password.length < 6) return { text: 'Muito fraca', color: 'text-red-400' }
+    if (password.length < 8) return { text: 'Fraca', color: 'text-yellow-400' }
+    if (password.length < 12) return { text: 'Boa', color: 'text-green-400' }
+    return { text: 'Forte', color: 'text-green-400' }
   }
   const strength = passwordStrength()
 
   useEffect(() => {
-    // 1) Verificar se há erro no hash (ex: link expirado)
-    const hash = window.location.hash.substring(1)
-    const params = new URLSearchParams(hash)
-
-    const error = params.get('error')
-    const errorCode = params.get('error_code')
-    const errorDesc = params.get('error_description')
-
-    if (error) {
-      const isExpired = errorCode === 'otp_expired'
-      setErrorTitle(isExpired ? 'Link expirado' : 'Link inválido')
-      setErrorMessage(
-        isExpired
-          ? 'Este link de recuperação expirou. Os links são válidos por 1 hora e só podem ser usados uma vez.'
-          : (errorDesc?.replace(/\+/g, ' ') || 'O link de recuperação é inválido ou já foi utilizado.')
-      )
-      setMode('error')
-      return
-    }
-
-    // 2) Se tem access_token com type=recovery, o Supabase já processou o token
-    const accessToken = params.get('access_token')
-    const type = params.get('type')
-
-    if (accessToken && type === 'recovery') {
-      setMode('form')
-      return
-    }
-
-    // 3) Fallback: escutar evento PASSWORD_RECOVERY do Supabase
-    // (ocorre quando o hash já foi consumido pelo cliente antes do useEffect)
+    // Hash já foi parseado sincronamente — não precisa de lógica adicional
+    if (mode !== 'loading') return
     if (!supabase) {
       setErrorTitle('Configuração inválida')
       setErrorMessage('O serviço de autenticação não está configurado.')
@@ -69,30 +67,47 @@ export function ResetPassword() {
       return
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setMode('form')
-        subscription.unsubscribe()
+    const settle = (newMode: Mode) => {
+      if (!settledRef.current) {
+        settledRef.current = true
+        setMode(newMode)
+      }
+    }
+
+    // Fallback 1: verificar se Supabase já estabeleceu uma sessão de recuperação
+    // (hash foi limpo antes do nosso código rodar)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        settle('form')
       }
     })
 
-    // Se depois de um breve período não detectou nada, mostra erro
+    // Fallback 2: escutar evento PASSWORD_RECOVERY caso ainda não tenha disparado
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        settle('form')
+      } else if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session) {
+        settle('form')
+      }
+    })
+
+    // Timeout: se nenhum dos fallbacks detectar sessão, mostra erro
     const timeout = setTimeout(() => {
-      setMode((current) => {
-        if (current === 'loading') {
-          setErrorTitle('Link inválido')
-          setErrorMessage('Não foi possível identificar o link de recuperação. Solicite um novo link.')
-          return 'error'
-        }
-        return current
-      })
-    }, 2000)
+      if (!settledRef.current) {
+        settledRef.current = true
+        setErrorTitle('Link inválido')
+        setErrorMessage(
+          'Não foi possível verificar o link de recuperação. Solicite um novo link e tente novamente.'
+        )
+        setMode('error')
+      }
+    }, 4000)
 
     return () => {
       subscription.unsubscribe()
       clearTimeout(timeout)
     }
-  }, [])
+  }, [mode])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -117,6 +132,8 @@ export function ResetPassword() {
     try {
       const { error } = await supabase.auth.updateUser({ password })
       if (error) throw error
+      // Encerrar a sessão de recuperação após redefinir a senha
+      await supabase.auth.signOut()
       setMode('success')
     } catch (err: any) {
       console.error('Erro ao atualizar senha:', err)
@@ -126,7 +143,7 @@ export function ResetPassword() {
     }
   }
 
-  const Header = () => (
+  const Logo = () => (
     <div className="text-center mb-8">
       <div className="flex items-center justify-center gap-2 mb-4">
         <img
@@ -134,27 +151,31 @@ export function ResetPassword() {
           alt="PocketWise"
           className="w-12 h-12 rounded-lg object-cover"
         />
-        <span className="text-3xl font-bold text-gray-100">Pocket<span className="text-primary-500">Wise</span></span>
+        <span className="text-3xl font-bold text-gray-100">
+          Pocket<span className="text-primary-500">Wise</span>
+        </span>
       </div>
     </div>
   )
 
+  // — Loading —
   if (mode === 'loading') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="w-10 h-10 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400 text-sm">Verificando link...</p>
+          <p className="text-gray-400 text-sm">Verificando link de recuperação...</p>
         </div>
       </div>
     )
   }
 
+  // — Erro —
   if (mode === 'error') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <Header />
+          <Logo />
           <div className="bg-dark-800/50 border border-dark-700 rounded-2xl p-8 backdrop-blur-sm text-center space-y-6">
             <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto">
               <XCircle className="w-10 h-10 text-red-400" />
@@ -167,7 +188,7 @@ export function ResetPassword() {
 
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
               <p className="text-sm text-blue-300">
-                💡 Solicite um novo link de recuperação — ele chegará em instantes no seu e-mail.
+                💡 Solicite um novo link — ele chegará em instantes no seu e-mail.
               </p>
             </div>
 
@@ -188,11 +209,12 @@ export function ResetPassword() {
     )
   }
 
+  // — Sucesso —
   if (mode === 'success') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <Header />
+          <Logo />
           <div className="bg-dark-800/50 border border-dark-700 rounded-2xl p-8 backdrop-blur-sm text-center space-y-6">
             <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto">
               <CheckCircle className="w-10 h-10 text-green-400" />
@@ -201,7 +223,7 @@ export function ResetPassword() {
             <div>
               <h2 className="text-2xl font-bold text-gray-100 mb-2">Senha atualizada!</h2>
               <p className="text-gray-400 text-sm">
-                Sua senha foi redefinida com sucesso. Você já pode fazer login com a nova senha.
+                Sua senha foi redefinida com sucesso. Faça login com a nova senha.
               </p>
             </div>
 
@@ -214,11 +236,11 @@ export function ResetPassword() {
     )
   }
 
-  // mode === 'form'
+  // — Formulário —
   return (
     <div className="min-h-screen bg-gradient-to-br from-dark-900 via-dark-800 to-dark-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Header />
+        <Logo />
         <div className="bg-dark-800/50 border border-dark-700 rounded-2xl p-8 backdrop-blur-sm">
           <div className="text-center mb-6">
             <div className="w-16 h-16 bg-primary-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -229,7 +251,6 @@ export function ResetPassword() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Error Alert */}
             {formError && (
               <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
@@ -261,9 +282,7 @@ export function ResetPassword() {
                 </button>
               </div>
               {password && (
-                <p className={`text-xs mt-1 ${strength.color}`}>
-                  Força: {strength.text}
-                </p>
+                <p className={`text-xs mt-1 ${strength.color}`}>Força: {strength.text}</p>
               )}
             </div>
 
