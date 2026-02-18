@@ -3,6 +3,7 @@ export { Landing } from './Landing'
 export { Login } from './Login'
 export { SignUp } from './SignUp'
 export { ForgotPassword } from './ForgotPassword'
+export { ResetPassword } from './ResetPassword'
 export { Paywall } from './Paywall'
 
 // App pages
