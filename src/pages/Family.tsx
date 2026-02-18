@@ -488,7 +488,6 @@ export function Family() {
                               <span className="text-sm text-gray-400 ml-2">(Você)</span>
                             )}
                           </h4>
-                          <p className="text-sm text-gray-500">{member.user_email}</p>
                           <p className="text-xs text-gray-600">
                             Membro desde{' '}
                             {new Date(member.joined_at).toLocaleDateString('pt-BR')}

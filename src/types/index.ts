@@ -617,7 +617,6 @@ export interface FamilyMember {
 // Membro com informações do usuário
 export interface FamilyMemberWithUser extends FamilyMember {
   user_name: string
-  user_email: string
   patrimonio_base: number
   user_created_at: string
 }
@@ -643,7 +642,6 @@ export interface FamilyInvite {
 export interface FamilyInviteWithDetails extends FamilyInvite {
   family_name: string
   invited_by_name: string
-  invited_by_email: string
 }
 
 // =====================================================
