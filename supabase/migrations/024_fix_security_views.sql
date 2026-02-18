@@ -10,10 +10,13 @@
 -- =====================================================
 -- FIX 1: family_members_with_user
 -- Problemas: auth_users_exposed + security_definer_view
--- Solução: Remover JOIN com auth.users + adicionar security_invoker = true
+-- Solução: Recriar a view sem JOIN com auth.users + security_invoker = true
+-- Nota: DROP + CREATE necessário pois CREATE OR REPLACE não permite remover colunas
 -- =====================================================
 
-CREATE OR REPLACE VIEW family_members_with_user
+DROP VIEW IF EXISTS family_members_with_user CASCADE;
+
+CREATE VIEW family_members_with_user
 WITH (security_invoker = true)
 AS
 SELECT
@@ -31,10 +34,13 @@ JOIN users u ON fm.user_id = u.id;
 -- =====================================================
 -- FIX 2: family_invites_with_details
 -- Problemas: auth_users_exposed + security_definer_view
--- Solução: Remover JOIN com auth.users + adicionar security_invoker = true
+-- Solução: Recriar a view sem JOIN com auth.users + security_invoker = true
+-- Nota: DROP + CREATE necessário pois CREATE OR REPLACE não permite remover colunas
 -- =====================================================
 
-CREATE OR REPLACE VIEW family_invites_with_details
+DROP VIEW IF EXISTS family_invites_with_details CASCADE;
+
+CREATE VIEW family_invites_with_details
 WITH (security_invoker = true)
 AS
 SELECT
