@@ -507,14 +507,12 @@ export const familyMembersService = {
       return { data: null, error: new Error('User has no family'), count: null }
     }
 
-    const { data, error, count } = await supabase
-    // @ts-ignore
-      .from('family_members_with_user')
-      .select('*', { count: 'exact' })
-      .eq('family_id', familyId)
-      .order('joined_at', { ascending: true })
+    // Usa RPC SECURITY DEFINER para contornar o RLS de users em cenários
+    // multi-família (membros cujo users.family_id aponta para outra família).
+    const { data, error } = await (supabase as any)
+      .rpc('get_family_members_with_user', { p_family_id: familyId })
 
-    return { data, error, count }
+    return { data, error, count: data?.length ?? null }
   },
 
   /**
