@@ -273,18 +273,16 @@ export const familyInvitesService = {
 
   /**
    * Obter convite por token (público - para página de aceitar convite)
+   * Usa RPC SECURITY DEFINER para evitar problemas de PGRST103 com a view
+   * e garantir que anon veja family_name e invited_by_name sem restrição de RLS.
    */
   async getInviteByToken(token: string): Promise<DbResult<FamilyInviteWithDetails>> {
     if (!supabase) {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
-    const { data, error } = await supabase
     // @ts-ignore
-      .from('family_invites_with_details')
-      .select('*')
-      .eq('token', token)
-      .single()
+    const { data, error } = await supabase.rpc('get_invite_by_token', { invite_token: token })
 
     if (error || !data) {
       return { data: null, error: error || new Error('Invite not found') }
