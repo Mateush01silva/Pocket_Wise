@@ -41,7 +41,12 @@ COMMENT ON COLUMN caixinhas.conta_investimento_id IS 'Conta bancária de investi
 -- 2. RECRIAR VIEW COM NOVOS CAMPOS
 -- =====================================================
 
-CREATE OR REPLACE VIEW caixinhas_with_creator AS
+-- DROP necessário porque CREATE OR REPLACE VIEW não permite alterar
+-- a posição de colunas existentes — apenas adicionar ao final.
+-- Droppamos e recriamos para incluir os novos campos na ordem correta.
+DROP VIEW IF EXISTS caixinhas_with_creator;
+
+CREATE VIEW caixinhas_with_creator AS
 SELECT
   c.id,
   c.family_id,
@@ -80,6 +85,11 @@ SELECT
   (SELECT COUNT(*) FROM transacoes_caixinhas WHERE caixinha_id = c.id) as total_transacoes
 FROM caixinhas c
 LEFT JOIN users u ON c.criado_por = u.id;
+
+-- Re-aplicar permissões da view após o DROP + CREATE
+-- (GRANTs são perdidos quando a view é dropada)
+GRANT SELECT ON caixinhas_with_creator TO authenticated;
+GRANT SELECT ON caixinhas_with_creator TO anon;
 
 -- =====================================================
 -- FIM DA MIGRATION
