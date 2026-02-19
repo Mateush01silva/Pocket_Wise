@@ -6,11 +6,13 @@ import type {
   TransacaoCaixinha,
   CreateCaixinhaInput,
   UpdateCaixinhaInput,
+  AtualizarValorMercadoInput,
   CreateTransacaoCaixinhaInput,
   AlocarSaldoMensalInput,
   CaixinhasSummary,
 } from '../types'
 import { caixinhasService, transacoesCaixinhasService } from '../services/caixinhasService'
+import { useContasBancariasStore } from './useContasBancariasStore'
 
 interface CaixinhasState {
   // Caixinhas
@@ -44,6 +46,7 @@ interface CaixinhasActions {
   createCaixinha: (input: CreateCaixinhaInput) => Promise<Caixinha | null>
   updateCaixinha: (input: UpdateCaixinhaInput) => Promise<Caixinha | null>
   deleteCaixinha: (id: string) => Promise<boolean>
+  atualizarValorMercado: (input: AtualizarValorMercadoInput) => Promise<Caixinha | null>
 
   // Summary
   fetchSummary: () => Promise<void>
@@ -245,6 +248,47 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
         console.error('Erro ao deletar caixinha:', error)
         set({ error: (error as Error).message })
         return false
+      }
+    },
+
+    atualizarValorMercado: async (input: AtualizarValorMercadoInput) => {
+      set({ error: null })
+
+      try {
+        const { data, error } = await caixinhasService.atualizarValorMercado(input)
+
+        if (error) {
+          set({ error: error.message })
+          return null
+        }
+
+        if (data) {
+          // Atualizar a caixinha no estado local
+          set((state) => {
+            const index = state.caixinhas.findIndex((c) => c.id === input.caixinha_id)
+            if (index !== -1) {
+              state.caixinhas[index] = { ...state.caixinhas[index], ...data }
+            }
+          })
+
+          // Atualizar summary para refletir nova rentabilidade
+          await get().fetchSummary()
+
+          // Sincronizar contas bancárias se havia conta vinculada
+          // (o service já atualizou o DB; aqui atualizamos o cache local)
+          const caixinha = get().caixinhas.find((c) => c.id === input.caixinha_id)
+          if (caixinha?.conta_investimento_id) {
+            await useContasBancariasStore.getState().fetchContas()
+          }
+
+          return data
+        }
+
+        return null
+      } catch (error) {
+        console.error('Erro ao atualizar valor de mercado:', error)
+        set({ error: (error as Error).message })
+        return null
       }
     },
 

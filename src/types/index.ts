@@ -688,6 +688,13 @@ export type DbListResult<T> = {
 
 export type CaixinhaTipo = 'objetivo' | 'emergencia' | 'investimento'
 export type TransacaoCaixinhaTipo = 'deposito' | 'retirada'
+export type SubtipoInvestimento =
+  | 'renda_fixa'
+  | 'renda_variavel'
+  | 'fii'
+  | 'cripto'
+  | 'internacional'
+  | 'outro'
 
 // Caixinha/Pote de objetivo
 export interface Caixinha {
@@ -699,10 +706,15 @@ export interface Caixinha {
   meta_valor: number | null // Valor da meta (opcional para investimentos)
   prazo_data: string | null // Date in YYYY-MM-DD format (opcional)
   icone: string | null // Emoji ou ícone
-  saldo_atual: number
+  saldo_atual: number // Total aportado (atualizado automaticamente por trigger)
   ativa: boolean
   cor: string
   descricao: string | null
+  // Campos exclusivos para tipo='investimento'
+  valor_mercado: number | null // Valor atual de mercado (atualizado manualmente)
+  data_valor_mercado: string | null // Quando valor_mercado foi atualizado pela última vez
+  subtipo_investimento: SubtipoInvestimento | null // Categoria do investimento
+  conta_investimento_id: string | null // Conta bancária de investimento vinculada
   created_at: string
   updated_at: string
 }
@@ -747,11 +759,20 @@ export interface CreateCaixinhaInput {
   icone?: string | null
   cor?: string
   descricao?: string | null
+  subtipo_investimento?: SubtipoInvestimento | null
+  conta_investimento_id?: string | null
 }
 
 export interface UpdateCaixinhaInput extends Partial<CreateCaixinhaInput> {
   id: string
   ativa?: boolean
+  valor_mercado?: number | null
+  data_valor_mercado?: string | null
+}
+
+export interface AtualizarValorMercadoInput {
+  caixinha_id: string
+  novo_valor_mercado: number
 }
 
 export interface CreateTransacaoCaixinhaInput {
@@ -779,11 +800,16 @@ export interface AlocarSaldoMensalInput {
 
 export interface CaixinhasSummary {
   total_caixinhas: number
-  total_guardado: number // Soma de todos os saldos
+  total_guardado: number // Soma de todos os saldos (total aportado)
   total_metas: number // Soma de todas as metas
   progresso_geral: number // % médio de progresso
   caixinhas_ativas: number
   caixinhas_concluidas: number // Caixinhas que atingiram a meta
+  // Campos de investimento (calculados apenas para caixinhas tipo='investimento')
+  total_investido: number // Soma dos saldo_atual das caixinhas de investimento
+  total_valor_mercado: number // Soma dos valor_mercado das caixinhas de investimento (com cotação)
+  rentabilidade_total: number // total_valor_mercado - total_investido
+  rentabilidade_percentual: number | null // % de rentabilidade média
 }
 
 // =====================================================

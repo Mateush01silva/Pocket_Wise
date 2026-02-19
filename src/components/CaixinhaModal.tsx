@@ -3,7 +3,8 @@ import { Modal } from './ui/Modal'
 import { Button, Input, Select, CurrencyInput } from './ui'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { useFamilyStore } from '../store/useFamilyStore'
-import type { Caixinha, CaixinhaTipo } from '../types'
+import { useContasBancariasStore } from '../store/useContasBancariasStore'
+import type { Caixinha, CaixinhaTipo, SubtipoInvestimento } from '../types'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 
@@ -16,7 +17,16 @@ interface CaixinhaModalProps {
 const TIPO_OPTIONS = [
   { value: 'objetivo', label: '🎯 Objetivo (Viagem, Carro, etc)' },
   { value: 'emergencia', label: '🏥 Reserva de Emergência' },
-  { value: 'investimento', label: '💰 Investimento' },
+  { value: 'investimento', label: '📈 Investimento' },
+]
+
+const SUBTIPO_OPTIONS: { value: SubtipoInvestimento; label: string }[] = [
+  { value: 'renda_fixa', label: '🏦 Renda Fixa (CDB, LCI, LCA, Tesouro)' },
+  { value: 'renda_variavel', label: '📊 Renda Variável (Ações, ETF)' },
+  { value: 'fii', label: '🏢 Fundos Imobiliários (FII)' },
+  { value: 'cripto', label: '🪙 Criptomoedas' },
+  { value: 'internacional', label: '🌎 Internacional (BDR, fundos no exterior)' },
+  { value: 'outro', label: '💼 Outro' },
 ]
 
 const ICONE_OPTIONS = [
@@ -39,6 +49,10 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
   const family = useFamilyStore((state) => state.family)
   const createCaixinha = useCaixinhasStore((state) => state.createCaixinha)
   const updateCaixinha = useCaixinhasStore((state) => state.updateCaixinha)
+  const contasAtivas = useContasBancariasStore((state) => state.getContasAtivas())
+
+  // Filtrar somente contas de investimento para o vínculo
+  const contasInvestimento = contasAtivas.filter((c) => c.tipo === 'investimento')
 
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -49,6 +63,8 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
     icone: '🎯',
     cor: '#6366f1',
     descricao: '',
+    subtipo_investimento: '' as SubtipoInvestimento | '',
+    conta_investimento_id: '' as string,
   })
 
   // Effect to populate form when editing
@@ -62,9 +78,10 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
         icone: editingCaixinha.icone || '🎯',
         cor: editingCaixinha.cor || '#6366f1',
         descricao: editingCaixinha.descricao || '',
+        subtipo_investimento: (editingCaixinha.subtipo_investimento as SubtipoInvestimento) || '',
+        conta_investimento_id: editingCaixinha.conta_investimento_id || '',
       })
     } else if (!isOpen) {
-      // Reset form when closing
       setFormData({
         nome: '',
         tipo: 'objetivo',
@@ -73,16 +90,19 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
         icone: '🎯',
         cor: '#6366f1',
         descricao: '',
+        subtipo_investimento: '',
+        conta_investimento_id: '',
       })
     }
   }, [editingCaixinha, isOpen])
+
+  const isInvestimento = formData.tipo === 'investimento'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      // Validações básicas
       if (!formData.nome || !family?.id) {
         toast.error('Por favor, preencha todos os campos obrigatórios')
         setIsLoading(false)
@@ -90,12 +110,21 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
       }
 
       if (editingCaixinha) {
-        // Atualizar caixinha existente
         const result = await updateCaixinha({
           id: editingCaixinha.id,
-          ...formData,
+          nome: formData.nome,
+          tipo: formData.tipo,
           meta_valor: formData.meta_valor > 0 ? formData.meta_valor : null,
           prazo_data: formData.prazo_data || null,
+          icone: formData.icone,
+          cor: formData.cor,
+          descricao: formData.descricao || null,
+          subtipo_investimento: isInvestimento && formData.subtipo_investimento
+            ? formData.subtipo_investimento as SubtipoInvestimento
+            : null,
+          conta_investimento_id: isInvestimento && formData.conta_investimento_id
+            ? formData.conta_investimento_id
+            : null,
         })
 
         if (result) {
@@ -105,7 +134,6 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
           toast.error('Erro ao atualizar caixinha')
         }
       } else {
-        // Criar nova caixinha
         const result = await createCaixinha({
           family_id: family.id,
           nome: formData.nome,
@@ -115,6 +143,12 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
           icone: formData.icone,
           cor: formData.cor,
           descricao: formData.descricao || null,
+          subtipo_investimento: isInvestimento && formData.subtipo_investimento
+            ? formData.subtipo_investimento as SubtipoInvestimento
+            : null,
+          conta_investimento_id: isInvestimento && formData.conta_investimento_id
+            ? formData.conta_investimento_id
+            : null,
         })
 
         if (result) {
@@ -147,7 +181,7 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
           <Input
             value={formData.nome}
             onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-            placeholder="Ex: Viagem para Disney"
+            placeholder={isInvestimento ? 'Ex: CDB Nubank 2027' : 'Ex: Viagem para Disney'}
             required
           />
         </div>
@@ -159,15 +193,70 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
           </label>
           <Select
             value={formData.tipo}
-            onChange={(e) => setFormData({ ...formData, tipo: e.target.value as CaixinhaTipo })}
+            onChange={(e) => setFormData({
+              ...formData,
+              tipo: e.target.value as CaixinhaTipo,
+              subtipo_investimento: '',
+              conta_investimento_id: '',
+            })}
             options={TIPO_OPTIONS}
           />
         </div>
 
+        {/* Subtipo — apenas para investimento */}
+        {isInvestimento && (
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Categoria do Investimento
+            </label>
+            <Select
+              value={formData.subtipo_investimento}
+              onChange={(e) => setFormData({ ...formData, subtipo_investimento: e.target.value as SubtipoInvestimento })}
+              options={[
+                { value: '', label: 'Selecione uma categoria...' },
+                ...SUBTIPO_OPTIONS,
+              ]}
+            />
+          </div>
+        )}
+
+        {/* Conta de Investimento Vinculada — apenas para investimento */}
+        {isInvestimento && (
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Conta de Investimento Vinculada
+            </label>
+            {contasInvestimento.length === 0 ? (
+              <p className="text-xs text-yellow-500 bg-yellow-500/10 rounded p-2">
+                ⚠️ Nenhuma conta de investimento cadastrada. Cadastre uma conta do tipo "Investimento" em <strong>Contas</strong> para vinculá-la aqui.
+              </p>
+            ) : (
+              <>
+                <Select
+                  value={formData.conta_investimento_id}
+                  onChange={(e) => setFormData({ ...formData, conta_investimento_id: e.target.value })}
+                  options={[
+                    { value: '', label: 'Sem vínculo com conta' },
+                    ...contasInvestimento.map((c) => ({
+                      value: c.id,
+                      label: `${c.icone || '💼'} ${c.nome}${c.instituicao ? ` — ${c.instituicao}` : ''}`,
+                    })),
+                  ]}
+                />
+                {formData.conta_investimento_id && (
+                  <p className="text-xs text-blue-400 mt-1">
+                    💡 Ao atualizar o valor de mercado desta caixinha, o saldo da conta vinculada será ajustado automaticamente pela variação.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {/* Meta de Valor */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-1">
-            Meta de Valor {formData.tipo === 'investimento' ? '(Opcional)' : '*'}
+            Meta de Valor {isInvestimento ? '(Opcional)' : '*'}
           </label>
           <CurrencyInput
             value={formData.meta_valor}
@@ -179,10 +268,15 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
               Recomendado: 6 meses de despesas fixas
             </p>
           )}
+          {isInvestimento && (
+            <p className="text-xs text-gray-500 mt-1">
+              Defina uma meta se quiser acompanhar progresso (ex: R$50.000 para aposentadoria)
+            </p>
+          )}
         </div>
 
-        {/* Prazo */}
-        {formData.tipo !== 'investimento' && (
+        {/* Prazo — não exibido para investimento */}
+        {!isInvestimento && (
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
               Prazo (Opcional)
@@ -247,7 +341,11 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
           <textarea
             value={formData.descricao}
             onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-            placeholder="Descreva o objetivo da caixinha..."
+            placeholder={
+              isInvestimento
+                ? 'Ex: CDB com vencimento em 2027, taxa 120% CDI'
+                : 'Descreva o objetivo da caixinha...'
+            }
             className="w-full px-3 py-2 bg-dark-700 border border-dark-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             rows={3}
           />
