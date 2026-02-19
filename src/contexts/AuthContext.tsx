@@ -230,10 +230,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) throw error
 
-    // Subscription trial é criada automaticamente via trigger no banco (handle_new_user)
+    // Subscription trial e família são criadas automaticamente via trigger no banco (handle_new_user)
     // O trigger pode demorar alguns ms, então fazemos retry se não encontrar
     if (data.user) {
       currentUserIdRef.current = data.user.id
+      clearFamilyIdCache()
       await fetchUserProfile(data.user.id)
 
       // Tentar buscar a subscription com retry (trigger pode não ter executado ainda)
@@ -241,6 +242,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const sub = await fetchSubscription(data.user.id)
         if (sub) break
         // Esperar antes de tentar novamente (300ms, 600ms, 900ms, 1200ms)
+        await new Promise(resolve => setTimeout(resolve, 300 * (attempt + 1)))
+      }
+
+      // Buscar famílias com retry (trigger pode não ter criado a família ainda)
+      // Essencial para que o usuário possa criar caixinhas e transações imediatamente
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const result = await familyInvitesService.getUserFamilies()
+        if (result && result.families.length > 0) {
+          setUserFamilies(result.families)
+          setActiveFamilyId(result.activeFamilyId)
+          setPersonalFamilyId(result.personalFamilyId)
+          break
+        }
         await new Promise(resolve => setTimeout(resolve, 300 * (attempt + 1)))
       }
     }

@@ -4,7 +4,7 @@ import { Toaster } from 'sonner'
 import { Layout } from './components/layout/Layout'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { PrivateRoute } from './components/PrivateRoute'
-import { AuthProvider } from './contexts/AuthContext'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import {
   // Auth pages
   Landing,
@@ -34,18 +34,44 @@ import { useFamilyStore } from './store/useFamilyStore'
 import { isSupabaseConfigured } from './lib/supabase'
 
 function AppRoutes() {
+  const { user, loading: authLoading } = useAuth()
   const [isInitialized, setIsInitialized] = useState(false)
   const isMounted = useRef(true)
+  // Track which user's data is loaded to avoid unnecessary re-initialization
+  const lastInitializedUserRef = useRef<string | null>(null)
+
   const initializeCategorias = useCategoriasStore((state) => state.initialize)
   const fetchLancamentos = useTransacoesStore((state) => state.fetchLancamentos)
   const fetchCartoes = useCartoesStore((state) => state.fetchCartoes)
   const initializeFamily = useFamilyStore((state) => state.initialize)
+  const resetFamily = useFamilyStore((state) => state.reset)
   const initializeAssinaturas = useAssinaturasStore((state) => state.initialize)
 
-  // Inicializar stores na montagem do app
   useEffect(() => {
-    // Set mounted to true when effect runs
     isMounted.current = true
+    return () => {
+      isMounted.current = false
+    }
+  }, [])
+
+  // Inicializar stores quando auth estiver pronto e houver usuário logado
+  useEffect(() => {
+    // Aguardar auth carregar antes de inicializar stores
+    if (authLoading) return
+
+    // Se não há usuário (não logado), permitir renderização para redirecionar ao login
+    if (!user) {
+      setIsInitialized(true)
+      return
+    }
+
+    // Evitar re-inicialização para o mesmo usuário
+    if (lastInitializedUserRef.current === user.id) return
+    lastInitializedUserRef.current = user.id
+
+    // Resetar stores com guard de initialized antes de re-inicializar
+    // Necessário quando usuário troca de conta ou faz login após carregamento inicial
+    resetFamily()
 
     const init = async () => {
       console.log('🚀 Inicializando PocketWise...')
@@ -143,12 +169,8 @@ function AppRoutes() {
       }
     }
     init()
-
-    // Cleanup function - set mounted to false when component unmounts
-    return () => {
-      isMounted.current = false
-    }
-  }, [initializeCategorias, fetchLancamentos, fetchCartoes, initializeFamily])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user?.id])
 
   // Mostrar loading enquanto inicializa
   if (!isInitialized) {
