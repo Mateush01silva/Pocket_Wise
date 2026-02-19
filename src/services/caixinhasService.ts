@@ -22,6 +22,7 @@ import type {
   TransacaoCaixinhaComRelacoes,
   CreateCaixinhaInput,
   UpdateCaixinhaInput,
+  AtualizarValorMercadoInput,
   CreateTransacaoCaixinhaInput,
   AlocarSaldoMensalInput,
   CaixinhasSummary,
@@ -118,6 +119,8 @@ export const caixinhasService = {
         icone: input.icone || null,
         cor: input.cor || '#6366f1',
         descricao: input.descricao || null,
+        subtipo_investimento: input.tipo === 'investimento' ? (input.subtipo_investimento || null) : null,
+        conta_investimento_id: input.tipo === 'investimento' ? (input.conta_investimento_id || null) : null,
       })
       .select()
       .single()
@@ -161,6 +164,83 @@ export const caixinhasService = {
       .single()
 
     return { data, error }
+  },
+
+  /**
+   * Atualizar valor de mercado de uma caixinha de investimento.
+   * Calcula o delta (variação) e aplica na conta bancária vinculada, se houver.
+   * - saldo_atual = total aportado (imutável por este método)
+   * - valor_mercado = valor atual de mercado (atualizado aqui)
+   * - delta = novo_valor - valor_mercado_anterior (aplica na conta vinculada)
+   */
+  async atualizarValorMercado(input: AtualizarValorMercadoInput): Promise<DbResult<Caixinha>> {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const familyId = await getUserFamilyId()
+    if (!familyId) {
+      return { data: null, error: new Error('User has no family') }
+    }
+
+    // Buscar caixinha atual para calcular o delta
+    const { data: caixinha, error: fetchError } = await supabase
+      // @ts-ignore
+      .from('caixinhas')
+      .select('id, family_id, tipo, saldo_atual, valor_mercado, conta_investimento_id')
+      .eq('id', input.caixinha_id)
+      .eq('family_id', familyId)
+      .single()
+
+    if (fetchError || !caixinha) {
+      return { data: null, error: fetchError || new Error('Caixinha não encontrada') }
+    }
+
+    if (caixinha.tipo !== 'investimento') {
+      return { data: null, error: new Error('Apenas caixinhas de investimento suportam atualização de mercado') }
+    }
+
+    // Calcular delta:
+    // Se valor_mercado ainda não foi definido, a baseline é saldo_atual (total aportado)
+    const valorAnterior = caixinha.valor_mercado ?? caixinha.saldo_atual
+    const delta = input.novo_valor_mercado - valorAnterior
+
+    // Atualizar valor_mercado na caixinha
+    const { data: updatedCaixinha, error: updateError } = await supabase
+      // @ts-ignore
+      .from('caixinhas')
+      .update({
+        valor_mercado: input.novo_valor_mercado,
+        data_valor_mercado: new Date().toISOString(),
+      })
+      .eq('id', input.caixinha_id)
+      .select()
+      .single()
+
+    if (updateError) {
+      return { data: null, error: updateError }
+    }
+
+    // Se há conta vinculada e houve variação, atualizar o saldo da conta
+    if (caixinha.conta_investimento_id && delta !== 0) {
+      const { data: conta, error: contaError } = await supabase
+        // @ts-ignore
+        .from('contas_bancarias')
+        .select('id, saldo_atual')
+        .eq('id', caixinha.conta_investimento_id)
+        .single()
+
+      if (!contaError && conta) {
+        const novoSaldoConta = Math.max(0, conta.saldo_atual + delta)
+        await supabase
+          // @ts-ignore
+          .from('contas_bancarias')
+          .update({ saldo_atual: novoSaldoConta })
+          .eq('id', caixinha.conta_investimento_id)
+      }
+    }
+
+    return { data: updatedCaixinha, error: null }
   },
 
   /**
@@ -255,6 +335,19 @@ export const caixinhasService = {
       (c) => c.meta_valor && c.saldo_atual >= c.meta_valor
     ).length
 
+    // Métricas exclusivas de investimento
+    const caixinhas_investimento = caixinhas.filter((c) => c.tipo === 'investimento')
+    const total_investido = caixinhas_investimento.reduce((sum, c) => sum + (c.saldo_atual || 0), 0)
+    // Só conta valor_mercado quando foi explicitamente definido
+    const caixinhas_com_cotacao = caixinhas_investimento.filter((c) => c.valor_mercado !== null)
+    const total_valor_mercado = caixinhas_com_cotacao.reduce((sum, c) => sum + (c.valor_mercado || 0), 0)
+    // Para calcular rentabilidade, comparar apenas as caixinhas que têm cotação
+    const investido_com_cotacao = caixinhas_com_cotacao.reduce((sum, c) => sum + (c.saldo_atual || 0), 0)
+    const rentabilidade_total = total_valor_mercado - investido_com_cotacao
+    const rentabilidade_percentual = investido_com_cotacao > 0
+      ? (rentabilidade_total / investido_com_cotacao) * 100
+      : null
+
     return {
       data: {
         total_caixinhas,
@@ -263,6 +356,10 @@ export const caixinhasService = {
         progresso_geral,
         caixinhas_ativas: total_caixinhas,
         caixinhas_concluidas,
+        total_investido,
+        total_valor_mercado,
+        rentabilidade_total,
+        rentabilidade_percentual,
       },
       error: null,
     }
