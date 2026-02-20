@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react'
-import { X, ArrowUpCircle, ArrowDownCircle, AlertTriangle, Calendar } from 'lucide-react'
+import { X, ArrowUpCircle, ArrowDownCircle, AlertTriangle, Calendar, Building2, Wallet } from 'lucide-react'
 import { Button } from './ui/Button'
 import { CurrencyInput } from './ui/CurrencyInput'
 import { Input } from './ui/Input'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
+import { useContasBancariasStore } from '../store/useContasBancariasStore'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
 import { toast } from 'sonner'
@@ -40,11 +41,19 @@ export function MovimentarCaixinhaModal({
     return format(subMonths(startOfMonth(new Date()), 1), 'yyyy-MM')
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [origemDeposito, setOrigemDeposito] = useState<'orcamento' | 'conta'>('orcamento')
+  const [contaOrigemId, setContaOrigemId] = useState<string>('')
 
   const createTransacao = useCaixinhasStore((state) => state.createTransacao)
+  const contasInvestimento = useContasBancariasStore(
+    (state) => state.contas.filter((c) => c.ativo && c.tipo === 'investimento')
+  )
+  const atualizarSaldo = useContasBancariasStore((state) => state.atualizarSaldo)
 
   const isDeposito = tipo === 'deposito'
-  const excedeSaldoDisponivel = isDeposito && valor > saldoDisponivelParaDeposito
+  const contaSelecionada = contasInvestimento.find((c) => c.id === contaOrigemId)
+  const excedeSaldoDisponivel = isDeposito && origemDeposito === 'orcamento' && valor > saldoDisponivelParaDeposito
+  const excedeSaldoConta = isDeposito && origemDeposito === 'conta' && !!contaSelecionada && valor > contaSelecionada.saldo_atual
 
   // Gerar opções de meses (mês atual + próximos 2 meses)
   const opcoesDesMeses = useMemo(() => {
@@ -71,17 +80,32 @@ export function MovimentarCaixinhaModal({
       return
     }
 
-    // Validar depósito contra saldo disponível
-    if (isDeposito && valor > saldoDisponivelParaDeposito) {
+    // Validar depósito contra saldo de orçamento
+    if (isDeposito && origemDeposito === 'orcamento' && valor > saldoDisponivelParaDeposito) {
       toast.error(`Saldo disponível insuficiente. Você tem apenas ${formatCurrency(saldoDisponivelParaDeposito)} disponível para alocar em caixinhas.`)
       return
+    }
+
+    // Validar depósito contra saldo da conta de investimento
+    if (isDeposito && origemDeposito === 'conta') {
+      if (!contaOrigemId) {
+        toast.error('Selecione uma conta de investimento como origem')
+        return
+      }
+      if (!contaSelecionada) {
+        toast.error('Conta não encontrada')
+        return
+      }
+      if (valor > contaSelecionada.saldo_atual) {
+        toast.error(`Saldo insuficiente. A conta "${contaSelecionada.nome}" tem apenas ${formatCurrency(contaSelecionada.saldo_atual)}.`)
+        return
+      }
     }
 
     setIsLoading(true)
 
     try {
       // Para retiradas, incluir o mês destino na descrição
-      // Isso permite rastrear para onde o dinheiro foi sem criar lançamento duplicado
       let descricaoFinal = descricao || null
       if (!isDeposito) {
         const mesDestinoLabel = opcoesDesMeses.find(m => m.value === mesDestino)?.label || mesDestino
@@ -90,28 +114,41 @@ export function MovimentarCaixinhaModal({
           : `Para compor orçamento de ${mesDestinoLabel}`
       }
 
+      // Para depósitos via conta, registrar origem na descrição
+      if (isDeposito && origemDeposito === 'conta' && contaSelecionada) {
+        descricaoFinal = descricao
+          ? `${descricao} (da conta ${contaSelecionada.nome})`
+          : `Alocado da conta ${contaSelecionada.nome}`
+      }
+
       // Criar transação na caixinha
-      // Para depósitos: origem_mes_referencia = de qual mês vem o saldo
-      // Para retiradas: destino_mes_referencia = para qual mês compor orçamento
       const result = await createTransacao({
         caixinha_id: caixinha.id,
         valor,
         tipo: tipo as TransacaoCaixinhaTipo,
         descricao: descricaoFinal,
-        origem_mes_referencia: isDeposito ? `${mesOrigem}-01` : undefined,
+        // origem_mes_referencia só se vier do orçamento
+        origem_mes_referencia: isDeposito && origemDeposito === 'orcamento' ? `${mesOrigem}-01` : undefined,
         destino_mes_referencia: !isDeposito ? `${mesDestino}-01` : undefined,
       })
 
       if (!result) {
-        // Pegar o erro do store para mostrar mensagem mais específica
         const errorMsg = useCaixinhasStore.getState().error
         toast.error(errorMsg || 'Erro ao realizar operação')
         console.error('Erro na transação:', errorMsg)
         return
       }
 
+      // Descontar da conta de investimento de origem
+      if (isDeposito && origemDeposito === 'conta' && contaSelecionada) {
+        await atualizarSaldo(contaSelecionada.id, contaSelecionada.saldo_atual - valor)
+      }
+
       if (isDeposito) {
-        toast.success(`${formatCurrency(valor)} depositado com sucesso!`)
+        const origemLabel = origemDeposito === 'conta' && contaSelecionada
+          ? ` da conta ${contaSelecionada.nome}`
+          : ''
+        toast.success(`${formatCurrency(valor)} depositado com sucesso${origemLabel}!`)
       } else {
         const mesDestinoLabel = opcoesDesMeses.find(m => m.value === mesDestino)?.label || mesDestino
         toast.success(
@@ -131,6 +168,8 @@ export function MovimentarCaixinhaModal({
   const handleClose = () => {
     setValor(0)
     setDescricao('')
+    setOrigemDeposito('orcamento')
+    setContaOrigemId('')
     onClose()
   }
 
@@ -199,8 +238,50 @@ export function MovimentarCaixinhaModal({
             )}
           </div>
 
-          {/* Saldo Disponível para Depósito */}
+          {/* Origem do Depósito */}
           {isDeposito && (
+            <div>
+              <p className="text-sm font-medium text-gray-300 mb-2">Origem do valor</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setOrigemDeposito('orcamento'); setContaOrigemId('') }}
+                  className={cn(
+                    'flex flex-col items-center gap-1 p-3 rounded-lg border text-sm transition-colors',
+                    origemDeposito === 'orcamento'
+                      ? 'border-primary-500 bg-primary-500/15 text-primary-300'
+                      : 'border-dark-600 bg-dark-800 text-gray-400 hover:border-dark-500'
+                  )}
+                >
+                  <Wallet className="w-5 h-5" />
+                  <span className="font-medium">Saldo de Orçamento</span>
+                  <span className="text-xs opacity-75">{formatCurrency(saldoDisponivelParaDeposito)} disponível</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrigemDeposito('conta')}
+                  className={cn(
+                    'flex flex-col items-center gap-1 p-3 rounded-lg border text-sm transition-colors',
+                    origemDeposito === 'conta'
+                      ? 'border-blue-500 bg-blue-500/15 text-blue-300'
+                      : 'border-dark-600 bg-dark-800 text-gray-400 hover:border-dark-500',
+                    contasInvestimento.length === 0 && 'opacity-50 cursor-not-allowed'
+                  )}
+                  disabled={contasInvestimento.length === 0}
+                  title={contasInvestimento.length === 0 ? 'Nenhuma conta de investimento cadastrada' : ''}
+                >
+                  <Building2 className="w-5 h-5" />
+                  <span className="font-medium">Conta de Investimento</span>
+                  <span className="text-xs opacity-75">
+                    {contasInvestimento.length === 0 ? 'Nenhuma conta' : `${contasInvestimento.length} conta(s)`}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Saldo Disponível para Depósito — apenas quando origem = orçamento */}
+          {isDeposito && origemDeposito === 'orcamento' && (
             <div className="flex items-center gap-3 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
               <div className="flex-1">
                 <p className="text-sm text-gray-400">Saldo Disponível para Alocar</p>
@@ -214,8 +295,42 @@ export function MovimentarCaixinhaModal({
             </div>
           )}
 
-          {/* Mês de origem (apenas para depósito quando há múltiplos meses) */}
-          {isDeposito && mesesComSaldo.length > 1 && (
+          {/* Seleção de conta de investimento como origem */}
+          {isDeposito && origemDeposito === 'conta' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                <Building2 size={14} className="inline mr-1" />
+                Selecione a conta de origem
+              </label>
+              <select
+                value={contaOrigemId}
+                onChange={(e) => setContaOrigemId(e.target.value)}
+                className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
+              >
+                <option value="">Selecione uma conta...</option>
+                {contasInvestimento.map((conta) => (
+                  <option key={conta.id} value={conta.id}>
+                    {conta.icone || '💼'} {conta.nome}{conta.instituicao ? ` — ${conta.instituicao}` : ''} ({formatCurrency(conta.saldo_atual)})
+                  </option>
+                ))}
+              </select>
+              {contaSelecionada && (
+                <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <p className="text-sm text-gray-400">Saldo disponível na conta</p>
+                  <p className="text-lg font-bold text-blue-400">{formatCurrency(contaSelecionada.saldo_atual)}</p>
+                  {excedeSaldoConta && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <AlertTriangle size={13} className="text-red-400 shrink-0" />
+                      <p className="text-xs text-red-400">Valor excede o saldo da conta</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Mês de origem (apenas para depósito de orçamento quando há múltiplos meses) */}
+          {isDeposito && origemDeposito === 'orcamento' && mesesComSaldo.length > 1 && (
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 <Calendar size={14} className="inline mr-2" />
@@ -331,7 +446,14 @@ export function MovimentarCaixinhaModal({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={valor <= 0 || isLoading || (!isDeposito && valor > caixinha.saldo_atual) || excedeSaldoDisponivel}
+            disabled={
+              valor <= 0 ||
+              isLoading ||
+              (!isDeposito && valor > caixinha.saldo_atual) ||
+              excedeSaldoDisponivel ||
+              excedeSaldoConta ||
+              (isDeposito && origemDeposito === 'conta' && !contaOrigemId)
+            }
             isLoading={isLoading}
             className={cn(
               'flex-1',
