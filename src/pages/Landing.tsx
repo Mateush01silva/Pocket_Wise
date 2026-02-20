@@ -3,6 +3,7 @@ import { Button } from '../components/ui'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPlatformStats, type PlatformStats } from '../services/statsService'
+import { useAuth } from '../contexts/AuthContext'
 
 function AnimatedCounter({ end, duration = 2000, prefix = '', suffix = '' }: { end: number; duration?: number; prefix?: string; suffix?: string }) {
   const [count, setCount] = useState(0)
@@ -57,7 +58,15 @@ function AnimatedCounter({ end, duration = 2000, prefix = '', suffix = '' }: { e
 
 export function Landing() {
   const navigate = useNavigate()
+  const { user, loading } = useAuth()
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
+
+  // Se o usuário já está logado, redirecionar diretamente para o app
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/app', { replace: true })
+    }
+  }, [user, loading, navigate])
   const [installGuideOpen, setInstallGuideOpen] = useState(false)
   const [stats, setStats] = useState<PlatformStats>({
     totalUsers: 0,
