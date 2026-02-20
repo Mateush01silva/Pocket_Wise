@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Button, Input } from '../components/ui'
 import { Eye, EyeOff, AlertCircle } from 'lucide-react'
@@ -8,7 +8,15 @@ import { toast } from 'sonner'
 export function Login() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { signIn } = useAuth()
+  const { signIn, user, loading } = useAuth()
+
+  // Se o usuário já está logado, redirecionar diretamente para o app
+  useEffect(() => {
+    if (!loading && user) {
+      const redirectTo = searchParams.get('redirect') || '/app'
+      navigate(redirectTo, { replace: true })
+    }
+  }, [user, loading, navigate, searchParams])
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
