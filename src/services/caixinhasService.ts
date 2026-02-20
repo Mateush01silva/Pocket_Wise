@@ -231,12 +231,20 @@ export const caixinhasService = {
         .single()
 
       if (!contaError && conta) {
-        const novoSaldoConta = Math.max(0, conta.saldo_atual + delta)
-        await supabase
+        // Sem Math.max(0): investimentos podem ter valor de mercado abaixo do aportado
+        const novoSaldoConta = conta.saldo_atual + delta
+        const { error: updateContaError } = await supabase
           // @ts-ignore
           .from('contas_bancarias')
           .update({ saldo_atual: novoSaldoConta })
           .eq('id', caixinha.conta_investimento_id)
+          .select()
+
+        if (updateContaError) {
+          console.error('Erro ao atualizar saldo da conta vinculada:', updateContaError)
+        }
+      } else if (contaError) {
+        console.error('Erro ao buscar conta vinculada:', contaError)
       }
     }
 

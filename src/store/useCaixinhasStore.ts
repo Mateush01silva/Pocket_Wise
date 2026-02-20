@@ -272,6 +272,8 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
         }
 
         if (data) {
+          const delta = input.novo_valor_mercado - valorAnterior
+
           // Atualizar a caixinha no estado local
           set((state) => {
             const index = state.caixinhas.findIndex((c) => c.id === input.caixinha_id)
@@ -290,10 +292,21 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
           // Atualizar summary para refletir nova rentabilidade
           await get().fetchSummary()
 
-          // Sincronizar contas bancárias se havia conta vinculada
-          const caixinha = get().caixinhas.find((c) => c.id === input.caixinha_id)
-          if (caixinha?.conta_investimento_id) {
-            await useContasBancariasStore.getState().fetchContas()
+          // Sincronizar contas bancárias se havia conta vinculada:
+          // 1. Atualizar otimisticamente no store local (sem depender de race condition do fetch)
+          // 2. Depois buscar do servidor para garantir consistência
+          const caixinhaAtualizada = get().caixinhas.find((c) => c.id === input.caixinha_id)
+          if (caixinhaAtualizada?.conta_investimento_id && delta !== 0) {
+            const contasStore = useContasBancariasStore.getState()
+            const contaLocal = contasStore.getContaById(caixinhaAtualizada.conta_investimento_id)
+            if (contaLocal) {
+              // Atualização otimista local imediata
+              contasStore.updateConta(contaLocal.id, {
+                saldo_atual: contaLocal.saldo_atual + delta,
+              })
+            }
+            // Sync com servidor para garantir valor correto
+            await contasStore.fetchContas()
           }
 
           return data
@@ -311,6 +324,11 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
       set({ error: null })
 
       try {
+        // Capturar valor atual para calcular delta local
+        const caixinhaAtual = get().caixinhas.find((c) => c.id === caixinhaId)
+        const valorAtual = caixinhaAtual?.valor_mercado ?? caixinhaAtual?.saldo_atual ?? 0
+        const delta = valorAnterior - valorAtual
+
         const { data, error } = await caixinhasService.atualizarValorMercado({
           caixinha_id: caixinhaId,
           novo_valor_mercado: valorAnterior,
@@ -336,8 +354,15 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
           await get().fetchSummary()
 
           const caixinha = get().caixinhas.find((c) => c.id === caixinhaId)
-          if (caixinha?.conta_investimento_id) {
-            await useContasBancariasStore.getState().fetchContas()
+          if (caixinha?.conta_investimento_id && delta !== 0) {
+            const contasStore = useContasBancariasStore.getState()
+            const contaLocal = contasStore.getContaById(caixinha.conta_investimento_id)
+            if (contaLocal) {
+              contasStore.updateConta(contaLocal.id, {
+                saldo_atual: contaLocal.saldo_atual + delta,
+              })
+            }
+            await contasStore.fetchContas()
           }
 
           return true
