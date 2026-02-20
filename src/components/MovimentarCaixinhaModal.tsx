@@ -45,10 +45,9 @@ export function MovimentarCaixinhaModal({
   const [contaOrigemId, setContaOrigemId] = useState<string>('')
 
   const createTransacao = useCaixinhasStore((state) => state.createTransacao)
-  const contasInvestimento = useContasBancariasStore(
-    (state) => state.contas.filter((c) => c.ativo && c.tipo === 'investimento')
-  )
+  const contas = useContasBancariasStore((state) => state.contas)
   const atualizarSaldo = useContasBancariasStore((state) => state.atualizarSaldo)
+  const contasInvestimento = contas.filter((c) => c.ativo && c.tipo === 'investimento')
 
   const isDeposito = tipo === 'deposito'
   const contaSelecionada = contasInvestimento.find((c) => c.id === contaOrigemId)
