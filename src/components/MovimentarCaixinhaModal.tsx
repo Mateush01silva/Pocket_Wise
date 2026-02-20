@@ -61,7 +61,7 @@ export function MovimentarCaixinhaModal({
     if (!conta) return 0
     const totalAlocado = caixinhas
       .filter((c) => c.conta_investimento_id === contaId)
-      .reduce((sum, c) => sum + c.saldo_atual, 0)
+      .reduce((sum, c) => sum + (c.valor_mercado ?? c.saldo_atual), 0)
     return Math.max(0, conta.saldo_atual - totalAlocado)
   }
 
