@@ -318,9 +318,11 @@ export const caixinhasService = {
 
     const total_caixinhas = caixinhas.length
     const total_guardado = caixinhas.reduce((sum, c) => sum + (c.saldo_atual || 0), 0)
-    const total_metas = caixinhas.reduce((sum, c) => sum + (c.meta_valor || 0), 0)
 
-    const caixinhas_com_meta = caixinhas.filter((c) => c.meta_valor && c.meta_valor > 0)
+    // Progresso e metas: apenas caixinhas não-investimento (objetivo e emergência)
+    const caixinhas_objetivos = caixinhas.filter((c) => c.tipo !== 'investimento')
+    const total_metas = caixinhas_objetivos.reduce((sum, c) => sum + (c.meta_valor || 0), 0)
+    const caixinhas_com_meta = caixinhas_objetivos.filter((c) => c.meta_valor && c.meta_valor > 0)
     const progresso_geral =
       caixinhas_com_meta.length > 0
         ? caixinhas_com_meta.reduce((sum, c) => {
@@ -331,7 +333,7 @@ export const caixinhasService = {
           }, 0) / caixinhas_com_meta.length
         : 0
 
-    const caixinhas_concluidas = caixinhas.filter(
+    const caixinhas_concluidas = caixinhas_objetivos.filter(
       (c) => c.meta_valor && c.saldo_atual >= c.meta_valor
     ).length
 

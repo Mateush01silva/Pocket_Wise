@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { TrendingUp, TrendingDown, Minus, AlertCircle } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, AlertCircle, History, Undo2 } from 'lucide-react'
 import { Modal } from './ui/Modal'
 import { Button, CurrencyInput } from './ui'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
@@ -25,6 +25,8 @@ const SUBTIPO_LABELS: Record<string, string> = {
 
 export function AtualizarCotacaoModal({ isOpen, onClose, caixinha }: AtualizarCotacaoModalProps) {
   const atualizarValorMercado = useCaixinhasStore((state) => state.atualizarValorMercado)
+  const reverterCotacao = useCaixinhasStore((state) => state.reverterCotacao)
+  const historicoCaixinha = useCaixinhasStore((state) => state.historicoCotacoes[caixinha.id] || [])
   const getContaById = useContasBancariasStore((state) => state.getContaById)
 
   const contaVinculada = caixinha.conta_investimento_id
@@ -36,6 +38,7 @@ export function AtualizarCotacaoModal({ isOpen, onClose, caixinha }: AtualizarCo
 
   const [novoValor, setNovoValor] = useState(valorAnterior)
   const [isLoading, setIsLoading] = useState(false)
+  const [isReverting, setIsReverting] = useState(false)
 
   const delta = novoValor - valorAnterior
   const deltaPercent = valorAnterior > 0 ? (delta / valorAnterior) * 100 : 0
@@ -70,6 +73,24 @@ export function AtualizarCotacaoModal({ isOpen, onClose, caixinha }: AtualizarCo
       toast.error('Erro ao atualizar cotação')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleReverter = async (valorParaReverter: number) => {
+    if (!confirm(`Reverter para ${formatCurrency(valorParaReverter)}? O saldo da conta vinculada também será ajustado.`)) return
+    setIsReverting(true)
+    try {
+      const success = await reverterCotacao(caixinha.id, valorParaReverter)
+      if (success) {
+        toast.success(`Cotação revertida para ${formatCurrency(valorParaReverter)}`)
+        onClose()
+      } else {
+        toast.error('Erro ao reverter cotação')
+      }
+    } catch {
+      toast.error('Erro ao reverter cotação')
+    } finally {
+      setIsReverting(false)
     }
   }
 
@@ -204,12 +225,48 @@ export function AtualizarCotacaoModal({ isOpen, onClose, caixinha }: AtualizarCo
           </div>
         )}
 
+        {/* Histórico de cotações desta sessão */}
+        {historicoCaixinha.length > 0 && (
+          <div className="border-t border-dark-700 pt-3">
+            <div className="flex items-center gap-2 mb-2">
+              <History size={14} className="text-gray-500" />
+              <p className="text-xs font-medium text-gray-400">Histórico desta sessão</p>
+            </div>
+            <div className="space-y-1.5">
+              {historicoCaixinha.map((entrada, idx) => (
+                <div key={idx} className="flex items-center justify-between bg-dark-800 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <span className="text-gray-500">{formatDate(entrada.data)}</span>
+                    <span>{formatCurrency(entrada.valor_anterior)}</span>
+                    <span className="text-gray-600">→</span>
+                    <span className={entrada.novo_valor > entrada.valor_anterior ? 'text-green-400' : 'text-red-400'}>
+                      {formatCurrency(entrada.novo_valor)}
+                    </span>
+                  </div>
+                  {idx === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleReverter(entrada.valor_anterior)}
+                      disabled={isReverting || isLoading}
+                      className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 disabled:opacity-50 ml-2 shrink-0"
+                      title="Reverter para este valor"
+                    >
+                      <Undo2 size={12} />
+                      Reverter
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Buttons */}
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading || isReverting}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isLoading || novoValor < 0}>
+          <Button type="submit" disabled={isLoading || isReverting || novoValor < 0}>
             {isLoading ? 'Salvando...' : 'Confirmar Cotação'}
           </Button>
         </div>

@@ -34,6 +34,9 @@ interface CaixinhasState {
 
   // Initialized flag
   initialized: boolean
+
+  // Histórico em memória de atualizações de valor de mercado (por caixinha_id)
+  historicoCotacoes: Record<string, Array<{ valor_anterior: number; novo_valor: number; data: string }>>
 }
 
 interface CaixinhasActions {
@@ -47,6 +50,7 @@ interface CaixinhasActions {
   updateCaixinha: (input: UpdateCaixinhaInput) => Promise<Caixinha | null>
   deleteCaixinha: (id: string) => Promise<boolean>
   atualizarValorMercado: (input: AtualizarValorMercadoInput) => Promise<Caixinha | null>
+  reverterCotacao: (caixinhaId: string, valorAnterior: number) => Promise<boolean>
 
   // Summary
   fetchSummary: () => Promise<void>
@@ -78,6 +82,7 @@ const initialState: CaixinhasState = {
   isLoadingSummary: false,
   error: null,
   initialized: false,
+  historicoCotacoes: {},
 }
 
 export const useCaixinhasStore = create<CaixinhasStore>()(
@@ -255,6 +260,10 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
       set({ error: null })
 
       try {
+        // Capturar valor anterior para o histórico
+        const caixinhaAtual = get().caixinhas.find((c) => c.id === input.caixinha_id)
+        const valorAnterior = caixinhaAtual?.valor_mercado ?? caixinhaAtual?.saldo_atual ?? 0
+
         const { data, error } = await caixinhasService.atualizarValorMercado(input)
 
         if (error) {
@@ -269,13 +278,19 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
             if (index !== -1) {
               state.caixinhas[index] = { ...state.caixinhas[index], ...data }
             }
+
+            // Salvar no histórico em memória (últimas 5 entradas)
+            const historico = state.historicoCotacoes[input.caixinha_id] || []
+            state.historicoCotacoes[input.caixinha_id] = [
+              { valor_anterior: valorAnterior, novo_valor: input.novo_valor_mercado, data: new Date().toISOString() },
+              ...historico,
+            ].slice(0, 5)
           })
 
           // Atualizar summary para refletir nova rentabilidade
           await get().fetchSummary()
 
           // Sincronizar contas bancárias se havia conta vinculada
-          // (o service já atualizou o DB; aqui atualizamos o cache local)
           const caixinha = get().caixinhas.find((c) => c.id === input.caixinha_id)
           if (caixinha?.conta_investimento_id) {
             await useContasBancariasStore.getState().fetchContas()
@@ -289,6 +304,50 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
         console.error('Erro ao atualizar valor de mercado:', error)
         set({ error: (error as Error).message })
         return null
+      }
+    },
+
+    reverterCotacao: async (caixinhaId: string, valorAnterior: number) => {
+      set({ error: null })
+
+      try {
+        const { data, error } = await caixinhasService.atualizarValorMercado({
+          caixinha_id: caixinhaId,
+          novo_valor_mercado: valorAnterior,
+        })
+
+        if (error) {
+          set({ error: error.message })
+          return false
+        }
+
+        if (data) {
+          set((state) => {
+            // Atualizar caixinha
+            const index = state.caixinhas.findIndex((c) => c.id === caixinhaId)
+            if (index !== -1) {
+              state.caixinhas[index] = { ...state.caixinhas[index], ...data }
+            }
+            // Remover a última entrada do histórico
+            const historico = state.historicoCotacoes[caixinhaId] || []
+            state.historicoCotacoes[caixinhaId] = historico.slice(1)
+          })
+
+          await get().fetchSummary()
+
+          const caixinha = get().caixinhas.find((c) => c.id === caixinhaId)
+          if (caixinha?.conta_investimento_id) {
+            await useContasBancariasStore.getState().fetchContas()
+          }
+
+          return true
+        }
+
+        return false
+      } catch (error) {
+        console.error('Erro ao reverter cotação:', error)
+        set({ error: (error as Error).message })
+        return false
       }
     },
 

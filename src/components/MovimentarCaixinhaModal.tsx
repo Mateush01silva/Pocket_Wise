@@ -46,7 +46,6 @@ export function MovimentarCaixinhaModal({
 
   const createTransacao = useCaixinhasStore((state) => state.createTransacao)
   const contas = useContasBancariasStore((state) => state.contas)
-  const atualizarSaldo = useContasBancariasStore((state) => state.atualizarSaldo)
   const contasInvestimento = contas.filter((c) => c.ativo && c.tipo === 'investimento')
 
   const isDeposito = tipo === 'deposito'
@@ -138,11 +137,6 @@ export function MovimentarCaixinhaModal({
         return
       }
 
-      // Descontar da conta de investimento de origem
-      if (isDeposito && origemDeposito === 'conta' && contaSelecionada) {
-        await atualizarSaldo(contaSelecionada.id, contaSelecionada.saldo_atual - valor)
-      }
-
       if (isDeposito) {
         const origemLabel = origemDeposito === 'conta' && contaSelecionada
           ? ` da conta ${contaSelecionada.nome}`
@@ -182,7 +176,7 @@ export function MovimentarCaixinhaModal({
       <div
         className={cn(
           'bg-dark-900 border border-dark-700 rounded-xl shadow-xl',
-          'w-full max-w-md',
+          'w-full max-w-md flex flex-col max-h-[90vh]',
           'animate-in fade-in zoom-in-95 duration-200'
         )}
         onClick={(e) => e.stopPropagation()}
@@ -219,7 +213,7 @@ export function MovimentarCaixinhaModal({
         </div>
 
         {/* Content */}
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 overflow-y-auto flex-1">
           {/* Info da Caixinha */}
           <div className="flex items-center gap-3 p-3 bg-dark-800 rounded-lg">
             <span className="text-2xl">{caixinha.icone}</span>
