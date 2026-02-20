@@ -49,10 +49,10 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
   const family = useFamilyStore((state) => state.family)
   const createCaixinha = useCaixinhasStore((state) => state.createCaixinha)
   const updateCaixinha = useCaixinhasStore((state) => state.updateCaixinha)
-  const contasAtivas = useContasBancariasStore((state) => state.getContasAtivas())
+  const contas = useContasBancariasStore((state) => state.contas)
 
-  // Filtrar somente contas de investimento para o vínculo
-  const contasInvestimento = contasAtivas.filter((c) => c.tipo === 'investimento')
+  // Filtrar somente contas de investimento ativas para o vínculo
+  const contasInvestimento = contas.filter((c) => c.ativo && c.tipo === 'investimento')
 
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
