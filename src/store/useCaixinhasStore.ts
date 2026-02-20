@@ -442,6 +442,37 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
             get().fetchTransacoes(input.caixinha_id),
             get().fetchSummary(),
           ])
+
+          // Depósito de orçamento em caixinha de investimento: atualizar saldos das contas
+          const ehDepositoDeOrcamento = input.tipo === 'deposito' && !!input.origem_mes_referencia
+          if (ehDepositoDeOrcamento) {
+            const caixinhaDeposito = get().caixinhas.find((c) => c.id === input.caixinha_id)
+            if (caixinhaDeposito?.tipo === 'investimento' && caixinhaDeposito.conta_investimento_id) {
+              const contasStore = useContasBancariasStore.getState()
+
+              // 1. Aumentar saldo da conta de investimento vinculada
+              const contaInvestimento = contasStore.getContaById(caixinhaDeposito.conta_investimento_id)
+              if (contaInvestimento) {
+                await contasStore.updateConta(contaInvestimento.id, {
+                  saldo_atual: contaInvestimento.saldo_atual + input.valor,
+                })
+              }
+
+              // 2. Diminuir saldo da conta de saída (se informada pelo usuário)
+              if (input.conta_saida_id) {
+                const contaSaida = contasStore.getContaById(input.conta_saida_id)
+                if (contaSaida) {
+                  await contasStore.updateConta(contaSaida.id, {
+                    saldo_atual: contaSaida.saldo_atual - input.valor,
+                  })
+                }
+              }
+
+              // 3. Refrescar contas do servidor para garantir consistência
+              await contasStore.fetchContas()
+            }
+          }
+
           return data
         }
 

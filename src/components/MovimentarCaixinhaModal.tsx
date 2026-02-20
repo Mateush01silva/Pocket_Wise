@@ -43,15 +43,35 @@ export function MovimentarCaixinhaModal({
   const [isLoading, setIsLoading] = useState(false)
   const [origemDeposito, setOrigemDeposito] = useState<'orcamento' | 'conta'>('orcamento')
   const [contaOrigemId, setContaOrigemId] = useState<string>('')
+  const [contaSaidaId, setContaSaidaId] = useState<string>('')
 
   const createTransacao = useCaixinhasStore((state) => state.createTransacao)
+  const caixinhas = useCaixinhasStore((state) => state.caixinhas)
   const contas = useContasBancariasStore((state) => state.contas)
   const contasInvestimento = contas.filter((c) => c.ativo && c.tipo === 'investimento')
+  const contasNaoInvestimento = contas.filter((c) => c.ativo && c.tipo !== 'investimento')
 
   const isDeposito = tipo === 'deposito'
   const contaSelecionada = contasInvestimento.find((c) => c.id === contaOrigemId)
+  const contaSaidaSelecionada = contasNaoInvestimento.find((c) => c.id === contaSaidaId)
+
+  // Saldo não-alocado de uma conta de investimento = saldo total - sum dos saldo_atual das caixinhas vinculadas
+  const getSaldoNaoAlocado = (contaId: string): number => {
+    const conta = contasInvestimento.find((c) => c.id === contaId)
+    if (!conta) return 0
+    const totalAlocado = caixinhas
+      .filter((c) => c.conta_investimento_id === contaId)
+      .reduce((sum, c) => sum + c.saldo_atual, 0)
+    return Math.max(0, conta.saldo_atual - totalAlocado)
+  }
+
+  const saldoNaoAlocado = contaOrigemId ? getSaldoNaoAlocado(contaOrigemId) : 0
+  const ehCaixinhaInvestimento = caixinha.tipo === 'investimento' && !!caixinha.conta_investimento_id
+  const mostrarContaSaida = isDeposito && origemDeposito === 'orcamento' && ehCaixinhaInvestimento
+
   const excedeSaldoDisponivel = isDeposito && origemDeposito === 'orcamento' && valor > saldoDisponivelParaDeposito
-  const excedeSaldoConta = isDeposito && origemDeposito === 'conta' && !!contaSelecionada && valor > contaSelecionada.saldo_atual
+  const excedeSaldoConta = isDeposito && origemDeposito === 'conta' && !!contaSelecionada && valor > saldoNaoAlocado
+  const excedeSaldoSaida = mostrarContaSaida && !!contaSaidaSelecionada && valor > contaSaidaSelecionada.saldo_atual
 
   // Gerar opções de meses (mês atual + próximos 2 meses)
   const opcoesDesMeses = useMemo(() => {
@@ -94,8 +114,8 @@ export function MovimentarCaixinhaModal({
         toast.error('Conta não encontrada')
         return
       }
-      if (valor > contaSelecionada.saldo_atual) {
-        toast.error(`Saldo insuficiente. A conta "${contaSelecionada.nome}" tem apenas ${formatCurrency(contaSelecionada.saldo_atual)}.`)
+      if (valor > saldoNaoAlocado) {
+        toast.error(`Saldo disponível insuficiente. A conta "${contaSelecionada.nome}" tem ${formatCurrency(saldoNaoAlocado)} não alocado.`)
         return
       }
     }
@@ -128,6 +148,8 @@ export function MovimentarCaixinhaModal({
         // origem_mes_referencia só se vier do orçamento
         origem_mes_referencia: isDeposito && origemDeposito === 'orcamento' ? `${mesOrigem}-01` : undefined,
         destino_mes_referencia: !isDeposito ? `${mesDestino}-01` : undefined,
+        // Conta de saída: apenas para depósito de orçamento em caixinha de investimento
+        conta_saida_id: mostrarContaSaida && contaSaidaId ? contaSaidaId : null,
       })
 
       if (!result) {
@@ -163,6 +185,7 @@ export function MovimentarCaixinhaModal({
     setDescricao('')
     setOrigemDeposito('orcamento')
     setContaOrigemId('')
+    setContaSaidaId('')
     onClose()
   }
 
@@ -303,18 +326,24 @@ export function MovimentarCaixinhaModal({
                 <option value="">Selecione uma conta...</option>
                 {contasInvestimento.map((conta) => (
                   <option key={conta.id} value={conta.id}>
-                    {conta.icone || '💼'} {conta.nome}{conta.instituicao ? ` — ${conta.instituicao}` : ''} ({formatCurrency(conta.saldo_atual)})
+                    {conta.icone || '💼'} {conta.nome}{conta.instituicao ? ` — ${conta.instituicao}` : ''} ({formatCurrency(getSaldoNaoAlocado(conta.id))} disponível)
                   </option>
                 ))}
               </select>
               {contaSelecionada && (
                 <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                  <p className="text-sm text-gray-400">Saldo disponível na conta</p>
-                  <p className="text-lg font-bold text-blue-400">{formatCurrency(contaSelecionada.saldo_atual)}</p>
+                  <p className="text-sm text-gray-400">Saldo não alocado</p>
+                  <p className="text-lg font-bold text-blue-400">{formatCurrency(saldoNaoAlocado)}</p>
+                  <p className="text-xs text-gray-500">
+                    Total da conta: {formatCurrency(contaSelecionada.saldo_atual)}
+                    {contaSelecionada.saldo_atual - saldoNaoAlocado > 0 &&
+                      ` · Já alocado: ${formatCurrency(contaSelecionada.saldo_atual - saldoNaoAlocado)}`
+                    }
+                  </p>
                   {excedeSaldoConta && (
                     <div className="flex items-center gap-2 mt-1">
                       <AlertTriangle size={13} className="text-red-400 shrink-0" />
-                      <p className="text-xs text-red-400">Valor excede o saldo da conta</p>
+                      <p className="text-xs text-red-400">Valor excede o saldo não alocado da conta</p>
                     </div>
                   )}
                 </div>
@@ -340,6 +369,43 @@ export function MovimentarCaixinhaModal({
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {/* Conta de saída: para depósito de orçamento em caixinha de investimento */}
+          {mostrarContaSaida && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                <Building2 size={14} className="inline mr-1" />
+                Conta de saída (de onde veio o dinheiro)
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Selecione a conta de onde você transferiu para a corretora. O saldo dessa conta será reduzido.
+              </p>
+              <select
+                value={contaSaidaId}
+                onChange={(e) => setContaSaidaId(e.target.value)}
+                className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+              >
+                <option value="">Não informar (sem dedução de conta)</option>
+                {contasNaoInvestimento.map((conta) => (
+                  <option key={conta.id} value={conta.id}>
+                    {conta.icone || '🏦'} {conta.nome}{conta.instituicao ? ` — ${conta.instituicao}` : ''} ({formatCurrency(conta.saldo_atual)})
+                  </option>
+                ))}
+              </select>
+              {contaSaidaSelecionada && (
+                <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                  <p className="text-sm text-gray-400">Saldo da conta de saída</p>
+                  <p className="text-lg font-bold text-amber-400">{formatCurrency(contaSaidaSelecionada.saldo_atual)}</p>
+                  {excedeSaldoSaida && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <AlertTriangle size={13} className="text-red-400 shrink-0" />
+                      <p className="text-xs text-red-400">Valor excede o saldo da conta de saída</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -445,6 +511,7 @@ export function MovimentarCaixinhaModal({
               (!isDeposito && valor > caixinha.saldo_atual) ||
               excedeSaldoDisponivel ||
               excedeSaldoConta ||
+              excedeSaldoSaida ||
               (isDeposito && origemDeposito === 'conta' && !contaOrigemId)
             }
             isLoading={isLoading}
