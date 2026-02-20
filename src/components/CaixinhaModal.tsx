@@ -52,7 +52,7 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
   const contas = useContasBancariasStore((state) => state.contas)
 
   // Filtrar somente contas de investimento ativas para o vínculo
-  const contasInvestimento = contas.filter((c) => c.ativa && c.tipo === 'investimento')
+  const contasInvestimento = contas.filter((c) => c.ativo && c.tipo === 'investimento')
 
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
