@@ -26,7 +26,8 @@ const SUBTIPO_LABELS: Record<string, string> = {
 export function AtualizarCotacaoModal({ isOpen, onClose, caixinha }: AtualizarCotacaoModalProps) {
   const atualizarValorMercado = useCaixinhasStore((state) => state.atualizarValorMercado)
   const reverterCotacao = useCaixinhasStore((state) => state.reverterCotacao)
-  const historicoCaixinha = useCaixinhasStore((state) => state.historicoCotacoes[caixinha.id] || [])
+  const historicoCotacoesMap = useCaixinhasStore((state) => state.historicoCotacoes)
+  const historicoCaixinha = historicoCotacoesMap[caixinha.id] ?? []
   const getContaById = useContasBancariasStore((state) => state.getContaById)
 
   const contaVinculada = caixinha.conta_investimento_id
