@@ -1,31 +1,37 @@
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Card, CardContent, Button } from '../components/ui'
-import { AlertTriangle, Calendar } from 'lucide-react'
+import { AlertTriangle, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
-import { useTransacoesStore, useContasBancariasStore } from '../store'
+import { useTransacoesStore, useContasBancariasStore, useCategoriasStore } from '../store'
 import { format, addDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 import { LearningTooltip } from '../components/ui/LearningTooltip'
 import { learningContent } from '../lib/learningContent'
+import type { Lancamento } from '../types'
 
 type ViewPeriod = '7d' | '15d' | '30d' | '60d' | '90d'
 
 interface DailyBalance {
   date: Date
   dateStr: string
+  dateKey: string             // yyyy-MM-dd — chave única para expandedDay
   saldo: number
   receitas: number
   despesas: number
-  despesasConfirmadas: number   // status === 'pago'
-  despesasProjetadas: number    // status !== 'pago' (projetado/pendente — ainda não debitado)
+  despesasConfirmadas: number
+  despesasProjetadas: number
   saldoInicial: number
+  lancamentosDoDia: Lancamento[]
 }
 
 export function CashFlow() {
   const [viewPeriod, setViewPeriod] = useState<ViewPeriod>('30d')
+  const [expandedDay, setExpandedDay] = useState<string | null>(null)
+
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const getSaldoTotal = useContasBancariasStore((state) => state.getSaldoTotal)
+  const categorias = useCategoriasStore((state) => state.categorias)
 
   // Calcular saldo inicial (saldo real das contas bancárias)
   const saldoInicialContas = getSaldoTotal()
@@ -54,42 +60,52 @@ export function CashFlow() {
       const currentDate = addDays(today, i)
       const dateStart = startOfDay(currentDate)
       const dateEnd = endOfDay(currentDate)
+      const isFutureDay = i > 0  // hoje = índice 0
 
-      // Filtrar lançamentos do dia (incluindo pendentes e projetados)
+      // Filtrar lançamentos do dia
+      // Para cartão de crédito com data_vencimento_fatura: posicionar na data da fatura
+      // (quando o dinheiro efetivamente sai da conta, não na data da compra)
+      // Para demais: posicionar na data da transação
       const lancamentosDoDia = lancamentos.filter(l => {
-        const dataLancamento = new Date(l.data)
-        return isWithinInterval(dataLancamento, { start: dateStart, end: dateEnd })
+        const dataRef = (l.forma_pagamento === 'credito' && l.data_vencimento_fatura)
+          ? new Date(l.data_vencimento_fatura)
+          : new Date(l.data)
+        return isWithinInterval(dataRef, { start: dateStart, end: dateEnd })
       })
 
-      // Calcular receitas e despesas do dia
+      // Calcular receitas do dia
       const receitasDia = lancamentosDoDia
         .filter(l => l.tipo === 'receita')
         .reduce((sum, l) => sum + l.valor, 0)
 
-      // Separar despesas confirmadas (pagas) das projetadas (cartão/pendentes)
-      const despesasConfirmadasDia = lancamentosDoDia
-        .filter(l => l.tipo === 'despesa' && l.status === 'pago')
-        .reduce((sum, l) => sum + l.valor, 0)
+      // Despesas: para dias futuros tudo é projetado por definição;
+      // para hoje/passado separamos por status
+      const despesasDoDia = lancamentosDoDia.filter(l => l.tipo === 'despesa')
+      const despesasDia = despesasDoDia.reduce((sum, l) => sum + l.valor, 0)
 
-      const despesasProjetadasDia = lancamentosDoDia
-        .filter(l => l.tipo === 'despesa' && l.status !== 'pago')
-        .reduce((sum, l) => sum + l.valor, 0)
+      const despesasConfirmadasDia = isFutureDay
+        ? 0
+        : despesasDoDia.filter(l => l.status === 'pago').reduce((sum, l) => sum + l.valor, 0)
 
-      const despesasDia = despesasConfirmadasDia + despesasProjetadasDia
+      const despesasProjetadasDia = isFutureDay
+        ? despesasDia
+        : despesasDoDia.filter(l => l.status !== 'pago').reduce((sum, l) => sum + l.valor, 0)
 
-      // Calcular saldo do dia
+      // Calcular saldo acumulado
       const saldoInicial = saldoAcumulado
       saldoAcumulado = saldoAcumulado + receitasDia - despesasDia
 
       balances.push({
         date: currentDate,
         dateStr: format(currentDate, 'dd/MM', { locale: ptBR }),
+        dateKey: format(currentDate, 'yyyy-MM-dd'),
         saldo: saldoAcumulado,
         receitas: receitasDia,
         despesas: despesasDia,
         despesasConfirmadas: despesasConfirmadasDia,
         despesasProjetadas: despesasProjetadasDia,
         saldoInicial,
+        lancamentosDoDia,
       })
     }
 
@@ -118,7 +134,6 @@ export function CashFlow() {
   }, [dailyBalances, saldoInicialContas])
 
   // Calcular escala do eixo Y para melhor visualização
-  // Usa escala relativa ao invés de começar do zero
   const yAxisDomain = useMemo(() => {
     if (dailyBalances.length === 0) return [0, 100]
 
@@ -127,31 +142,48 @@ export function CashFlow() {
     const maxSaldo = Math.max(...saldos)
     const range = maxSaldo - minSaldo
 
-    // Se a variação é muito pequena em relação aos valores (< 10%), usar escala relativa
     const avgSaldo = (maxSaldo + minSaldo) / 2
     const variationPercent = avgSaldo !== 0 ? (range / Math.abs(avgSaldo)) * 100 : 100
 
     if (variationPercent < 20 && Math.abs(avgSaldo) > 1000) {
-      // Usar escala relativa com padding de 20% da variação
       const padding = Math.max(range * 0.2, Math.abs(avgSaldo) * 0.05)
-      const yMin = minSaldo - padding
-      const yMax = maxSaldo + padding
-
-      // Garantir que zero seja incluído se os valores cruzam zero
-      if (minSaldo < 0 && maxSaldo > 0) {
-        return [yMin, yMax]
-      }
-
-      return [yMin, yMax]
+      return [minSaldo - padding, maxSaldo + padding]
     }
 
-    // Caso contrário, incluir zero para dar contexto
     if (minSaldo >= 0) {
       return [0, maxSaldo * 1.1]
     }
 
     return [minSaldo * 1.1, maxSaldo * 1.1]
   }, [dailyBalances])
+
+  // Helper: nome da categoria a partir do id
+  const getCategoryName = (l: Lancamento): string => {
+    if (!l.categoria_id) return 'Sem categoria'
+    return categorias.find(c => c.id === l.categoria_id)?.nome ?? 'Sem categoria'
+  }
+
+  // Helper: cor da categoria
+  const getCategoryColor = (l: Lancamento): string => {
+    if (!l.categoria_id) return '#6B7280'
+    return categorias.find(c => c.id === l.categoria_id)?.cor ?? '#6B7280'
+  }
+
+  // Helper: label amigável para status
+  const getStatusLabel = (l: Lancamento, isFutureDay: boolean): { label: string; color: string } => {
+    if (isFutureDay) return { label: 'projetado', color: 'text-orange-400/80' }
+    if (l.status === 'pago') return { label: 'confirmado', color: 'text-green-400' }
+    if (l.status === 'projetado') return { label: 'projetado', color: 'text-orange-400/80' }
+    return { label: 'pendente', color: 'text-yellow-400/80' }
+  }
+
+  // Helper: descrição do lançamento (parcela, assinatura, observação)
+  const getDescricao = (l: Lancamento): string | null => {
+    if (l.parcela_atual && l.parcela_total) {
+      return `Parcela ${l.parcela_atual}/${l.parcela_total}`
+    }
+    return l.observacao || null
+  }
 
   // Custom tooltip para o gráfico
   const CustomTooltip = ({ active, payload }: any) => {
@@ -240,7 +272,7 @@ export function CashFlow() {
                 <div className="flex flex-wrap gap-2">
                   {diasNegativos.slice(0, 5).map((dia) => (
                     <span
-                      key={dia.dateStr}
+                      key={dia.dateKey}
                       className="px-2 py-1 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-300"
                     >
                       {format(dia.date, "dd 'de' MMM", { locale: ptBR })}: {formatCurrency(dia.saldo)}
@@ -390,74 +422,135 @@ export function CashFlow() {
       {/* Daily Details Table */}
       <Card>
         <CardContent>
-          <h2 className="text-lg font-semibold text-gray-100 mb-4">
-            Detalhamento Diário
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-100">Detalhamento Diário</h2>
+            <p className="text-xs text-gray-500 hidden sm:block">Clique em uma linha para ver os lançamentos</p>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-dark-700">
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-400">Data</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Receitas</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">
-                    <span>Despesas</span>
-                  </th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Despesas</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Saldo do Dia</th>
                 </tr>
               </thead>
               <tbody>
                 {dailyBalances.map((day, index) => {
-                  const isToday = format(day.date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+                  const isToday = day.dateKey === format(new Date(), 'yyyy-MM-dd')
                   const isNegative = day.saldo < 0
+                  const isFutureDay = index > 0
+                  const hasTransactions = day.lancamentosDoDia.length > 0
+                  const isExpanded = expandedDay === day.dateKey
 
                   return (
-                    <tr
-                      key={day.dateStr + index}
-                      className={`border-b border-dark-800/50 hover:bg-dark-800/30 ${
-                        isToday ? 'bg-blue-500/5' : ''
-                      } ${isNegative ? 'bg-red-500/5' : ''}`}
-                    >
-                      <td className="py-3 px-4 text-sm text-gray-300">
-                        <div className="flex items-center gap-2">
-                          {format(day.date, "dd 'de' MMM", { locale: ptBR })}
-                          {isToday && (
-                            <span className="px-2 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded text-xs text-blue-300">
-                              Hoje
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-sm text-right">
-                        {day.receitas > 0 ? (
-                          <span className="text-green-400 font-medium">
-                            +{formatCurrency(day.receitas)}
-                          </span>
-                        ) : (
-                          <span className="text-gray-600">-</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-right">
-                        {day.despesas > 0 ? (
-                          <div>
-                            <span className="text-red-400 font-medium">
-                              -{formatCurrency(day.despesas)}
-                            </span>
-                            {day.despesasProjetadas > 0 && (
-                              <div className="text-xs text-orange-400/70 mt-0.5">
-                                ~{formatCurrency(day.despesasProjetadas)} proj.
-                              </div>
+                    <React.Fragment key={day.dateKey}>
+                      {/* Linha principal */}
+                      <tr
+                        onClick={() => hasTransactions && setExpandedDay(isExpanded ? null : day.dateKey)}
+                        className={`border-b border-dark-800/50 transition-colors ${
+                          hasTransactions ? 'cursor-pointer hover:bg-dark-800/40' : ''
+                        } ${isToday ? 'bg-blue-500/5' : ''} ${isNegative && !isExpanded ? 'bg-red-500/5' : ''} ${isExpanded ? 'bg-dark-800/50' : ''}`}
+                      >
+                        <td className="py-3 px-4 text-sm text-gray-300">
+                          <div className="flex items-center gap-2">
+                            {hasTransactions ? (
+                              isExpanded
+                                ? <ChevronUp className="w-4 h-4 text-gray-500 shrink-0" />
+                                : <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
+                            ) : (
+                              <span className="w-4 shrink-0" />
+                            )}
+                            {format(day.date, "dd 'de' MMM", { locale: ptBR })}
+                            {isToday && (
+                              <span className="px-2 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded text-xs text-blue-300">
+                                Hoje
+                              </span>
                             )}
                           </div>
-                        ) : (
-                          <span className="text-gray-600">-</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-sm text-right">
-                        <span className={`font-semibold ${day.saldo >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
-                          {formatCurrency(day.saldo)}
-                        </span>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="py-3 px-4 text-sm text-right">
+                          {day.receitas > 0 ? (
+                            <span className="text-green-400 font-medium">
+                              +{formatCurrency(day.receitas)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-600">-</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-right">
+                          {day.despesas > 0 ? (
+                            <div>
+                              <span className="text-red-400 font-medium">
+                                -{formatCurrency(day.despesas)}
+                              </span>
+                              {day.despesasProjetadas > 0 && (
+                                <div className="text-xs text-orange-400/70 mt-0.5">
+                                  ~{formatCurrency(day.despesasProjetadas)} proj.
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-600">-</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-right">
+                          <span className={`font-semibold ${day.saldo >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
+                            {formatCurrency(day.saldo)}
+                          </span>
+                        </td>
+                      </tr>
+
+                      {/* Painel de detalhes expandido */}
+                      {isExpanded && (
+                        <tr className="border-b border-dark-800/50 bg-dark-900/40">
+                          <td colSpan={4} className="px-4 py-3">
+                            <div className="space-y-1.5 pl-4 border-l-2 border-dark-700">
+                              {day.lancamentosDoDia
+                                .sort((a, b) => b.valor - a.valor)
+                                .map((l) => {
+                                  const statusInfo = getStatusLabel(l, isFutureDay)
+                                  const descricao = getDescricao(l)
+                                  return (
+                                    <div
+                                      key={l.id}
+                                      className="flex items-center justify-between gap-3 py-1"
+                                    >
+                                      {/* Categoria */}
+                                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        <div
+                                          className="w-2 h-2 rounded-full shrink-0"
+                                          style={{ backgroundColor: getCategoryColor(l) }}
+                                        />
+                                        <div className="min-w-0">
+                                          <span className="text-xs text-gray-300 font-medium">
+                                            {getCategoryName(l)}
+                                          </span>
+                                          {descricao && (
+                                            <span className="text-xs text-gray-500 ml-1.5">
+                                              {descricao}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {/* Valor + status */}
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <span className={`text-xs font-semibold ${l.tipo === 'receita' ? 'text-green-400' : 'text-red-400'}`}>
+                                          {l.tipo === 'receita' ? '+' : '-'}{formatCurrency(l.valor)}
+                                        </span>
+                                        <span className={`text-xs ${statusInfo.color}`}>
+                                          {statusInfo.label}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   )
                 })}
               </tbody>
@@ -466,7 +559,7 @@ export function CashFlow() {
           {dailyBalances.some(d => d.despesasProjetadas > 0) && (
             <p className="mt-3 text-xs text-gray-500">
               <span className="text-orange-400/70 font-medium">~ proj.</span>
-              {' '}= despesa ainda não confirmada (cartão de crédito ou lançamento pendente)
+              {' '}= despesa ainda não confirmada (vencimento de fatura de cartão ou lançamento pendente)
             </p>
           )}
         </CardContent>
