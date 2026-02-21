@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Card, CardContent } from '../components/ui'
-import { TrendingUp, TrendingDown, Calendar, ArrowUpRight, ArrowDownRight, MinusCircle } from 'lucide-react'
+import { TrendingUp, TrendingDown, Calendar, ArrowUpRight, ArrowDownRight, MinusCircle, ArrowUpDown } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
@@ -26,10 +26,13 @@ interface CategoryComparison {
   percentual: number
 }
 
+type SortOption = 'maior-variacao' | 'pior-variacao' | 'maior-valor' | 'nome'
+
 export function ComparativeReports() {
   const today = new Date()
   const [mes1, setMes1] = useState(startOfMonth(subMonths(today, 1)))
   const [mes2, setMes2] = useState(startOfMonth(today))
+  const [sortBy, setSortBy] = useState<SortOption>('maior-variacao')
 
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
@@ -98,9 +101,16 @@ export function ComparativeReports() {
           percentual,
         }
       })
-      .filter(c => c.mes1 > 0 || c.mes2 > 0) // Apenas categorias com valores
-      .sort((a, b) => Math.abs(b.diferenca) - Math.abs(a.diferenca)) // Ordenar por maior diferença
-  }, [mes1Data, mes2Data, categorias])
+      .filter(c => c.mes1 > 0 || c.mes2 > 0)
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'pior-variacao':   return b.diferenca - a.diferenca
+          case 'maior-valor':     return b.mes2 - a.mes2
+          case 'nome':            return a.categoria_nome.localeCompare(b.categoria_nome)
+          default:                return Math.abs(b.diferenca) - Math.abs(a.diferenca)
+        }
+      })
+  }, [mes1Data, mes2Data, categorias, sortBy])
 
   // Dados para gráfico de evolução dos últimos 6 meses
   const evolutionData = useMemo(() => {
@@ -328,8 +338,13 @@ export function ComparativeReports() {
                 />
                 <YAxis
                   stroke="#9CA3AF"
-                  style={{ fontSize: '12px' }}
-                  tickFormatter={(value) => formatCurrency(value)}
+                  style={{ fontSize: '11px' }}
+                  width={56}
+                  tickFormatter={(value) => {
+                    const abs = Math.abs(value)
+                    if (abs >= 1000) return `R$${(value / 1000).toFixed(0)}k`
+                    return `R$${value.toFixed(0)}`
+                  }}
                 />
                 <Tooltip
                   formatter={(value: number | undefined) => value ? formatCurrency(value) : 'R$ 0,00'}
@@ -379,82 +394,142 @@ export function ComparativeReports() {
       {/* Category Comparison Table */}
       <Card>
         <CardContent>
-          <h2 className="text-lg font-semibold text-gray-100 mb-4">
-            Comparação por Categoria
-          </h2>
-          {categoryComparisons.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-dark-700">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-400">Categoria</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">
-                      {format(mes1, 'MMM/yy', { locale: ptBR })}
-                    </th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">
-                      {format(mes2, 'MMM/yy', { locale: ptBR })}
-                    </th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Variação</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">%</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {categoryComparisons.map((cat) => {
-                    const increased = cat.diferenca > 0
-                    const decreased = cat.diferenca < 0
-                    const unchanged = cat.diferenca === 0
+          {/* Header + sort controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h2 className="text-lg font-semibold text-gray-100">Comparação por Categoria</h2>
+            {categoryComparisons.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <ArrowUpDown className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                {(
+                  [
+                    { key: 'maior-variacao', label: 'Maior variação' },
+                    { key: 'pior-variacao',  label: 'Pior variação'  },
+                    { key: 'maior-valor',    label: 'Maior valor'    },
+                    { key: 'nome',           label: 'A–Z'            },
+                  ] as { key: SortOption; label: string }[]
+                ).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setSortBy(key)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                      sortBy === key
+                        ? 'bg-primary-500 text-white'
+                        : 'bg-dark-700 text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-                    return (
-                      <tr
-                        key={cat.categoria_id}
-                        className="border-b border-dark-800/50 hover:bg-dark-800/30 transition-colors"
-                      >
-                        <td className="py-3 px-4 text-sm">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: cat.cor }}
-                            />
-                            <span className="text-gray-300 font-medium">{cat.categoria_nome}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-right text-gray-400">
-                          {formatCurrency(cat.mes1)}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-right text-gray-400">
-                          {formatCurrency(cat.mes2)}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {increased && <ArrowUpRight className="w-4 h-4 text-red-400" />}
-                            {decreased && <ArrowDownRight className="w-4 h-4 text-green-400" />}
-                            {unchanged && <MinusCircle className="w-4 h-4 text-gray-400" />}
-                            <span className={`font-semibold ${
-                              increased ? 'text-red-400' :
-                              decreased ? 'text-green-400' :
-                              'text-gray-400'
-                            }`}>
-                              {formatCurrency(Math.abs(cat.diferenca))}
+          {categoryComparisons.length > 0 ? (
+            <>
+              {/* Mobile: cards */}
+              <div className="sm:hidden space-y-2">
+                {categoryComparisons.map((cat) => {
+                  const increased = cat.diferenca > 0
+                  const decreased = cat.diferenca < 0
+                  return (
+                    <div key={cat.categoria_id} className="bg-dark-800/60 rounded-lg p-3">
+                      {/* Top row: name + % badge */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.cor }} />
+                          <span className="text-gray-200 font-medium text-sm truncate">{cat.categoria_nome}</span>
+                        </div>
+                        <span className={`text-sm font-bold shrink-0 ml-2 ${
+                          increased ? 'text-red-400' : decreased ? 'text-green-400' : 'text-gray-400'
+                        }`}>
+                          {increased ? '+' : decreased ? '-' : ''}{Math.abs(cat.percentual).toFixed(1)}%
+                        </span>
+                      </div>
+                      {/* Values row */}
+                      <div className="grid grid-cols-2 gap-2 text-xs mb-2">
+                        <div>
+                          <div className="text-gray-500 mb-0.5">{format(mes1, 'MMM/yy', { locale: ptBR })}</div>
+                          <div className="text-gray-300 font-medium">{formatCurrency(cat.mes1)}</div>
+                        </div>
+                        <div>
+                          <div className="text-gray-500 mb-0.5">{format(mes2, 'MMM/yy', { locale: ptBR })}</div>
+                          <div className="text-gray-300 font-medium">{formatCurrency(cat.mes2)}</div>
+                        </div>
+                      </div>
+                      {/* Variation row */}
+                      <div className="flex items-center gap-1 pt-2 border-t border-dark-700/60">
+                        {increased && <ArrowUpRight className="w-3.5 h-3.5 text-red-400" />}
+                        {decreased && <ArrowDownRight className="w-3.5 h-3.5 text-green-400" />}
+                        {!increased && !decreased && <MinusCircle className="w-3.5 h-3.5 text-gray-400" />}
+                        <span className={`text-xs font-semibold ${
+                          increased ? 'text-red-400' : decreased ? 'text-green-400' : 'text-gray-400'
+                        }`}>
+                          {formatCurrency(Math.abs(cat.diferenca))}
+                        </span>
+                        <span className="text-xs text-gray-500 ml-1">variação</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Desktop: table */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-dark-700">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-400">Categoria</th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">
+                        {format(mes1, 'MMM/yy', { locale: ptBR })}
+                      </th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">
+                        {format(mes2, 'MMM/yy', { locale: ptBR })}
+                      </th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Variação</th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categoryComparisons.map((cat) => {
+                      const increased = cat.diferenca > 0
+                      const decreased = cat.diferenca < 0
+                      const unchanged = cat.diferenca === 0
+
+                      return (
+                        <tr
+                          key={cat.categoria_id}
+                          className="border-b border-dark-800/50 hover:bg-dark-800/30 transition-colors"
+                        >
+                          <td className="py-3 px-4 text-sm">
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.cor }} />
+                              <span className="text-gray-300 font-medium">{cat.categoria_nome}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-right text-gray-400">{formatCurrency(cat.mes1)}</td>
+                          <td className="py-3 px-4 text-sm text-right text-gray-400">{formatCurrency(cat.mes2)}</td>
+                          <td className="py-3 px-4 text-sm text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {increased && <ArrowUpRight className="w-4 h-4 text-red-400" />}
+                              {decreased && <ArrowDownRight className="w-4 h-4 text-green-400" />}
+                              {unchanged && <MinusCircle className="w-4 h-4 text-gray-400" />}
+                              <span className={`font-semibold ${increased ? 'text-red-400' : decreased ? 'text-green-400' : 'text-gray-400'}`}>
+                                {formatCurrency(Math.abs(cat.diferenca))}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-right">
+                            <span className={`font-semibold ${increased ? 'text-red-400' : decreased ? 'text-green-400' : 'text-gray-400'}`}>
+                              {increased && '+'}{decreased && '-'}{Math.abs(cat.percentual).toFixed(1)}%
                             </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-right">
-                          <span className={`font-semibold ${
-                            increased ? 'text-red-400' :
-                            decreased ? 'text-green-400' :
-                            'text-gray-400'
-                          }`}>
-                            {increased && '+'}
-                            {decreased && '-'}
-                            {Math.abs(cat.percentual).toFixed(1)}%
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           ) : (
             <div className="text-center py-8 text-gray-500">
               <p>Sem dados para comparação</p>
