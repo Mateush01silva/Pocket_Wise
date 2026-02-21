@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Layout } from './components/layout/Layout'
@@ -171,6 +171,33 @@ function AppRoutes() {
     init()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.id])
+
+  // Atualizar dados ao voltar para o app (troca de aba, volta do background no celular)
+  // Resolve: sincronização entre dois usuários da família sem reload manual
+  const lastRefreshRef = useRef<number>(0)
+  const refreshData = useCallback(async () => {
+    if (!user) return
+    const now = Date.now()
+    const COOLDOWN_MS = 30_000 // no máximo 1 refresh a cada 30 segundos
+    if (now - lastRefreshRef.current < COOLDOWN_MS) return
+    lastRefreshRef.current = now
+    try {
+      await fetchLancamentos()
+    } catch {
+      // silencioso — não interromper UX por falha de background refresh
+    }
+  }, [user, fetchLancamentos])
+
+  useEffect(() => {
+    if (!user) return
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshData()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [user, refreshData])
 
   // Mostrar loading enquanto inicializa
   if (!isInitialized) {

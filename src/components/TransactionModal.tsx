@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { toast } from 'sonner'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select, CurrencyInput } from './ui'
 import { useCategoriasStore, useCartoesStore, useContasBancariasStore, useTransacoesStore } from '../store'
@@ -123,13 +124,13 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
     try {
       // Validações básicas
       if (!formData.tipo || !formData.categoria_id || !formData.valor || !formData.data) {
-        alert('Por favor, preencha todos os campos obrigatórios')
+        toast.error('Preencha todos os campos obrigatórios')
         setIsLoading(false)
         return
       }
 
       if (formData.valor <= 0) {
-        alert('O valor deve ser maior que zero')
+        toast.error('O valor deve ser maior que zero')
         setIsLoading(false)
         return
       }
@@ -141,7 +142,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
           formData.forma_pagamento === 'transferencia') &&
         !formData.conta_id
       ) {
-        alert('Por favor, selecione a conta bancária para esta forma de pagamento')
+        toast.error('Selecione a conta bancária para esta forma de pagamento')
         setIsLoading(false)
         return
       }
@@ -195,6 +196,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
       }
 
       // Reset form and close
+      toast.success(editingLancamento ? 'Transação atualizada!' : 'Transação salva!')
       setFormData({
         tipo: 'despesa',
         data: format(new Date(), 'yyyy-MM-dd'),
@@ -209,7 +211,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
       onClose()
     } catch (error) {
       console.error('Erro ao criar transação:', error)
-      alert('Erro ao criar transação. Tente novamente.')
+      toast.error('Erro ao salvar. Verifique sua conexão e tente novamente.')
     } finally {
       setIsLoading(false)
     }
