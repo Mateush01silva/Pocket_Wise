@@ -36,13 +36,13 @@ import { formatCurrency } from '../utils/currency'
 /**
  * Calcula o gasto total de uma categoria em um determinado mês
  *
- * Para transações de cartão de crédito:
- * - Usa o mês da FATURA (data_vencimento_fatura), não o mês da compra
- * - Compras feitas após o fechamento do cartão vão para o mês seguinte
- * - Isso reflete quando o gasto realmente será pago
+ * Usa sempre a DATA DA COMPRA (campo `data`) para determinar o mês do envelope.
+ * O ciclo de fatura do cartão não interfere: uma compra feita em janeiro
+ * pertence ao envelope de janeiro, independente de quando a fatura vence.
+ * O vencimento da fatura é uma questão de fluxo de caixa, não de orçamento.
  *
- * Para outras transações:
- * - Usa o mês da transação (data)
+ * Status válidos: 'pago' ou 'projetado' (cartão de crédito comprometido).
+ * 'pendente' não é considerado pois ainda não foi efetivado.
  */
 export function calcularGastoPorCategoria(
   lancamentos: Lancamento[],
@@ -53,14 +53,8 @@ export function calcularGastoPorCategoria(
 
   const total = lancamentos
     .filter((l) => {
-      // Para transações de cartão com data_vencimento_fatura, usar o mês da fatura
-      // Isso garante que compras após o fechamento contam no mês seguinte
-      const lancamentoMes = (l.forma_pagamento === 'credito' && l.data_vencimento_fatura)
-        ? l.data_vencimento_fatura.substring(0, 7)
-        : l.data.substring(0, 7)
-
-      // Status válidos: 'pago' OU 'projetado' (cartão de crédito)
-      // Não considera 'pendente' porque ainda não foi efetivado
+      // Sempre usa a data da compra — o envelope pertence ao mês em que a compra ocorreu
+      const lancamentoMes = l.data.substring(0, 7)
       const statusValido = l.status === 'pago' || l.status === 'projetado'
 
       return (
@@ -355,13 +349,10 @@ export function gerarEnvelopesDigitais(
     if (percentualUsado > 100) status = 'critico'
     else if (percentualUsado >= 80) status = 'atencao'
 
-    // Filtrar últimas transações do mês de referência
-    // Para cartão de crédito, usar mês da fatura para consistência com o cálculo de gastos
+    // Filtrar últimas transações do mês de referência pela data da compra
     const ultimasTransacoes = lancamentos
       .filter((l) => {
-        const mesTx = (l.forma_pagamento === 'credito' && l.data_vencimento_fatura)
-          ? l.data_vencimento_fatura.substring(0, 7)
-          : l.data.substring(0, 7)
+        const mesTx = l.data.substring(0, 7)
         return (
           l.categoria_id === catBudget.categoria_id &&
           l.tipo === 'despesa' &&

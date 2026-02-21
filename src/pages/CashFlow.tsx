@@ -17,6 +17,8 @@ interface DailyBalance {
   saldo: number
   receitas: number
   despesas: number
+  despesasConfirmadas: number   // status === 'pago'
+  despesasProjetadas: number    // status !== 'pago' (projetado/pendente — ainda não debitado)
   saldoInicial: number
 }
 
@@ -64,9 +66,16 @@ export function CashFlow() {
         .filter(l => l.tipo === 'receita')
         .reduce((sum, l) => sum + l.valor, 0)
 
-      const despesasDia = lancamentosDoDia
-        .filter(l => l.tipo === 'despesa')
+      // Separar despesas confirmadas (pagas) das projetadas (cartão/pendentes)
+      const despesasConfirmadasDia = lancamentosDoDia
+        .filter(l => l.tipo === 'despesa' && l.status === 'pago')
         .reduce((sum, l) => sum + l.valor, 0)
+
+      const despesasProjetadasDia = lancamentosDoDia
+        .filter(l => l.tipo === 'despesa' && l.status !== 'pago')
+        .reduce((sum, l) => sum + l.valor, 0)
+
+      const despesasDia = despesasConfirmadasDia + despesasProjetadasDia
 
       // Calcular saldo do dia
       const saldoInicial = saldoAcumulado
@@ -78,6 +87,8 @@ export function CashFlow() {
         saldo: saldoAcumulado,
         receitas: receitasDia,
         despesas: despesasDia,
+        despesasConfirmadas: despesasConfirmadasDia,
+        despesasProjetadas: despesasProjetadasDia,
         saldoInicial,
       })
     }
@@ -332,8 +343,13 @@ export function CashFlow() {
                   />
                   <YAxis
                     stroke="#9CA3AF"
-                    style={{ fontSize: '12px' }}
-                    tickFormatter={(value) => formatCurrency(value)}
+                    style={{ fontSize: '11px' }}
+                    width={56}
+                    tickFormatter={(value) => {
+                      const abs = Math.abs(value)
+                      if (abs >= 1000) return `R$${(value / 1000).toFixed(0)}k`
+                      return `R$${value.toFixed(0)}`
+                    }}
                     domain={yAxisDomain}
                     allowDataOverflow={false}
                   />
@@ -383,7 +399,9 @@ export function CashFlow() {
                 <tr className="border-b border-dark-700">
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-400">Data</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Receitas</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Despesas</th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">
+                    <span>Despesas</span>
+                  </th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Saldo do Dia</th>
                 </tr>
               </thead>
@@ -420,9 +438,16 @@ export function CashFlow() {
                       </td>
                       <td className="py-3 px-4 text-sm text-right">
                         {day.despesas > 0 ? (
-                          <span className="text-red-400 font-medium">
-                            -{formatCurrency(day.despesas)}
-                          </span>
+                          <div>
+                            <span className="text-red-400 font-medium">
+                              -{formatCurrency(day.despesas)}
+                            </span>
+                            {day.despesasProjetadas > 0 && (
+                              <div className="text-xs text-orange-400/70 mt-0.5">
+                                ~{formatCurrency(day.despesasProjetadas)} proj.
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-gray-600">-</span>
                         )}
@@ -438,6 +463,12 @@ export function CashFlow() {
               </tbody>
             </table>
           </div>
+          {dailyBalances.some(d => d.despesasProjetadas > 0) && (
+            <p className="mt-3 text-xs text-gray-500">
+              <span className="text-orange-400/70 font-medium">~ proj.</span>
+              {' '}= despesa ainda não confirmada (cartão de crédito ou lançamento pendente)
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>
