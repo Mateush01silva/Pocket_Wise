@@ -507,7 +507,7 @@ export function CashFlow() {
                         <tr className="border-b border-dark-800/50 bg-dark-900/40">
                           <td colSpan={4} className="px-4 py-3">
                             <div className="space-y-1.5 pl-4 border-l-2 border-dark-700">
-                              {day.lancamentosDoDia
+                              {[...day.lancamentosDoDia]
                                 .sort((a, b) => b.valor - a.valor)
                                 .map((l) => {
                                   const statusInfo = getStatusLabel(l, isFutureDay)
