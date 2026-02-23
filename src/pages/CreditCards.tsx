@@ -286,7 +286,6 @@ export function CreditCards() {
         cartao?: string
         categoria?: string
         subcategoria?: string
-        categoriaIcone?: string | null
       }
     >()
 
@@ -303,7 +302,6 @@ export function CreditCards() {
           cartao: cartao?.nome,
           categoria: categoria?.nome,
           subcategoria: subcategoria?.nome,
-          categoriaIcone: categoria?.icone,
         })
       }
       grupos.get(grupoId)!.parcelas.push(parcela)
@@ -742,8 +740,7 @@ export function CreditCards() {
                           </span>
                         )}
                         {grupo.categoria && (
-                          <span className="flex items-center gap-1 text-xs bg-dark-600/50 px-1.5 py-0.5 rounded">
-                            {grupo.categoriaIcone && <span>{grupo.categoriaIcone}</span>}
+                          <span className="text-xs bg-dark-600/50 px-1.5 py-0.5 rounded">
                             {grupo.categoria}
                             {grupo.subcategoria && (
                               <span className="text-gray-500"> › {grupo.subcategoria}</span>

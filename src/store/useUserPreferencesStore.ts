@@ -22,6 +22,7 @@ export interface UserPreferences {
 
   // Onboarding
   onboardingCompleted: boolean
+  onboardingStep: number
 }
 
 interface UserPreferencesState extends UserPreferences {
@@ -44,6 +45,7 @@ const defaultPreferences: UserPreferences = {
   lembreteMetasOrcamento: true,
   ultimoBackup: null,
   onboardingCompleted: false,
+  onboardingStep: 0,
 }
 
 export const useUserPreferencesStore = create<UserPreferencesState>()(
