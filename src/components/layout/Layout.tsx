@@ -2,7 +2,9 @@ import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { NotificationBell } from '../NotificationBell'
+import { OnboardingModal } from '../OnboardingModal'
 import { useAuth } from '../../contexts/AuthContext'
+import { useUserPreferencesStore } from '../../store/useUserPreferencesStore'
 import { AlertTriangle } from 'lucide-react'
 
 interface LayoutProps {
@@ -12,6 +14,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const { subscription, daysUntilExpiration, userProfile } = useAuth()
+  const onboardingCompleted = useUserPreferencesStore((s) => s.onboardingCompleted)
 
   const days = daysUntilExpiration()
   const isAdmin = userProfile?.role === 'admin'
@@ -115,6 +118,9 @@ export function Layout({ children }: LayoutProps) {
           {children}
         </div>
       </main>
+
+      {/* Onboarding de primeiro acesso */}
+      {!onboardingCompleted && <OnboardingModal />}
     </div>
   )
 }

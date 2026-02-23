@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
-import { Bell, AlertCircle, Clock, Package, TrendingDown, Check, X, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { Bell, AlertCircle, Clock, Package, TrendingDown, Check, X, ChevronRight, CreditCard } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useNotificacoesStore, type Notificacao } from '../store/useNotificacoesStore'
 import { useTransacoesStore } from '../store/useTransacoesStore'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
+import { useCartoesStore } from '../store/useCartoesStore'
 import { cn } from '../lib/cn'
 
 export function NotificationBell() {
@@ -20,12 +21,36 @@ export function NotificationBell() {
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
   const getEnvelopesDigitais = useOrcamentosStore((state) => state.getEnvelopesDigitais)
+  const cartoes = useCartoesStore((state) => state.cartoes)
+
+  // Calcular info de limite por cartão
+  const cartoesInfo = useMemo(() => {
+    return cartoes
+      .filter((c) => c.ativo && c.limite && c.limite > 0)
+      .map((c) => {
+        const totalUsado = lancamentos
+          .filter(
+            (l) =>
+              l.cartao_id === c.id &&
+              l.forma_pagamento === 'credito' &&
+              l.status === 'projetado'
+          )
+          .reduce((sum, l) => sum + l.valor, 0)
+        return {
+          id: c.id,
+          nome: c.nome,
+          limite: c.limite!,
+          totalUsado,
+          percentualUsado: (totalUsado / c.limite!) * 100,
+        }
+      })
+  }, [cartoes, lancamentos])
 
   // Atualizar notificações quando dados mudarem
   useEffect(() => {
     const envelopes = orcamentoAtual ? getEnvelopesDigitais(orcamentoAtual.id) : []
-    atualizarNotificacoes(lancamentos, envelopes)
-  }, [lancamentos, orcamentoAtual, getEnvelopesDigitais, atualizarNotificacoes])
+    atualizarNotificacoes(lancamentos, envelopes, cartoesInfo)
+  }, [lancamentos, orcamentoAtual, getEnvelopesDigitais, atualizarNotificacoes, cartoesInfo])
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
@@ -51,6 +76,8 @@ export function NotificationBell() {
         return TrendingDown
       case 'check':
         return Check
+      case 'credit-card':
+        return CreditCard
       default:
         return Bell
     }

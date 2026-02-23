@@ -1,4 +1,4 @@
-import { Calendar, Edit2, Trash2, Ban, TrendingUp, Clock } from 'lucide-react'
+import { Calendar, Edit2, Trash2, Ban, TrendingUp, Clock, CreditCard } from 'lucide-react'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
 import { formatCurrency } from '../utils/currency'
@@ -6,6 +6,7 @@ import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { AssinaturaComDetalhes } from '../types'
 import { cn } from '../lib/cn'
+import { useCartoesStore } from '../store'
 
 interface SubscriptionCardProps {
   assinatura: AssinaturaComDetalhes
@@ -15,6 +16,11 @@ interface SubscriptionCardProps {
 }
 
 export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: SubscriptionCardProps) {
+  const cartoes = useCartoesStore((state) => state.cartoes)
+  const cartaoVinculado = assinatura.cartao_id
+    ? cartoes.find((c) => c.id === assinatura.cartao_id)
+    : null
+
   const valorMensal = assinatura.frequencia === 'mensal'
     ? assinatura.valor
     : assinatura.valor / 12
@@ -51,7 +57,15 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
               )}
             </div>
 
-            <p className="text-sm text-gray-400 mb-3">{assinatura.categoria_nome}</p>
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+              <p className="text-sm text-gray-400">{assinatura.categoria_nome}</p>
+              {cartaoVinculado && (
+                <span className="flex items-center gap-1 text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">
+                  <CreditCard className="w-3 h-3" />
+                  {cartaoVinculado.nome}
+                </span>
+              )}
+            </div>
 
             {/* Próxima cobrança */}
             {assinatura.ativa && (
