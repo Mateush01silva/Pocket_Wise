@@ -35,7 +35,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
     status: 'pago',
     conta_id: undefined,
   })
-  const [parcelas, setParcelas] = useState<number>(1)
+  const [parcelasInput, setParcelasInput] = useState<string>('1')
   const [isRecorrente, setIsRecorrente] = useState<boolean>(false)
   const [mesesRecorrencia, setMesesRecorrencia] = useState<number>(3)
   const [isLoading, setIsLoading] = useState(false)
@@ -100,7 +100,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         observacao: editingLancamento.observacao || undefined,
         status: editingLancamento.status || 'pago',
       })
-      setParcelas(editingLancamento.parcela_total || 1)
+      setParcelasInput(String(editingLancamento.parcela_total || 1))
     } else if (!isOpen) {
       // Reset form when closing
       setFormData({
@@ -111,7 +111,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         status: 'pago',
         conta_id: undefined,
       })
-      setParcelas(1)
+      setParcelasInput('1')
       setIsRecorrente(false)
       setMesesRecorrencia(3)
     }
@@ -185,9 +185,9 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         else if (
           formData.forma_pagamento === 'credito' &&
           formData.cartao_id &&
-          parcelas > 1
+          parcelasNum > 1
         ) {
-          await createLancamentoParcelado(lancamentoData, parcelas)
+          await createLancamentoParcelado(lancamentoData, parcelasNum)
         }
         // Lançamento simples
         else {
@@ -205,7 +205,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         status: 'pago',
         conta_id: undefined,
       })
-      setParcelas(1)
+      setParcelasInput('1')
       setIsRecorrente(false)
       setMesesRecorrencia(3)
       onClose()
@@ -217,6 +217,8 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
     }
   }
 
+  const parcelasNum = Math.max(1, Math.min(24, parseInt(parcelasInput) || 1))
+
   const handleClose = () => {
     if (!isLoading) {
       setFormData({
@@ -227,7 +229,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         status: 'pago',
         conta_id: undefined,
       })
-      setParcelas(1)
+      setParcelasInput('1')
       setIsRecorrente(false)
       setMesesRecorrencia(3)
       onClose()
@@ -424,13 +426,20 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
             {/* Parcelas */}
             {formData.cartao_id && (
               <Input
-                type="number"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 label="Número de Parcelas"
-                value={parcelas}
-                onChange={(e) => setParcelas(Math.max(1, parseInt(e.target.value) || 1))}
-                min={1}
-                max={24}
-                helperText="Deixe 1 para pagamento à vista"
+                value={parcelasInput}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9]/g, '')
+                  setParcelasInput(v)
+                }}
+                onBlur={() => {
+                  const n = parseInt(parcelasInput) || 1
+                  setParcelasInput(String(Math.max(1, Math.min(24, n))))
+                }}
+                helperText="Apague e digite a quantidade (1 = à vista, máx. 24)"
               />
             )}
           </div>

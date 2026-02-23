@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { format, parseISO, addMonths, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { useCartoesStore, useTransacoesStore } from '../store'
+import { useCartoesStore, useTransacoesStore, useCategoriasStore } from '../store'
 import { usePermissions } from '../hooks/usePermissions'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CreditCardModal } from '../components/CreditCardModal'
@@ -186,6 +186,7 @@ export function CreditCards() {
   const cartoes = useCartoesStore((state) => state.cartoes)
   const deleteCartao = useCartoesStore((state) => state.deleteCartao)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
+  const categorias = useCategoriasStore((state) => state.categorias)
 
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [cartaoToEdit, setCartaoToEdit] = useState<Cartao | undefined>()
@@ -283,6 +284,9 @@ export function CreditCards() {
         valor: number
         parcelas: typeof parcelasPendentes
         cartao?: string
+        categoria?: string
+        subcategoria?: string
+        categoriaIcone?: string | null
       }
     >()
 
@@ -290,11 +294,16 @@ export function CreditCards() {
       const grupoId = parcela.grupo_parcelas_id!
       if (!grupos.has(grupoId)) {
         const cartao = cartoes.find((c) => c.id === parcela.cartao_id)
+        const categoria = categorias.find((c) => c.id === parcela.categoria_id)
+        const subcategoria = categorias.find((c) => c.id === parcela.subcategoria_id)
         grupos.set(grupoId, {
           descricao: parcela.observacao || 'Compra parcelada',
           valor: parcela.valor,
           parcelas: [],
           cartao: cartao?.nome,
+          categoria: categoria?.nome,
+          subcategoria: subcategoria?.nome,
+          categoriaIcone: categoria?.icone,
         })
       }
       grupos.get(grupoId)!.parcelas.push(parcela)
@@ -306,7 +315,7 @@ export function CreditCards() {
       totalParcelas: dados.parcelas.length,
       valorTotal: dados.valor * dados.parcelas.length,
     }))
-  }, [parcelasPendentes, cartoes])
+  }, [parcelasPendentes, cartoes, categorias])
 
   // Calcular parcelas dos próximos 3 meses
   const compromissosProximos3Meses = useMemo(() => {
@@ -525,7 +534,12 @@ export function CreditCards() {
           )}
 
           {/* Alerta de limite */}
-          {cartao.percentualUsado >= 90 && (
+          {cartao.percentualUsado >= 100 ? (
+            <div className="flex items-center gap-2 text-xs text-white bg-red-600 px-2 py-1.5 rounded font-medium animate-pulse">
+              <AlertCircle size={13} />
+              <span>Limite EXCEDIDO! Disponível negativo</span>
+            </div>
+          ) : cartao.percentualUsado >= 90 && (
             <div className="flex items-center gap-2 text-xs text-red-400 bg-red-500/10 px-2 py-1 rounded">
               <AlertCircle size={12} />
               <span>Atenção: Limite quase esgotado!</span>
@@ -720,11 +734,20 @@ export function CreditCards() {
                       <h4 className="font-medium text-gray-200 mb-1">
                         {grupo.descricao}
                       </h4>
-                      <div className="flex items-center gap-3 text-sm text-gray-400">
+                      <div className="flex items-center gap-3 text-sm text-gray-400 flex-wrap">
                         {grupo.cartao && (
                           <span className="flex items-center gap-1">
                             <CreditCard size={14} />
                             {grupo.cartao}
+                          </span>
+                        )}
+                        {grupo.categoria && (
+                          <span className="flex items-center gap-1 text-xs bg-dark-600/50 px-1.5 py-0.5 rounded">
+                            {grupo.categoriaIcone && <span>{grupo.categoriaIcone}</span>}
+                            {grupo.categoria}
+                            {grupo.subcategoria && (
+                              <span className="text-gray-500"> › {grupo.subcategoria}</span>
+                            )}
                           </span>
                         )}
                         <span>

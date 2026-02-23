@@ -19,6 +19,9 @@ export interface UserPreferences {
 
   // Dados
   ultimoBackup: string | null
+
+  // Onboarding
+  onboardingCompleted: boolean
 }
 
 interface UserPreferencesState extends UserPreferences {
@@ -40,6 +43,7 @@ const defaultPreferences: UserPreferences = {
   lembreteDespesasVencendo: true,
   lembreteMetasOrcamento: true,
   ultimoBackup: null,
+  onboardingCompleted: false,
 }
 
 export const useUserPreferencesStore = create<UserPreferencesState>()(

@@ -9,12 +9,20 @@ export interface Notificacao {
   tipo: TipoNotificacao
   titulo: string
   descricao: string
-  icone: 'alert' | 'clock' | 'envelope' | 'trending-down' | 'check'
+  icone: 'alert' | 'clock' | 'envelope' | 'trending-down' | 'check' | 'credit-card'
   acao?: {
     label: string
     rota: string
   }
   criadaEm: Date
+}
+
+export interface CartaoLimiteInfo {
+  id: string
+  nome: string
+  limite: number
+  totalUsado: number
+  percentualUsado: number
 }
 
 interface NotificacoesState {
@@ -28,7 +36,8 @@ interface NotificacoesState {
   // Actions
   atualizarNotificacoes: (
     lancamentos: Lancamento[],
-    envelopes: EnvelopeDigital[]
+    envelopes: EnvelopeDigital[],
+    cartoesInfo?: CartaoLimiteInfo[]
   ) => void
   limparNotificacao: (id: string) => void
 }
@@ -55,7 +64,7 @@ export const useNotificacoesStore = create<NotificacoesState>()((set, get) => ({
     return get().notificacoes.length
   },
 
-  atualizarNotificacoes: (lancamentos, envelopes) => {
+  atualizarNotificacoes: (lancamentos, envelopes, cartoesInfo = []) => {
     const novasNotificacoes: Notificacao[] = []
 
     // 1. Despesas vencidas (não pagas e data no passado)
@@ -160,6 +169,42 @@ export const useNotificacoesStore = create<NotificacoesState>()((set, get) => ({
         acao: {
           label: 'Ver envelopes',
           rota: '/app/envelopes'
+        },
+        criadaEm: new Date()
+      })
+    }
+
+    // 6. Cartões com limite excedido (≥100%)
+    const cartoesExcedidos = cartoesInfo.filter(c => c.percentualUsado >= 100)
+    if (cartoesExcedidos.length > 0) {
+      const nomes = cartoesExcedidos.map(c => c.nome).join(', ')
+      novasNotificacoes.push({
+        id: 'cartoes-limite-excedido',
+        tipo: 'urgente',
+        titulo: `Limite excedido em ${cartoesExcedidos.length} cartão(ões)`,
+        descricao: nomes,
+        icone: 'credit-card',
+        acao: {
+          label: 'Ver cartões',
+          rota: '/app/cartoes'
+        },
+        criadaEm: new Date()
+      })
+    }
+
+    // 7. Cartões com limite quase esgotado (≥90% e <100%)
+    const cartoesQuaseEsgotados = cartoesInfo.filter(c => c.percentualUsado >= 90 && c.percentualUsado < 100)
+    if (cartoesQuaseEsgotados.length > 0) {
+      const nomes = cartoesQuaseEsgotados.map(c => c.nome).join(', ')
+      novasNotificacoes.push({
+        id: 'cartoes-limite-risco',
+        tipo: 'atencao',
+        titulo: `Limite quase esgotado em ${cartoesQuaseEsgotados.length} cartão(ões)`,
+        descricao: nomes,
+        icone: 'credit-card',
+        acao: {
+          label: 'Ver cartões',
+          rota: '/app/cartoes'
         },
         criadaEm: new Date()
       })
