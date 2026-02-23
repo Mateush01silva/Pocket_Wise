@@ -18,6 +18,7 @@ import {
   Clock,
   Loader2,
   XCircle,
+  BookOpen,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -572,10 +573,17 @@ export function Settings() {
             </p>
           )}
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <Button onClick={handleExportData} isLoading={isExporting}>
               <Download size={16} className="mr-2" />
               Exportar Dados
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => atualizarPreferencias({ onboardingCompleted: false, onboardingStep: 0 })}
+            >
+              <BookOpen size={16} className="mr-2" />
+              Retomar Tour de Configuração
             </Button>
           </div>
         </CardContent>

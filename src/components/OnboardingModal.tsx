@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Wallet,
@@ -79,20 +78,25 @@ const steps: OnboardingStep[] = [
 ]
 
 export function OnboardingModal() {
-  const [currentStep, setCurrentStep] = useState(0)
   const navigate = useNavigate()
   const atualizarPreferencias = useUserPreferencesStore((s) => s.atualizarPreferencias)
+  // Passo persistido no store para sobreviver à navegação entre rotas
+  const currentStep = useUserPreferencesStore((s) => Math.min(s.onboardingStep, steps.length - 1))
 
   const step = steps[currentStep]
   const isLast = currentStep === steps.length - 1
 
+  const setStep = (next: number) => {
+    atualizarPreferencias({ onboardingStep: next })
+  }
+
   const handleComplete = () => {
-    atualizarPreferencias({ onboardingCompleted: true })
+    atualizarPreferencias({ onboardingCompleted: true, onboardingStep: 0 })
   }
 
   const handleNavigate = () => {
+    // Apenas navega — NÃO conclui o onboarding para que o modal continue aparecendo
     if (step.rota) {
-      handleComplete()
       navigate(step.rota)
     }
   }
@@ -100,8 +104,9 @@ export function OnboardingModal() {
   const handleNext = () => {
     if (isLast) {
       handleComplete()
+      navigate(step.rota || '/app')
     } else {
-      setCurrentStep((s) => s + 1)
+      setStep(currentStep + 1)
     }
   }
 
@@ -188,7 +193,7 @@ export function OnboardingModal() {
             {steps.map((_, i) => (
               <button
                 key={i}
-                onClick={() => setCurrentStep(i)}
+                onClick={() => setStep(i)}
                 className={`w-2 h-2 rounded-full transition-all ${
                   i === currentStep
                     ? 'bg-primary-400 w-4'
