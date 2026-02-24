@@ -34,12 +34,35 @@ import { formatCurrency } from '../utils/currency'
 // =====================================================
 
 /**
+ * Retorna o mês de referência do envelope para um lançamento.
+ *
+ * Para compras PARCELADAS (parcela_total > 1):
+ * usa a data de vencimento de cada parcela (data_vencimento_fatura),
+ * pois cada parcela representa um compromisso financeiro em um mês específico.
+ * Ex: compra parcelada em out/25 → parcela de fev/26 pertence ao envelope de fev/26.
+ *
+ * Para demais compras (à vista, débito, PIX, crédito não parcelado):
+ * usa a data da compra (data), pois o gasto foi comprometido no ato da compra.
+ */
+function getMesEnvelope(lancamento: Lancamento): string {
+  if (
+    lancamento.parcela_total &&
+    lancamento.parcela_total > 1 &&
+    lancamento.data_vencimento_fatura
+  ) {
+    return lancamento.data_vencimento_fatura.substring(0, 7)
+  }
+  return lancamento.data.substring(0, 7)
+}
+
+/**
  * Calcula o gasto total de uma categoria em um determinado mês
  *
- * Usa sempre a DATA DA COMPRA (campo `data`) para determinar o mês do envelope.
- * O ciclo de fatura do cartão não interfere: uma compra feita em janeiro
- * pertence ao envelope de janeiro, independente de quando a fatura vence.
- * O vencimento da fatura é uma questão de fluxo de caixa, não de orçamento.
+ * Para compras PARCELADAS: usa data_vencimento_fatura de cada parcela para
+ * determinar o mês do envelope, pois cada parcela impacta o orçamento do mês
+ * em que será paga.
+ *
+ * Para demais compras: usa a data da compra (data).
  *
  * Status válidos: 'pago' ou 'projetado' (cartão de crédito comprometido).
  * 'pendente' não é considerado pois ainda não foi efetivado.
@@ -53,8 +76,7 @@ export function calcularGastoPorCategoria(
 
   const total = lancamentos
     .filter((l) => {
-      // Sempre usa a data da compra — o envelope pertence ao mês em que a compra ocorreu
-      const lancamentoMes = l.data.substring(0, 7)
+      const lancamentoMes = getMesEnvelope(l)
       const statusValido = l.status === 'pago' || l.status === 'projetado'
 
       return (
@@ -140,8 +162,9 @@ export function calcularProjecaoMensal(
   const percentualMesDecorrido = Math.min((diasDecorridos / diasMes) * 100, 100)
 
   // Filtrar lançamentos do mês
+  // Usa getMesEnvelope: parcelas usam data_vencimento_fatura, demais usam data da compra
   const anoMes = orcamento.mes_referencia.substring(0, 7)
-  const lancamentosDoMes = lancamentos.filter((l) => l.data.substring(0, 7) === anoMes)
+  const lancamentosDoMes = lancamentos.filter((l) => getMesEnvelope(l) === anoMes)
 
   // Separar categorias de RECEITA e DESPESA do orçamento
   const categoriasBudgetReceita = categorias
@@ -349,10 +372,11 @@ export function gerarEnvelopesDigitais(
     if (percentualUsado > 100) status = 'critico'
     else if (percentualUsado >= 80) status = 'atencao'
 
-    // Filtrar últimas transações do mês de referência pela data da compra
+    // Filtrar últimas transações do mês de referência
+    // Usa getMesEnvelope: parcelas usam data_vencimento_fatura, demais usam data da compra
     const ultimasTransacoes = lancamentos
       .filter((l) => {
-        const mesTx = l.data.substring(0, 7)
+        const mesTx = getMesEnvelope(l)
         return (
           l.categoria_id === catBudget.categoria_id &&
           l.tipo === 'despesa' &&
