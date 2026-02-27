@@ -44,7 +44,7 @@ import { formatCurrency } from '../utils/currency'
  * Para demais compras (à vista, débito, PIX, crédito não parcelado):
  * usa a data da compra (data), pois o gasto foi comprometido no ato da compra.
  */
-function getMesEnvelope(lancamento: Lancamento): string {
+export function getMesEnvelope(lancamento: Lancamento): string {
   if (
     lancamento.parcela_total &&
     lancamento.parcela_total > 1 &&
