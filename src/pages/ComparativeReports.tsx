@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Card, CardContent } from '../components/ui'
-import { TrendingUp, TrendingDown, Calendar, ArrowUpRight, ArrowDownRight, MinusCircle, ArrowUpDown } from 'lucide-react'
+import { TrendingUp, TrendingDown, Calendar, ArrowUpRight, ArrowDownRight, MinusCircle, ArrowUpDown, ChevronRight, ChevronDown } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
 import { format, startOfMonth, subMonths } from 'date-fns'
@@ -15,6 +15,16 @@ interface MonthlyData {
   despesas: number
   saldo: number
   categorias: Map<string, number>
+  subcategorias: Map<string, Map<string, number>> // categoria_id → subcategoria_id → valor
+}
+
+interface SubcategoryComparison {
+  subcategoria_id: string
+  subcategoria_nome: string
+  mes1: number
+  mes2: number
+  diferenca: number
+  percentual: number
 }
 
 interface CategoryComparison {
@@ -25,6 +35,7 @@ interface CategoryComparison {
   mes2: number
   diferenca: number
   percentual: number
+  subcategorias: SubcategoryComparison[]
 }
 
 type SortOption = 'maior-variacao' | 'pior-variacao' | 'maior-valor' | 'nome'
@@ -34,6 +45,16 @@ export function ComparativeReports() {
   const [mes1, setMes1] = useState(startOfMonth(subMonths(today, 1)))
   const [mes2, setMes2] = useState(startOfMonth(today))
   const [sortBy, setSortBy] = useState<SortOption>('maior-variacao')
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+
+  const toggleExpand = (catId: string) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev)
+      if (next.has(catId)) next.delete(catId)
+      else next.add(catId)
+      return next
+    })
+  }
 
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
@@ -55,20 +76,29 @@ export function ComparativeReports() {
       .filter(l => l.tipo === 'despesa')
       .reduce((sum, l) => sum + l.valor, 0)
 
-    // Agrupar despesas por categoria
-    const categorias = new Map<string, number>()
+    // Agrupar despesas por categoria e subcategoria
+    const categoriasTotais = new Map<string, number>()
+    const subcategoriasTotais = new Map<string, Map<string, number>>()
+
     lancamentosMes
       .filter(l => l.tipo === 'despesa')
       .forEach(l => {
         const catId = l.categoria_id || 'sem-categoria'
-        categorias.set(catId, (categorias.get(catId) || 0) + l.valor)
+        categoriasTotais.set(catId, (categoriasTotais.get(catId) || 0) + l.valor)
+
+        if (l.subcategoria_id) {
+          if (!subcategoriasTotais.has(catId)) subcategoriasTotais.set(catId, new Map())
+          const subcatMap = subcategoriasTotais.get(catId)!
+          subcatMap.set(l.subcategoria_id, (subcatMap.get(l.subcategoria_id) || 0) + l.valor)
+        }
       })
 
     return {
       receitas,
       despesas,
       saldo: receitas - despesas,
-      categorias,
+      categorias: categoriasTotais,
+      subcategorias: subcategoriasTotais,
     }
   }
 
@@ -91,6 +121,29 @@ export function ComparativeReports() {
         const diferenca = mes2Value - mes1Value
         const percentual = mes1Value > 0 ? ((diferenca / mes1Value) * 100) : (mes2Value > 0 ? 100 : 0)
 
+        // Calcular comparação por subcategoria
+        const allSubcatIds = new Set([
+          ...Array.from(mes1Data.subcategorias.get(catId)?.keys() ?? []),
+          ...Array.from(mes2Data.subcategorias.get(catId)?.keys() ?? []),
+        ])
+
+        const subcategorias: SubcategoryComparison[] = Array.from(allSubcatIds)
+          .map(subcatId => {
+            const subcat = categorias.find(c => c.id === subcatId)
+            const sub1 = mes1Data.subcategorias.get(catId)?.get(subcatId) || 0
+            const sub2 = mes2Data.subcategorias.get(catId)?.get(subcatId) || 0
+            const subDif = sub2 - sub1
+            return {
+              subcategoria_id: subcatId,
+              subcategoria_nome: subcat?.nome || 'Sem nome',
+              mes1: sub1,
+              mes2: sub2,
+              diferenca: subDif,
+              percentual: sub1 > 0 ? ((subDif / sub1) * 100) : (sub2 > 0 ? 100 : 0),
+            }
+          })
+          .sort((a, b) => b.mes2 - a.mes2)
+
         return {
           categoria_id: catId,
           categoria_nome: categoria?.nome || 'Sem categoria',
@@ -99,6 +152,7 @@ export function ComparativeReports() {
           mes2: mes2Value,
           diferenca,
           percentual,
+          subcategorias,
         }
       })
       .filter(c => c.mes1 > 0 || c.mes2 > 0)
@@ -431,6 +485,8 @@ export function ComparativeReports() {
                 {categoryComparisons.map((cat) => {
                   const increased = cat.diferenca > 0
                   const decreased = cat.diferenca < 0
+                  const isExpanded = expandedCategories.has(cat.categoria_id)
+                  const hasSubcats = cat.subcategorias.length > 0
                   return (
                     <div key={cat.categoria_id} className="bg-dark-800/60 rounded-lg p-3">
                       {/* Top row: name + % badge */}
@@ -467,7 +523,39 @@ export function ComparativeReports() {
                           {formatCurrency(Math.abs(cat.diferenca))}
                         </span>
                         <span className="text-xs text-gray-500 ml-1">variação</span>
+                        {hasSubcats && (
+                          <button
+                            onClick={() => toggleExpand(cat.categoria_id)}
+                            className="ml-auto flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                          >
+                            {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                            {isExpanded ? 'Ocultar' : 'Subcategorias'}
+                          </button>
+                        )}
                       </div>
+                      {/* Subcategories */}
+                      {isExpanded && (
+                        <div className="mt-2 pt-2 border-t border-dark-700/40 space-y-2">
+                          {cat.subcategorias.map(sub => {
+                            const subInc = sub.diferenca > 0
+                            const subDec = sub.diferenca < 0
+                            return (
+                              <div key={sub.subcategoria_id} className="pl-3 border-l-2 border-dark-600">
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs text-gray-400">{sub.subcategoria_nome}</span>
+                                  <span className={`text-xs font-semibold ${subInc ? 'text-red-400' : subDec ? 'text-green-400' : 'text-gray-400'}`}>
+                                    {subInc ? '+' : subDec ? '-' : ''}{Math.abs(sub.percentual).toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <span className="text-gray-500">{formatCurrency(sub.mes1)}</span>
+                                  <span className="text-gray-300 font-medium">{formatCurrency(sub.mes2)}</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -494,36 +582,88 @@ export function ComparativeReports() {
                       const increased = cat.diferenca > 0
                       const decreased = cat.diferenca < 0
                       const unchanged = cat.diferenca === 0
+                      const isExpanded = expandedCategories.has(cat.categoria_id)
+                      const hasSubcats = cat.subcategorias.length > 0
 
                       return (
-                        <tr
-                          key={cat.categoria_id}
-                          className="border-b border-dark-800/50 hover:bg-dark-800/30 transition-colors"
-                        >
-                          <td className="py-3 px-4 text-sm">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.cor }} />
-                              <span className="text-gray-300 font-medium">{cat.categoria_nome}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-right text-gray-400">{formatCurrency(cat.mes1)}</td>
-                          <td className="py-3 px-4 text-sm text-right text-gray-400">{formatCurrency(cat.mes2)}</td>
-                          <td className="py-3 px-4 text-sm text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              {increased && <ArrowUpRight className="w-4 h-4 text-red-400" />}
-                              {decreased && <ArrowDownRight className="w-4 h-4 text-green-400" />}
-                              {unchanged && <MinusCircle className="w-4 h-4 text-gray-400" />}
+                        <React.Fragment key={cat.categoria_id}>
+                          <tr
+                            className="border-b border-dark-800/50 hover:bg-dark-800/30 transition-colors"
+                          >
+                            <td className="py-3 px-4 text-sm">
+                              <div className="flex items-center gap-2">
+                                {hasSubcats ? (
+                                  <button
+                                    onClick={() => toggleExpand(cat.categoria_id)}
+                                    className="flex items-center gap-1.5 hover:text-gray-100 transition-colors group"
+                                  >
+                                    {isExpanded
+                                      ? <ChevronDown className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-300" />
+                                      : <ChevronRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-300" />
+                                    }
+                                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.cor }} />
+                                    <span className="text-gray-300 font-medium">{cat.categoria_nome}</span>
+                                  </button>
+                                ) : (
+                                  <>
+                                    <div className="w-3.5 h-3.5 shrink-0" />
+                                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.cor }} />
+                                    <span className="text-gray-300 font-medium">{cat.categoria_nome}</span>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-right text-gray-400">{formatCurrency(cat.mes1)}</td>
+                            <td className="py-3 px-4 text-sm text-right text-gray-400">{formatCurrency(cat.mes2)}</td>
+                            <td className="py-3 px-4 text-sm text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                {increased && <ArrowUpRight className="w-4 h-4 text-red-400" />}
+                                {decreased && <ArrowDownRight className="w-4 h-4 text-green-400" />}
+                                {unchanged && <MinusCircle className="w-4 h-4 text-gray-400" />}
+                                <span className={`font-semibold ${increased ? 'text-red-400' : decreased ? 'text-green-400' : 'text-gray-400'}`}>
+                                  {formatCurrency(Math.abs(cat.diferenca))}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm text-right">
                               <span className={`font-semibold ${increased ? 'text-red-400' : decreased ? 'text-green-400' : 'text-gray-400'}`}>
-                                {formatCurrency(Math.abs(cat.diferenca))}
+                                {increased && '+'}{decreased && '-'}{Math.abs(cat.percentual).toFixed(1)}%
                               </span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-sm text-right">
-                            <span className={`font-semibold ${increased ? 'text-red-400' : decreased ? 'text-green-400' : 'text-gray-400'}`}>
-                              {increased && '+'}{decreased && '-'}{Math.abs(cat.percentual).toFixed(1)}%
-                            </span>
-                          </td>
-                        </tr>
+                            </td>
+                          </tr>
+                          {isExpanded && cat.subcategorias.map(sub => {
+                            const subInc = sub.diferenca > 0
+                            const subDec = sub.diferenca < 0
+                            const subUnch = sub.diferenca === 0
+                            return (
+                              <tr key={sub.subcategoria_id} className="border-b border-dark-800/30 bg-dark-900/40">
+                                <td className="py-2 px-4 text-sm">
+                                  <div className="flex items-center gap-2 pl-8">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-dark-500 shrink-0" />
+                                    <span className="text-gray-400">{sub.subcategoria_nome}</span>
+                                  </div>
+                                </td>
+                                <td className="py-2 px-4 text-sm text-right text-gray-500">{formatCurrency(sub.mes1)}</td>
+                                <td className="py-2 px-4 text-sm text-right text-gray-500">{formatCurrency(sub.mes2)}</td>
+                                <td className="py-2 px-4 text-sm text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    {subInc && <ArrowUpRight className="w-3.5 h-3.5 text-red-400/70" />}
+                                    {subDec && <ArrowDownRight className="w-3.5 h-3.5 text-green-400/70" />}
+                                    {subUnch && <MinusCircle className="w-3.5 h-3.5 text-gray-500" />}
+                                    <span className={`text-xs font-medium ${subInc ? 'text-red-400/70' : subDec ? 'text-green-400/70' : 'text-gray-500'}`}>
+                                      {formatCurrency(Math.abs(sub.diferenca))}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="py-2 px-4 text-sm text-right">
+                                  <span className={`text-xs font-medium ${subInc ? 'text-red-400/70' : subDec ? 'text-green-400/70' : 'text-gray-500'}`}>
+                                    {subInc && '+'}{subDec && '-'}{Math.abs(sub.percentual).toFixed(1)}%
+                                  </span>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </React.Fragment>
                       )
                     })}
                   </tbody>
