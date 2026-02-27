@@ -19,6 +19,7 @@ import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { usePermissions } from '../hooks/usePermissions'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
+import { getMesEnvelope } from '../lib/budgetCalculations'
 import { LearningTooltip } from '../components/ui/LearningTooltip'
 import { learningContent } from '../lib/learningContent'
 import type { EnvelopeDigital } from '../types'
@@ -175,17 +176,16 @@ export function Envelopes() {
   }, [orcamentoAtual, getProjecaoMensal, transacoesCaixinhas, categoriasBudget, lancamentos])
 
   // Filtrar transações do envelope selecionado
-  // Usa a data da compra para determinar o mês — consistente com calcularGastoPorCategoria.
-  // O ciclo de fatura não interfere: a compra pertence ao mês em que foi realizada.
-  // Inclui 'pago' e 'projetado' para corresponder ao cálculo de valor_gasto.
+  // Usa getMesEnvelope para ser consistente com calcularGastoPorCategoria:
+  // - parcelas usam data_vencimento_fatura (a parcela pertence ao mês do seu vencimento)
+  // - demais compras usam a data da compra
   const getEnvelopeTransactions = (envelope: EnvelopeDigital | null) => {
     if (!envelope || !orcamentoAtual) return []
 
     const anoMes = orcamentoAtual.mes_referencia.substring(0, 7)
     return lancamentos.filter(
       (l) => {
-        // Sempre usa a data da compra — o envelope é do mês em que a compra ocorreu
-        const lancamentoMes = l.data.substring(0, 7)
+        const lancamentoMes = getMesEnvelope(l)
 
         return (
           l.categoria_id === envelope.categoria.id &&
