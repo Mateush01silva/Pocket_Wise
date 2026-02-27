@@ -3,11 +3,12 @@ import { Card, CardContent } from '../components/ui'
 import { TrendingUp, TrendingDown, Calendar, ArrowUpRight, ArrowDownRight, MinusCircle, ArrowUpDown } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns'
+import { format, startOfMonth, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts'
 import { LearningTooltip } from '../components/ui/LearningTooltip'
 import { learningContent } from '../lib/learningContent'
+import { getMesEnvelope } from '../lib/budgetCalculations'
 
 interface MonthlyData {
   receitas: number
@@ -38,14 +39,13 @@ export function ComparativeReports() {
   const categorias = useCategoriasStore((state) => state.categorias)
 
   // Calcular dados de um mês específico
+  // Usa getMesEnvelope para ser consistente com os envelopes:
+  // - parcelas usam data_vencimento_fatura (cada parcela pertence ao mês do seu vencimento)
+  // - demais transações usam a data da compra
   const getMonthData = (month: Date): MonthlyData => {
-    const inicio = startOfMonth(month)
-    const fim = endOfMonth(month)
+    const mesStr = format(month, 'yyyy-MM')
 
-    const lancamentosMes = lancamentos.filter(l => {
-      const dataLancamento = new Date(l.data)
-      return dataLancamento >= inicio && dataLancamento <= fim
-    })
+    const lancamentosMes = lancamentos.filter(l => getMesEnvelope(l) === mesStr)
 
     const receitas = lancamentosMes
       .filter(l => l.tipo === 'receita')
