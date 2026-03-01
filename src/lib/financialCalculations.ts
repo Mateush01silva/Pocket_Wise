@@ -155,9 +155,10 @@ export function calcularPercentualEconomia(
  */
 export interface SaldoMesInfo {
   mesRef: string // YYYY-MM
-  saldoBruto: number // Receitas - Despesas do mês
-  totalAlocado: number // Total já alocado desse mês em caixinhas
-  saldoDisponivel: number // saldoBruto - totalAlocado
+  saldoBruto: number // Receitas regulares - Despesas do mês (sem caixinhas)
+  totalRetiradasCaixinhas: number // Retiradas de caixinhas destinadas a este mês
+  totalAlocado: number // Total já depositado em caixinhas a partir deste mês
+  saldoDisponivel: number // saldoBruto + totalRetiradasCaixinhas - totalAlocado
 }
 
 /**
@@ -206,7 +207,17 @@ export function calcularSaldoAcumuladoNaoAlocado(
       fimMes
     )
 
+    // Retiradas de caixinhas destinadas a compor o orçamento deste mês
+    // (dinheiro que o usuário sacou da caixinha para usar neste mês)
+    const totalRetiradasCaixinhas = transacoesCaixinhas
+      .filter((t) => {
+        if (t.tipo !== 'retirada' || !t.destino_mes_referencia) return false
+        return t.destino_mes_referencia.toString().startsWith(mesRef)
+      })
+      .reduce((sum, t) => sum + t.valor, 0)
+
     // Calcular total já alocado deste mês em caixinhas
+    // (saldo que o usuário decidiu guardar em caixinhas a partir deste mês)
     // A transação.origem_mes_referencia pode ser 'YYYY-MM-DD' ou 'YYYY-MM'
     const totalAlocado = transacoesCaixinhas
       .filter((t) => {
@@ -216,14 +227,16 @@ export function calcularSaldoAcumuladoNaoAlocado(
       })
       .reduce((sum, t) => sum + t.valor, 0)
 
-    // Arredondar para 2 casas decimais para evitar problemas de ponto flutuante
-    const saldoDisponivel = Math.round((saldoBruto - totalAlocado) * 100) / 100
+    // Saldo disponível = fluxo orgânico + retiradas de caixinha - já guardado novamente
+    // Exemplo: receitas R$3.000, despesas R$3.348, caixinha R$500 → sobra R$152
+    const saldoDisponivel = Math.round((saldoBruto + totalRetiradasCaixinhas - totalAlocado) * 100) / 100
 
     // Apenas incluir meses com saldo positivo disponível (> R$ 0,00)
     if (saldoDisponivel > 0) {
       mesesComSaldo.push({
         mesRef,
         saldoBruto: Math.round(saldoBruto * 100) / 100,
+        totalRetiradasCaixinhas: Math.round(totalRetiradasCaixinhas * 100) / 100,
         totalAlocado: Math.round(totalAlocado * 100) / 100,
         saldoDisponivel,
       })
