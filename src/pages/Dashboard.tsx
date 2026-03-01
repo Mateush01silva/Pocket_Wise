@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Card, CardContent, Button } from '../components/ui'
-import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock, Package, AlertTriangle, Calculator, PiggyBank, Sparkles } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock, Package, AlertTriangle, Calculator, PiggyBank, Sparkles, Maximize2 } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
@@ -11,6 +11,7 @@ import { DetectorEstouro } from '../components/DetectorEstouro'
 import { BankAccountsWidget } from '../components/BankAccountsWidget'
 import { UpcomingBillsWidget } from '../components/UpcomingBillsWidget'
 import { AlocarSaldoModal } from '../components/AlocarSaldoModal'
+import { GastosCategoriaModal } from '../components/GastosCategoriaModal'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
 import { calcularSaldoProjetado, calcularFaturasAtuaisCartao, filtrarPorPeriodo, calcularSaldoAcumuladoNaoAlocado } from '../lib/financialCalculations'
 import { format, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns'
@@ -25,6 +26,7 @@ import { usePermissions } from '../hooks/usePermissions'
 export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isAlocarSaldoModalOpen, setIsAlocarSaldoModalOpen] = useState(false)
+  const [isGastosModalOpen, setIsGastosModalOpen] = useState(false)
   const [periodFilter, setPeriodFilter] = useState<PeriodFilterValue>({
     tipo: 'mes-atual',
     dataInicio: startOfMonth(new Date()),
@@ -651,9 +653,18 @@ export function Dashboard() {
           <LearningTooltip content={learningContent.graficoGastosPorCategoria} position="bottom" className="block">
           <Card>
             <CardContent>
-              <h2 className="text-lg font-semibold text-gray-100 mb-4">
-                Gastos por Categoria (Mês Atual)
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-100">Gastos por Categoria (Mês Atual)</h2>
+                {gastosPorCategoria.length > 0 && (
+                  <button
+                    onClick={() => setIsGastosModalOpen(true)}
+                    className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-dark-700 transition-colors"
+                    title="Ampliar gráfico"
+                  >
+                    <Maximize2 size={15} />
+                  </button>
+                )}
+              </div>
               {gastosPorCategoria.length > 0 ? (
                 <div className="flex flex-col lg:flex-row items-center gap-4">
                   {/* Donut Chart */}
@@ -878,6 +889,17 @@ export function Dashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Modal de Gastos por Categoria (gráfico ampliado + drill-down) */}
+      <GastosCategoriaModal
+        isOpen={isGastosModalOpen}
+        onClose={() => setIsGastosModalOpen(false)}
+        gastosPorCategoria={gastosPorCategoria}
+        totalDespesas={totalDespesasMes}
+        despesasMes={despesasMes}
+        categorias={categorias}
+        titulo="Gastos por Categoria"
+      />
 
       {/* Transaction Modal */}
       <TransactionModal isOpen={isModalOpen} onClose={handleCloseModal} />
