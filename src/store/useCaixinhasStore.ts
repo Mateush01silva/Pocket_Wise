@@ -20,6 +20,7 @@ interface CaixinhasState {
 
   // Transações
   transacoes: Record<string, TransacaoCaixinha[]> // Mapeado por caixinha_id
+  todasTransacoesFamily: TransacaoCaixinha[] // Todas as transações da família (incl. caixinhas inativas)
 
   // Summary
   summary: CaixinhasSummary | null
@@ -57,6 +58,7 @@ interface CaixinhasActions {
 
   // Transações
   fetchTransacoes: (caixinhaId: string) => Promise<void>
+  fetchAllTransacoesFamily: () => Promise<void>
   createTransacao: (input: CreateTransacaoCaixinhaInput) => Promise<TransacaoCaixinha | null>
   deleteTransacao: (transacaoId: string, caixinhaId: string) => Promise<boolean>
   alocarSaldoMensal: (input: AlocarSaldoMensalInput) => Promise<boolean>
@@ -76,6 +78,7 @@ type CaixinhasStore = CaixinhasState & CaixinhasActions
 const initialState: CaixinhasState = {
   caixinhas: [],
   transacoes: {},
+  todasTransacoesFamily: [],
   summary: null,
   isLoadingCaixinhas: false,
   isLoadingTransacoes: false,
@@ -423,6 +426,17 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
       }
     },
 
+    fetchAllTransacoesFamily: async () => {
+      try {
+        const { data, error } = await transacoesCaixinhasService.getAllTransacoesFamilia()
+        if (!error && data) {
+          set({ todasTransacoesFamily: data })
+        }
+      } catch (error) {
+        console.error('Erro ao buscar todas as transações da família:', error)
+      }
+    },
+
     createTransacao: async (input: CreateTransacaoCaixinhaInput) => {
       set({ error: null })
 
@@ -441,6 +455,7 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
             get().fetchCaixinhas(),
             get().fetchTransacoes(input.caixinha_id),
             get().fetchSummary(),
+            get().fetchAllTransacoesFamily(),
           ])
 
           // Depósito de orçamento em caixinha de investimento: atualizar saldos das contas
@@ -529,6 +544,7 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
           await Promise.all([
             get().fetchCaixinhas(),
             get().fetchSummary(),
+            get().fetchAllTransacoesFamily(),
             // Recarregar transações de todas as caixinhas afetadas
             ...input.alocacoes.map((a) => get().fetchTransacoes(a.caixinha_id)),
           ])

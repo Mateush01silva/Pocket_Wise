@@ -484,6 +484,42 @@ export const transacoesCaixinhasService = {
   },
 
   /**
+   * Buscar todas as transações de caixinhas da família (incluindo caixinhas inativas)
+   * Usado para calcular o saldo acumulado corretamente após deletar caixinhas
+   */
+  async getAllTransacoesFamilia(): Promise<DbListResult<TransacaoCaixinha>> {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured'), count: null }
+    }
+
+    const familyId = await getUserFamilyId()
+    if (!familyId) {
+      return { data: null, error: new Error('User has no family'), count: null }
+    }
+
+    // Buscar todos os IDs de caixinhas da família (ativas e inativas)
+    const { data: todasCaixinhas } = await supabase
+      // @ts-ignore
+      .from('caixinhas')
+      .select('id')
+      .eq('family_id', familyId)
+
+    const ids = (todasCaixinhas || []).map((c: { id: string }) => c.id)
+    if (ids.length === 0) {
+      return { data: [], error: null, count: 0 }
+    }
+
+    const { data, error, count } = await supabase
+      // @ts-ignore
+      .from('transacoes_caixinhas')
+      .select('*', { count: 'exact' })
+      .in('caixinha_id', ids)
+      .order('created_at', { ascending: false })
+
+    return { data, error, count }
+  },
+
+  /**
    * Deletar transação (reverte o saldo automaticamente via trigger)
    */
   async deleteTransacao(id: string): Promise<DbResult<boolean>> {

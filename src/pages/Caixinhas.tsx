@@ -38,8 +38,10 @@ export function Caixinhas() {
     isLoadingCaixinhas,
     initialize,
     deleteCaixinha,
-    transacoes: transacoesCaixinhas,
+    getCaixinhaById,
     fetchTransacoes: fetchTransacoesCaixinha,
+    todasTransacoesFamily,
+    fetchAllTransacoesFamily,
   } = useCaixinhasStore()
 
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
@@ -50,15 +52,11 @@ export function Caixinhas() {
   const [tipoMovimentacao, setTipoMovimentacao] = useState<'deposito' | 'retirada'>('deposito')
   const [historicoCaixinha, setHistoricoCaixinha] = useState<CaixinhaComDetalhes | null>(null)
   const [cotacaoCaixinha, setCotacaoCaixinha] = useState<CaixinhaComDetalhes | null>(null)
-
-  // Calcular saldo disponível para depósitos em caixinhas
-  const todasTransacoesCaixinhas = useMemo(() => {
-    return Object.values(transacoesCaixinhas).flat()
-  }, [transacoesCaixinhas])
+  const [isConcluindoMeta, setIsConcluindoMeta] = useState(false)
 
   const { totalDisponivel: saldoDisponivelParaDeposito, mesesComSaldo } = useMemo(() => {
-    return calcularSaldoAcumuladoNaoAlocado(lancamentos, todasTransacoesCaixinhas)
-  }, [lancamentos, todasTransacoesCaixinhas])
+    return calcularSaldoAcumuladoNaoAlocado(lancamentos, todasTransacoesFamily)
+  }, [lancamentos, todasTransacoesFamily])
 
   // Separar caixinhas por tipo
   const caixinhasInvestimento = useMemo(
@@ -74,7 +72,7 @@ export function Caixinhas() {
     initialize()
   }, [initialize])
 
-  // Buscar transações de todas as caixinhas ativas
+  // Buscar transações de todas as caixinhas ativas (para histórico)
   useEffect(() => {
     if (caixinhas.length > 0) {
       caixinhas
@@ -86,6 +84,13 @@ export function Caixinhas() {
         })
     }
   }, [caixinhas, fetchTransacoesCaixinha])
+
+  // Buscar todas as transações da família (incl. inativas) para cálculo de saldo
+  useEffect(() => {
+    fetchAllTransacoesFamily().catch(err => {
+      console.error('Erro ao buscar transações da família:', err)
+    })
+  }, [fetchAllTransacoesFamily])
 
   const handleEdit = (caixinha: Caixinha) => {
     setEditingCaixinha(caixinha)
@@ -121,7 +126,35 @@ export function Caixinhas() {
     setTipoMovimentacao('retirada')
   }
 
-  const handleCloseMovimentar = () => setMovimentarCaixinha(null)
+  const handleConcluirMeta = (caixinha: CaixinhaComDetalhes) => {
+    if (!confirm(`🎉 Parabéns! Sua meta "${caixinha.nome}" foi concluída!\n\nPara arquivar esta caixinha, retire o saldo disponível (${formatCurrency(caixinha.saldo_atual)}) no próximo passo.`)) return
+    setIsConcluindoMeta(true)
+    setMovimentarCaixinha(caixinha)
+    setTipoMovimentacao('retirada')
+  }
+
+  const handleConcluirMetaSuccess = async () => {
+    if (!movimentarCaixinha) return
+    // Pegar saldo atualizado do store após a retirada
+    const caixinhaAtualizada = getCaixinhaById(movimentarCaixinha.id)
+    if (caixinhaAtualizada && caixinhaAtualizada.saldo_atual === 0) {
+      const success = await deleteCaixinha(caixinhaAtualizada.id)
+      if (success) {
+        toast.success(`🎉 Meta "${movimentarCaixinha.nome}" concluída e arquivada com sucesso!`)
+      }
+    } else if (!caixinhaAtualizada || caixinhaAtualizada.saldo_atual === 0) {
+      // Caixinha não encontrada no store mas pode ter sido atualizada — tenta deletar mesmo assim
+      await deleteCaixinha(movimentarCaixinha.id)
+      toast.success(`🎉 Meta "${movimentarCaixinha.nome}" concluída e arquivada com sucesso!`)
+    }
+    setIsConcluindoMeta(false)
+    setMovimentarCaixinha(null)
+  }
+
+  const handleCloseMovimentar = () => {
+    setIsConcluindoMeta(false)
+    setMovimentarCaixinha(null)
+  }
 
   const handleHistorico = (caixinha: CaixinhaComDetalhes) => setHistoricoCaixinha(caixinha)
   const handleCloseHistorico = () => setHistoricoCaixinha(null)
@@ -180,6 +213,7 @@ export function Caixinhas() {
           tipo={tipoMovimentacao}
           saldoDisponivelParaDeposito={saldoDisponivelParaDeposito}
           mesesComSaldo={mesesComSaldo}
+          onSuccess={isConcluindoMeta ? handleConcluirMetaSuccess : undefined}
         />
       )}
 
@@ -646,7 +680,7 @@ export function Caixinhas() {
                           </p>
                         )}
 
-                        {progresso >= 100 && (
+                        {progresso >= 100 && caixinha.saldo_atual > 0 && (
                           <div className="text-xs text-green-400 font-medium">
                             ✅ Meta atingida!
                           </div>
@@ -654,26 +688,39 @@ export function Caixinhas() {
 
                         {/* Actions */}
                         {canEdit && (
-                          <div className="flex gap-2 pt-2">
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="flex-1"
-                              onClick={() => handleDepositar(caixinha)}
-                            >
-                              <ArrowUpCircle size={14} className="mr-1" />
-                              Depositar
-                            </Button>
-                            {caixinha.saldo_atual > 0 && (
+                          <div className="space-y-2 pt-2">
+                            {progresso >= 100 && caixinha.saldo_atual > 0 ? (
                               <Button
                                 size="sm"
-                                variant="secondary"
-                                className="flex-1"
-                                onClick={() => handleRetirar(caixinha)}
+                                variant="primary"
+                                className="w-full bg-green-600 hover:bg-green-500"
+                                onClick={() => handleConcluirMeta(caixinha)}
                               >
-                                <ArrowDownCircle size={14} className="mr-1" />
-                                Retirar
+                                🏆 Concluir meta
                               </Button>
+                            ) : (
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="flex-1"
+                                  onClick={() => handleDepositar(caixinha)}
+                                >
+                                  <ArrowUpCircle size={14} className="mr-1" />
+                                  Depositar
+                                </Button>
+                                {caixinha.saldo_atual > 0 && (
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="flex-1"
+                                    onClick={() => handleRetirar(caixinha)}
+                                  >
+                                    <ArrowDownCircle size={14} className="mr-1" />
+                                    Retirar
+                                  </Button>
+                                )}
+                              </div>
                             )}
                           </div>
                         )}
