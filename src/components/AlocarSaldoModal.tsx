@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
-import { X, PiggyBank, Sparkles, Check, AlertCircle } from 'lucide-react'
-import { format, subMonths, startOfMonth } from 'date-fns'
+import { X, PiggyBank, Sparkles, Check, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { format, subMonths, startOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Button } from './ui/Button'
 import { CurrencyInput } from './ui/CurrencyInput'
@@ -8,12 +8,14 @@ import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
 import { toast } from 'sonner'
+import type { SaldoMesInfo } from '../lib/financialCalculations'
 
 interface AlocarSaldoModalProps {
   isOpen: boolean
   onClose: () => void
   saldoDisponivel: number
   mesReferencia?: string // YYYY-MM-DD, default is previous month
+  mesesComSaldo?: SaldoMesInfo[] // Breakdown of available balance by month
   onSuccess?: () => void // Callback for when allocation is successful
 }
 
@@ -22,6 +24,7 @@ export function AlocarSaldoModal({
   onClose,
   saldoDisponivel,
   mesReferencia,
+  mesesComSaldo,
   onSuccess,
 }: AlocarSaldoModalProps) {
   const caixinhas = useCaixinhasStore((state) => state.caixinhas)
@@ -30,6 +33,7 @@ export function AlocarSaldoModal({
   // Estado local para as alocações
   const [alocacoes, setAlocacoes] = useState<Record<string, number>>({})
   const [isLoading, setIsLoading] = useState(false)
+  const [showDetalhes, setShowDetalhes] = useState(false)
 
   // Filtrar apenas caixinhas ativas
   const caixinhasAtivas = useMemo(
@@ -43,7 +47,7 @@ export function AlocarSaldoModal({
     return format(subMonths(startOfMonth(new Date()), 1), 'yyyy-MM-dd')
   }, [mesReferencia])
 
-  const mesFormatado = format(new Date(mesRef), "MMMM 'de' yyyy", { locale: ptBR })
+  const mesFormatado = format(parseISO(mesRef.substring(0, 7) + '-01'), "MMMM 'de' yyyy", { locale: ptBR })
 
   // Calcular total alocado e restante
   const totalAlocado = useMemo(
@@ -193,11 +197,50 @@ export function AlocarSaldoModal({
         {/* Content */}
         <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 min-h-0">
           {/* Saldo disponível */}
-          <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-            <p className="text-sm text-gray-400 mb-1">Saldo disponível para alocar</p>
+          <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg space-y-2">
+            <p className="text-sm text-gray-400">Saldo disponível para alocar</p>
             <p className="text-2xl font-bold text-green-400">
               {formatCurrency(saldoDisponivel)}
             </p>
+
+            {mesesComSaldo && mesesComSaldo.length > 0 && (
+              <>
+                <button
+                  onClick={() => setShowDetalhes(v => !v)}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  {showDetalhes ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  {showDetalhes ? 'Ocultar detalhes' : `Ver detalhes (${mesesComSaldo.length} ${mesesComSaldo.length === 1 ? 'mês' : 'meses'})`}
+                </button>
+
+                {showDetalhes && (
+                  <div className="space-y-2 pt-1">
+                    {mesesComSaldo.map(m => {
+                      const nomeMes = format(parseISO(m.mesRef + '-01'), "MMMM 'de' yyyy", { locale: ptBR })
+                      const temCaixinha = m.totalRetiradasCaixinhas > 0
+                      const organico = m.saldoBruto
+                      return (
+                        <div key={m.mesRef} className="flex items-start justify-between gap-2 text-xs border-t border-green-500/20 pt-2">
+                          <div className="flex-1">
+                            <p className="text-gray-300 capitalize font-medium">{nomeMes}</p>
+                            {temCaixinha ? (
+                              <p className="text-gray-500 mt-0.5">
+                                {organico >= 0
+                                  ? `R$ ${formatCurrency(organico)} orgânico + ${formatCurrency(m.totalRetiradasCaixinhas)} de caixinha`
+                                  : `${formatCurrency(m.totalRetiradasCaixinhas)} de caixinha (fluxo ${formatCurrency(Math.abs(organico))} negativo)`}
+                              </p>
+                            ) : (
+                              <p className="text-gray-500 mt-0.5">Saldo orgânico do mês</p>
+                            )}
+                          </div>
+                          <span className="text-green-400 font-semibold shrink-0">{formatCurrency(m.saldoDisponivel)}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Ações rápidas */}
