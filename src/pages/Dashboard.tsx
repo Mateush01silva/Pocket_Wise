@@ -226,7 +226,7 @@ export function Dashboard() {
     const fim = endOfMonth(mesData)
 
     const lancamentosMesIteracao = lancamentos.filter(l => {
-      const dataLancamento = new Date(l.data)
+      const dataLancamento = new Date(l.data_vencimento_fatura || l.data)
       return dataLancamento >= inicio && dataLancamento <= fim
     })
 
@@ -909,6 +909,7 @@ export function Dashboard() {
         isOpen={isAlocarSaldoModalOpen}
         onClose={() => setIsAlocarSaldoModalOpen(false)}
         saldoDisponivel={saldoMesAnterior}
+        mesesComSaldo={mesesComSaldo}
         onSuccess={() => {
           // Recarregar transações das caixinhas para atualizar o saldo já alocado
           caixinhas
