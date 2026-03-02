@@ -42,8 +42,8 @@ export function Dashboard() {
   const caixinhasInitialized = useCaixinhasStore((state) => state.initialized)
   const initializeCaixinhas = useCaixinhasStore((state) => state.initialize)
   const caixinhas = useCaixinhasStore((state) => state.caixinhas)
-  const fetchTransacoesCaixinha = useCaixinhasStore((state) => state.fetchTransacoes)
-  const transacoesCaixinhas = useCaixinhasStore((state) => state.transacoes)
+  const fetchAllTransacoesFamily = useCaixinhasStore((state) => state.fetchAllTransacoesFamily)
+  const todasTransacoesFamily = useCaixinhasStore((state) => state.todasTransacoesFamily)
 
   // Budget store
   // Use selectors for each value/function to keep identities stable
@@ -109,18 +109,14 @@ export function Dashboard() {
     }
   }, [caixinhasInitialized, initializeCaixinhas])
 
-  // Buscar transações das caixinhas ativas para calcular alocações já feitas
+  // Buscar todas as transações de caixinhas da família (incl. inativas) para cálculo de saldo
   useEffect(() => {
-    if (caixinhasInitialized && caixinhas.length > 0) {
-      caixinhas
-        .filter(c => c.ativa)
-        .forEach(c => {
-          fetchTransacoesCaixinha(c.id).catch(err => {
-            console.error('Erro ao buscar transações da caixinha:', err)
-          })
-        })
+    if (caixinhasInitialized) {
+      fetchAllTransacoesFamily().catch(err => {
+        console.error('Erro ao buscar transações das caixinhas:', err)
+      })
     }
-  }, [caixinhasInitialized, caixinhas, fetchTransacoesCaixinha])
+  }, [caixinhasInitialized, fetchAllTransacoesFamily])
 
 
   // Stable callbacks to prevent render loops
@@ -158,23 +154,18 @@ export function Dashboard() {
   const saldo = saldoProjetado
   const lancamentosMes = lancamentosFiltrados
 
-  // Calcular saldo acumulado de todos os meses anteriores não alocados
-  // Flatten das transações de caixinhas para a função de cálculo
-  const todasTransacoesCaixinhas = useMemo(() => {
-    return Object.values(transacoesCaixinhas).flat()
-  }, [transacoesCaixinhas])
-
   // Calcular saldo acumulado disponível para alocação
+  // Usa todasTransacoesFamily que inclui transações de caixinhas inativas/deletadas
   const { totalDisponivel: saldoAcumuladoDisponivel, mesesComSaldo } = useMemo(() => {
-    return calcularSaldoAcumuladoNaoAlocado(lancamentos, todasTransacoesCaixinhas)
-  }, [lancamentos, todasTransacoesCaixinhas])
+    return calcularSaldoAcumuladoNaoAlocado(lancamentos, todasTransacoesFamily)
+  }, [lancamentos, todasTransacoesFamily])
 
   // Total já alocado (para mostrar na mensagem)
   const totalJaAlocado = useMemo(() => {
-    return todasTransacoesCaixinhas
+    return todasTransacoesFamily
       .filter(t => t.tipo === 'deposito' && t.origem_mes_referencia)
       .reduce((sum, t) => sum + t.valor, 0)
-  }, [todasTransacoesCaixinhas])
+  }, [todasTransacoesFamily])
 
   // Saldo disponível para alocar (alias para compatibilidade)
   const saldoMesAnterior = saldoAcumuladoDisponivel
@@ -911,14 +902,9 @@ export function Dashboard() {
         saldoDisponivel={saldoMesAnterior}
         mesesComSaldo={mesesComSaldo}
         onSuccess={() => {
-          // Recarregar transações das caixinhas para atualizar o saldo já alocado
-          caixinhas
-            .filter(c => c.ativa)
-            .forEach(c => {
-              fetchTransacoesCaixinha(c.id).catch(err => {
-                console.error('Erro ao buscar transações da caixinha:', err)
-              })
-            })
+          fetchAllTransacoesFamily().catch(err => {
+            console.error('Erro ao buscar transações das caixinhas:', err)
+          })
         }}
       />
 

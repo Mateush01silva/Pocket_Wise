@@ -20,6 +20,7 @@ interface MovimentarCaixinhaModalProps {
   tipo: 'deposito' | 'retirada'
   saldoDisponivelParaDeposito?: number // Saldo disponível para depósito (de meses anteriores)
   mesesComSaldo?: SaldoMesInfo[] // Lista de meses com saldo disponível para alocar
+  onSuccess?: () => void // Callback chamado após transação bem-sucedida
 }
 
 export function MovimentarCaixinhaModal({
@@ -29,6 +30,7 @@ export function MovimentarCaixinhaModal({
   tipo,
   saldoDisponivelParaDeposito = 0,
   mesesComSaldo = [],
+  onSuccess,
 }: MovimentarCaixinhaModalProps) {
   const [valor, setValor] = useState(0)
   const [descricao, setDescricao] = useState('')
@@ -171,6 +173,7 @@ export function MovimentarCaixinhaModal({
         )
       }
 
+      onSuccess?.()
       handleClose()
     } catch (error) {
       console.error('Erro:', error)
