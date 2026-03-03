@@ -13,8 +13,15 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const { subscription, daysUntilExpiration, userProfile } = useAuth()
-  const onboardingCompleted = useUserPreferencesStore((s) => s.onboardingCompleted)
+  const { user, subscription, daysUntilExpiration, userProfile } = useAuth()
+  const onboardingCompletedInStore = useUserPreferencesStore((s) => s.onboardingCompleted)
+
+  // Onboarding é persistido por usuário em uma chave separada que não é apagada no logout.
+  // Isso garante que cada usuário veja o onboarding apenas na primeira vez que acessa o app,
+  // independente de quantas vezes sai e volta — padrão de mercado.
+  const onboardingCompleted = user
+    ? localStorage.getItem(`pw-onboarding-done-${user.id}`) === '1' || onboardingCompletedInStore
+    : onboardingCompletedInStore
 
   const days = daysUntilExpiration()
   const isAdmin = userProfile?.role === 'admin'

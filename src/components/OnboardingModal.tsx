@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import {
   Wallet,
   CreditCard,
@@ -79,6 +80,7 @@ const steps: OnboardingStep[] = [
 
 export function OnboardingModal() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const atualizarPreferencias = useUserPreferencesStore((s) => s.atualizarPreferencias)
   // Passo persistido no store para sobreviver à navegação entre rotas
   const currentStep = useUserPreferencesStore((s) => Math.min(s.onboardingStep, steps.length - 1))
@@ -91,6 +93,10 @@ export function OnboardingModal() {
   }
 
   const handleComplete = () => {
+    // Persiste conclusão por usuário numa chave separada (nunca apagada no logout)
+    if (user) {
+      localStorage.setItem(`pw-onboarding-done-${user.id}`, '1')
+    }
     atualizarPreferencias({ onboardingCompleted: true, onboardingStep: 0 })
   }
 
