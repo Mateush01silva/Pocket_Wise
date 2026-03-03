@@ -7,7 +7,7 @@ import type { SubscriptionLogoOption } from '../data/subscription-logos'
 import type { CreateAssinaturaInput, Assinatura } from '../types'
 import { format } from 'date-fns'
 import { cn } from '../lib/cn'
-import { CreditCard } from 'lucide-react'
+import { CreditCard, Info } from 'lucide-react'
 
 interface SubscriptionModalProps {
   isOpen: boolean
@@ -193,6 +193,19 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
       maxWidth="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Aviso sobre edição */}
+        {editingAssinatura && (
+          <div className="flex gap-3 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <Info size={18} className="text-blue-400 mt-0.5 shrink-0" />
+            <div className="text-sm text-blue-300">
+              <p className="font-medium mb-1">As alterações afetam apenas lançamentos futuros</p>
+              <p className="text-blue-400">
+                Os meses já pagos não serão modificados. Somente os lançamentos pendentes (a partir de hoje) serão atualizados com os novos dados.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Seleção de Logo */}
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-3">
