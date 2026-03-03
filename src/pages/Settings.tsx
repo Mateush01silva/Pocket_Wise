@@ -580,7 +580,10 @@ export function Settings() {
             </Button>
             <Button
               variant="ghost"
-              onClick={() => atualizarPreferencias({ onboardingCompleted: false, onboardingStep: 0 })}
+              onClick={() => {
+                if (user) localStorage.removeItem(`pw-onboarding-done-${user.id}`)
+                atualizarPreferencias({ onboardingCompleted: false, onboardingStep: 0 })
+              }}
             >
               <BookOpen size={16} className="mr-2" />
               Retomar Tour de Configuração
