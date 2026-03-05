@@ -33,9 +33,6 @@ export function LearningTooltip({
   const tooltipRef = useRef<HTMLDivElement>(null)
   const showTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // keep backward compat alias used in click handler below
-  const timeoutRef = showTimeoutRef
-
   const cancelHide = () => {
     if (hideTimeoutRef.current) {
       clearTimeout(hideTimeoutRef.current)
