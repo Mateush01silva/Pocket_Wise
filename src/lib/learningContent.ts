@@ -572,6 +572,79 @@ export const learningContent = {
     dicaPratica: 'PRIORIDADE número 1! Construa a reserva antes de qualquer outro objetivo.',
   } as LearningContent,
 
+  caixinhasAtivas: {
+    titulo: 'Caixinhas Ativas',
+    descricao: 'Quantidade de caixinhas que estão em andamento — incluindo objetivos, reservas e investimentos.',
+    comoFunciona: 'Conta todas as caixinhas que ainda não foram arquivadas ou excluídas.',
+    exemplo: 'Você tem 3 caixinhas ativas: "Viagem", "Reserva de Emergência" e "Ações ITSA4".',
+    dicaPratica: 'Não crie caixinhas demais. Foque em 3-5 objetivos prioritários para manter a disciplina de aporte.',
+  } as LearningContent,
+
+  caixinhaTipoInvestimento: {
+    titulo: 'Caixinha de Investimento',
+    descricao: 'Uma caixinha especial para acompanhar posições em renda fixa, ações, FIIs, cripto e outros ativos financeiros. Diferente das caixinhas de objetivo, aqui o valor pode valorizar ou desvalorizar conforme o mercado.',
+    comoFunciona: 'Você registra o valor aportado e atualiza periodicamente o valor de mercado. O sistema calcula a rentabilidade com base na diferença entre o que você colocou e quanto vale agora.',
+    exemplo: 'Você aportou R$ 10.000 em um fundo de ações. Após 6 meses, o valor de mercado é R$ 11.500 = rentabilidade de +R$ 1.500 (+15%).',
+    porqueImportante: 'Centraliza seu patrimônio investido em um só lugar, facilitando a visão consolidada e o acompanhamento da performance.',
+    dicaPratica: 'Atualize as cotações pelo menos uma vez por mês para ter uma visão real da sua carteira.',
+  } as LearningContent,
+
+  investimentoTotalAportado: {
+    titulo: 'Total Aportado',
+    descricao: 'Quanto dinheiro você efetivamente colocou em todos os seus investimentos — sem contar a valorização ou desvalorização de mercado.',
+    comoFunciona: 'Soma todos os aportes feitos em caixinhas do tipo investimento, descontando as retiradas. É o seu "preço de custo" total.',
+    comoCalculado: 'Soma de todos os depósitos − retiradas em caixinhas de investimento',
+    exemplo: 'Você aportou R$ 5.000 em Tesouro Direto e R$ 3.000 em ações. Total Aportado = R$ 8.000, independente de quanto valem agora.',
+    porqueImportante: 'Saber quanto você investiu de fato (custo) é fundamental para calcular a rentabilidade real e tomar decisões de resgate.',
+    dicaPratica: 'Compare o Total Aportado com o Valor de Mercado para ver se a carteira está ganhando ou perdendo.',
+  } as LearningContent,
+
+  investimentoValorMercado: {
+    titulo: 'Valor de Mercado',
+    descricao: 'Quanto vale sua carteira de investimentos hoje, com base nas cotações mais recentes que você registrou. Este é o valor real se você vendesse tudo agora.',
+    comoFunciona: 'Soma o valor de mercado de cada investimento onde você atualizou a cotação. Investimentos sem cotação atualizada não entram neste total.',
+    comoCalculado: 'Soma de valor_mercado de cada caixinha de investimento (apenas as que têm cotação registrada)',
+    exemplo: 'Ações ITSA4: valor de mercado R$ 6.200 + Tesouro Selic: R$ 5.100 = Valor de Mercado Total R$ 11.300.',
+    porqueImportante: 'É o número que realmente importa — mostra quanto você tem hoje, não quanto colocou. Cotações desatualizadas distorcem esse valor.',
+    dicaPratica: 'Atualize as cotações regularmente. Sem cotação, você está voando às cegas sobre o real valor da sua carteira.',
+  } as LearningContent,
+
+  investimentoRentabilidade: {
+    titulo: 'Rentabilidade',
+    descricao: 'Quanto seus investimentos ganharam (ou perderam) em valor desde que você começou a investir. É a diferença entre o Valor de Mercado atual e o Total Aportado.',
+    comoFunciona: 'Calcula o ganho ou perda em reais e em percentual para cada investimento e para a carteira toda.',
+    comoCalculado: 'Rentabilidade (R$) = Valor de Mercado − Total Aportado | Rentabilidade (%) = (Rentabilidade / Total Aportado) × 100',
+    exemplo: 'Aportou R$ 8.000, valor de mercado hoje é R$ 9.200. Rentabilidade = +R$ 1.200 (+15%).',
+    porqueImportante: 'A rentabilidade real (em %) permite comparar seus investimentos com benchmarks como CDI, IPCA ou Ibovespa.',
+    dicaPratica: 'Rentabilidade negativa não significa que foi uma má escolha — pode ser volatilidade de curto prazo. Avalie sempre no longo prazo.',
+  } as LearningContent,
+
+  investimentoAtualizarCotacao: {
+    titulo: 'Atualizar Cotação',
+    descricao: 'Registrar o valor atual de mercado do seu investimento. Isso permite ao sistema calcular quanto está valendo agora e qual é a rentabilidade.',
+    comoFunciona: 'Você informa o valor de mercado atual (quanto o investimento vale hoje). O sistema salva a data e usa para calcular rentabilidade.',
+    exemplo: 'Você comprou um fundo por R$ 5.000. Hoje, ao consultar a corretora, o saldo é R$ 5.350. Você registra R$ 5.350 como valor de mercado.',
+    porqueImportante: 'Sem atualização de cotação, a rentabilidade exibida é zero e o painel de investimentos fica incompleto.',
+    dicaPratica: 'Atualize após fazer um novo aporte (o alerta amarelo aparece automaticamente quando isso acontece) e pelo menos uma vez por mês para os demais.',
+  } as LearningContent,
+
+  investimentoCotacaoDesatualizada: {
+    titulo: 'Cotação Desatualizada',
+    descricao: 'Aviso de que você fez um aporte neste investimento depois da última cotação registrada. O valor de mercado exibido não reflete o aporte mais recente.',
+    comoFunciona: 'O sistema compara a data da última cotação com a data do último movimento. Se houve aporte após a cotação, o alerta é exibido.',
+    porqueImportante: 'Com a cotação desatualizada, a rentabilidade calculada está incorreta — o novo aporte está sendo ignorado no cálculo.',
+    dicaPratica: 'Clique em "Atualizar Cotação" para registrar o valor atual e eliminar o alerta. Leva menos de 30 segundos.',
+  } as LearningContent,
+
+  caixinhaConcluirMeta: {
+    titulo: 'Concluir Meta',
+    descricao: 'Ação disponível quando você atingiu 100% da meta da caixinha. Permite retirar o saldo e arquivar o objetivo concluído.',
+    comoFunciona: 'Ao clicar, o sistema abre o modal de retirada. Após retirar o saldo total, a caixinha é automaticamente arquivada e removida da lista.',
+    exemplo: 'Sua caixinha "Viagem Europa" tinha meta de R$ 8.000 e você chegou lá! Clique em Concluir Meta, retire os R$ 8.000 e comemore.',
+    porqueImportante: 'Concluir metas formalmente cria um registro de conquista e libera espaço mental para novos objetivos.',
+    dicaPratica: 'Antes de concluir, decida para onde o dinheiro vai. Evite gastá-lo sem planejamento — redirecione para outro objetivo ou para investimentos!',
+  } as LearningContent,
+
   caixinhaDepositar: {
     titulo: 'Depositar na Caixinha',
     descricao: 'Adicionar dinheiro à caixinha. O valor sai do seu saldo disponível e vai para a caixinha.',

@@ -297,21 +297,23 @@ export function Caixinhas() {
               </Card>
             </LearningTooltip>
 
-            <Card>
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">Caixinhas Ativas</p>
-                    <p className="text-2xl font-bold text-gray-100">
-                      {summary.caixinhas_ativas}
-                    </p>
+            <LearningTooltip content={learningContent.caixinhasAtivas} position="bottom">
+              <Card>
+                <CardContent className="py-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-400 mb-1">Caixinhas Ativas</p>
+                      <p className="text-2xl font-bold text-gray-100">
+                        {summary.caixinhas_ativas}
+                      </p>
+                    </div>
+                    <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center">
+                      <Wallet className="text-yellow-500" size={24} />
+                    </div>
                   </div>
-                  <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center">
-                    <Wallet className="text-yellow-500" size={24} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </LearningTooltip>
           </div>
         )}
 
@@ -325,73 +327,79 @@ export function Caixinhas() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               {/* Total Investido */}
-              <Card>
-                <CardContent className="py-4">
-                  <p className="text-sm text-gray-400 mb-1">Total Aportado</p>
-                  <p className="text-2xl font-bold text-gray-100">
-                    {formatCurrency(summary.total_investido)}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {caixinhasInvestimento.length} posição(ões)
-                  </p>
-                </CardContent>
-              </Card>
+              <LearningTooltip content={learningContent.investimentoTotalAportado} position="bottom">
+                <Card>
+                  <CardContent className="py-4">
+                    <p className="text-sm text-gray-400 mb-1">Total Aportado</p>
+                    <p className="text-2xl font-bold text-gray-100">
+                      {formatCurrency(summary.total_investido)}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {caixinhasInvestimento.length} posição(ões)
+                    </p>
+                  </CardContent>
+                </Card>
+              </LearningTooltip>
 
               {/* Valor de Mercado */}
-              <Card>
-                <CardContent className="py-4">
-                  <p className="text-sm text-gray-400 mb-1">Valor de Mercado</p>
-                  {investimentosComCotacao.length > 0 ? (
-                    <>
-                      <p className="text-2xl font-bold text-primary-400">
-                        {formatCurrency(summary.total_valor_mercado)}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {investimentosComCotacao.length} de {caixinhasInvestimento.length} com cotação
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-2xl font-bold text-gray-500">—</p>
-                      <p className="text-xs text-yellow-600 mt-1">Nenhuma cotação registrada</p>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
+              <LearningTooltip content={learningContent.investimentoValorMercado} position="bottom">
+                <Card>
+                  <CardContent className="py-4">
+                    <p className="text-sm text-gray-400 mb-1">Valor de Mercado</p>
+                    {investimentosComCotacao.length > 0 ? (
+                      <>
+                        <p className="text-2xl font-bold text-primary-400">
+                          {formatCurrency(summary.total_valor_mercado)}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {investimentosComCotacao.length} de {caixinhasInvestimento.length} com cotação
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-2xl font-bold text-gray-500">—</p>
+                        <p className="text-xs text-yellow-600 mt-1">Nenhuma cotação registrada</p>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </LearningTooltip>
 
               {/* Rentabilidade Total */}
-              <Card>
-                <CardContent className="py-4">
-                  <p className="text-sm text-gray-400 mb-1">Rentabilidade</p>
-                  {investimentosComCotacao.length > 0 ? (
-                    <>
-                      <p className={`text-2xl font-bold ${
-                        summary.rentabilidade_total > 0
-                          ? 'text-green-400'
-                          : summary.rentabilidade_total < 0
-                          ? 'text-red-400'
-                          : 'text-gray-400'
-                      }`}>
-                        {summary.rentabilidade_total > 0 ? '+' : ''}
-                        {formatCurrency(summary.rentabilidade_total)}
-                      </p>
-                      {summary.rentabilidade_percentual !== null && (
-                        <p className={`text-xs mt-1 font-medium ${
-                          summary.rentabilidade_percentual > 0 ? 'text-green-500' : 'text-red-500'
+              <LearningTooltip content={learningContent.investimentoRentabilidade} position="bottom">
+                <Card>
+                  <CardContent className="py-4">
+                    <p className="text-sm text-gray-400 mb-1">Rentabilidade</p>
+                    {investimentosComCotacao.length > 0 ? (
+                      <>
+                        <p className={`text-2xl font-bold ${
+                          summary.rentabilidade_total > 0
+                            ? 'text-green-400'
+                            : summary.rentabilidade_total < 0
+                            ? 'text-red-400'
+                            : 'text-gray-400'
                         }`}>
-                          {summary.rentabilidade_percentual > 0 ? '+' : ''}
-                          {summary.rentabilidade_percentual.toFixed(2)}%
+                          {summary.rentabilidade_total > 0 ? '+' : ''}
+                          {formatCurrency(summary.rentabilidade_total)}
                         </p>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-2xl font-bold text-gray-500">—</p>
-                      <p className="text-xs text-gray-600 mt-1">Atualize as cotações</p>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
+                        {summary.rentabilidade_percentual !== null && (
+                          <p className={`text-xs mt-1 font-medium ${
+                            summary.rentabilidade_percentual > 0 ? 'text-green-500' : 'text-red-500'
+                          }`}>
+                            {summary.rentabilidade_percentual > 0 ? '+' : ''}
+                            {summary.rentabilidade_percentual.toFixed(2)}%
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-2xl font-bold text-gray-500">—</p>
+                        <p className="text-xs text-gray-600 mt-1">Atualize as cotações</p>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </LearningTooltip>
             </div>
           </div>
         )}
@@ -420,11 +428,13 @@ export function Caixinhas() {
                           <span className="text-2xl">{caixinha.icone}</span>
                           <div>
                             <CardTitle className="text-base">{caixinha.nome}</CardTitle>
-                            <p className="text-xs text-gray-500">
-                              {caixinha.subtipo_investimento
-                                ? SUBTIPO_LABELS[caixinha.subtipo_investimento]
-                                : getTipoLabel(caixinha.tipo)}
-                            </p>
+                            <LearningTooltip content={learningContent.caixinhaTipoInvestimento} position="bottom">
+                              <p className="text-xs text-gray-500 cursor-help">
+                                {caixinha.subtipo_investimento
+                                  ? SUBTIPO_LABELS[caixinha.subtipo_investimento]
+                                  : getTipoLabel(caixinha.tipo)}
+                              </p>
+                            </LearningTooltip>
                           </div>
                         </div>
                         {canEdit && (
@@ -472,45 +482,49 @@ export function Caixinhas() {
 
                         {/* Rentabilidade */}
                         {rentabilidade !== null && (
-                          <div className={`flex items-center justify-between rounded p-2 ${
-                            rentabilidade > 0
-                              ? 'bg-green-500/10'
-                              : rentabilidade < 0
-                              ? 'bg-red-500/10'
-                              : 'bg-dark-700'
-                          }`}>
-                            <div className="flex items-center gap-1">
-                              {rentabilidade > 0
-                                ? <TrendingUp size={14} className="text-green-400" />
+                          <LearningTooltip content={learningContent.investimentoRentabilidade} position="top">
+                            <div className={`flex items-center justify-between rounded p-2 ${
+                              rentabilidade > 0
+                                ? 'bg-green-500/10'
                                 : rentabilidade < 0
-                                ? <TrendingDown size={14} className="text-red-400" />
-                                : <span className="text-gray-500 text-xs">—</span>
-                              }
-                              <span className="text-xs text-gray-400">Rentabilidade</span>
-                            </div>
-                            <div className="text-right">
-                              <span className={`text-sm font-bold ${
-                                rentabilidade > 0 ? 'text-green-400' : rentabilidade < 0 ? 'text-red-400' : 'text-gray-400'
-                              }`}>
-                                {rentabilidade > 0 ? '+' : ''}{formatCurrency(rentabilidade)}
-                              </span>
-                              {rentabilidadePercent !== null && (
-                                <span className={`text-xs ml-1 ${
-                                  rentabilidadePercent > 0 ? 'text-green-500' : 'text-red-500'
+                                ? 'bg-red-500/10'
+                                : 'bg-dark-700'
+                            }`}>
+                              <div className="flex items-center gap-1">
+                                {rentabilidade > 0
+                                  ? <TrendingUp size={14} className="text-green-400" />
+                                  : rentabilidade < 0
+                                  ? <TrendingDown size={14} className="text-red-400" />
+                                  : <span className="text-gray-500 text-xs">—</span>
+                                }
+                                <span className="text-xs text-gray-400">Rentabilidade</span>
+                              </div>
+                              <div className="text-right">
+                                <span className={`text-sm font-bold ${
+                                  rentabilidade > 0 ? 'text-green-400' : rentabilidade < 0 ? 'text-red-400' : 'text-gray-400'
                                 }`}>
-                                  ({rentabilidadePercent > 0 ? '+' : ''}{rentabilidadePercent.toFixed(2)}%)
+                                  {rentabilidade > 0 ? '+' : ''}{formatCurrency(rentabilidade)}
                                 </span>
-                              )}
+                                {rentabilidadePercent !== null && (
+                                  <span className={`text-xs ml-1 ${
+                                    rentabilidadePercent > 0 ? 'text-green-500' : 'text-red-500'
+                                  }`}>
+                                    ({rentabilidadePercent > 0 ? '+' : ''}{rentabilidadePercent.toFixed(2)}%)
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
+                          </LearningTooltip>
                         )}
 
                         {/* Alerta cotação desatualizada */}
                         {cotacaoDesatualizada && (
-                          <div className="flex items-center gap-1.5 text-yellow-500">
-                            <AlertCircle size={12} />
-                            <span className="text-xs">Cotação desatualizada (aporte recente)</span>
-                          </div>
+                          <LearningTooltip content={learningContent.investimentoCotacaoDesatualizada} position="top">
+                            <div className="flex items-center gap-1.5 text-yellow-500">
+                              <AlertCircle size={12} />
+                              <span className="text-xs">Cotação desatualizada (aporte recente)</span>
+                            </div>
+                          </LearningTooltip>
                         )}
 
                         {/* Data última cotação */}
@@ -561,15 +575,17 @@ export function Caixinhas() {
                                 </Button>
                               )}
                             </div>
-                            <Button
-                              size="sm"
-                              variant={!caixinha.valor_mercado || cotacaoDesatualizada ? 'primary' : 'secondary'}
-                              className="w-full"
-                              onClick={() => handleAtualizarCotacao(caixinha)}
-                            >
-                              <RefreshCw size={14} className="mr-1" />
-                              Atualizar Cotação
-                            </Button>
+                            <LearningTooltip content={learningContent.investimentoAtualizarCotacao} position="top">
+                              <Button
+                                size="sm"
+                                variant={!caixinha.valor_mercado || cotacaoDesatualizada ? 'primary' : 'secondary'}
+                                className="w-full"
+                                onClick={() => handleAtualizarCotacao(caixinha)}
+                              >
+                                <RefreshCw size={14} className="mr-1" />
+                                Atualizar Cotação
+                              </Button>
+                            </LearningTooltip>
                           </div>
                         )}
 
@@ -615,7 +631,14 @@ export function Caixinhas() {
                           <span className="text-2xl">{caixinha.icone}</span>
                           <div>
                             <CardTitle className="text-base">{caixinha.nome}</CardTitle>
-                            <p className="text-xs text-gray-500">{getTipoLabel(caixinha.tipo)}</p>
+                            <LearningTooltip
+                              content={caixinha.tipo === 'emergencia'
+                                ? learningContent.caixinhaTipoEmergencia
+                                : learningContent.caixinhaTipoObjetivo}
+                              position="bottom"
+                            >
+                              <p className="text-xs text-gray-500 cursor-help">{getTipoLabel(caixinha.tipo)}</p>
+                            </LearningTooltip>
                           </div>
                         </div>
                         {canEdit && (
@@ -690,14 +713,16 @@ export function Caixinhas() {
                         {canEdit && (
                           <div className="space-y-2 pt-2">
                             {progresso >= 100 && caixinha.saldo_atual > 0 ? (
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                className="w-full bg-green-600 hover:bg-green-500"
-                                onClick={() => handleConcluirMeta(caixinha)}
-                              >
-                                🏆 Concluir meta
-                              </Button>
+                              <LearningTooltip content={learningContent.caixinhaConcluirMeta} position="top">
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  className="w-full bg-green-600 hover:bg-green-500"
+                                  onClick={() => handleConcluirMeta(caixinha)}
+                                >
+                                  🏆 Concluir meta
+                                </Button>
+                              </LearningTooltip>
                             ) : (
                               <div className="flex gap-2">
                                 <Button
