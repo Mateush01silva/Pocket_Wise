@@ -17,6 +17,7 @@ interface DailyBalance {
   dateStr: string
   dateKey: string             // yyyy-MM-dd — chave única para expandedDay
   saldo: number
+  saldoDisponivel: number     // saldo sem contas de investimento
   receitas: number
   despesas: number
   despesasConfirmadas: number
@@ -31,10 +32,13 @@ export function CashFlow() {
 
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const getSaldoTotal = useContasBancariasStore((state) => state.getSaldoTotal)
+  const getSaldoDisponivel = useContasBancariasStore((state) => state.getSaldoDisponivel)
   const categorias = useCategoriasStore((state) => state.categorias)
 
   // Calcular saldo inicial (saldo real das contas bancárias)
   const saldoInicialContas = getSaldoTotal()
+  // Saldo disponível = apenas contas que não são investimento
+  const saldoDisponivelContas = getSaldoDisponivel()
 
   // Calcular número de dias baseado no período
   const numDays = useMemo(() => {
@@ -55,6 +59,7 @@ export function CashFlow() {
 
     // Iniciar com o saldo atual das contas
     let saldoAcumulado = saldoInicialContas
+    let saldoDisponivelAcumulado = saldoDisponivelContas
 
     for (let i = 0; i < numDays; i++) {
       const currentDate = addDays(today, i)
@@ -91,15 +96,17 @@ export function CashFlow() {
         ? despesasDia
         : despesasDoDia.filter(l => l.status !== 'pago').reduce((sum, l) => sum + l.valor, 0)
 
-      // Calcular saldo acumulado
+      // Calcular saldo acumulado (total e disponível)
       const saldoInicial = saldoAcumulado
       saldoAcumulado = saldoAcumulado + receitasDia - despesasDia
+      saldoDisponivelAcumulado = saldoDisponivelAcumulado + receitasDia - despesasDia
 
       balances.push({
         date: currentDate,
         dateStr: format(currentDate, 'dd/MM', { locale: ptBR }),
         dateKey: format(currentDate, 'yyyy-MM-dd'),
         saldo: saldoAcumulado,
+        saldoDisponivel: saldoDisponivelAcumulado,
         receitas: receitasDia,
         despesas: despesasDia,
         despesasConfirmadas: despesasConfirmadasDia,
@@ -110,11 +117,11 @@ export function CashFlow() {
     }
 
     return balances
-  }, [lancamentos, numDays, saldoInicialContas])
+  }, [lancamentos, numDays, saldoInicialContas, saldoDisponivelContas])
 
-  // Encontrar dias com saldo negativo
+  // Encontrar dias com saldo disponível negativo (sem investimentos)
   const diasNegativos = useMemo(() => {
-    return dailyBalances.filter(d => d.saldo < 0)
+    return dailyBalances.filter(d => d.saldoDisponivel < 0)
   }, [dailyBalances])
 
   // Estatísticas do período
@@ -264,10 +271,10 @@ export function CashFlow() {
               <AlertTriangle className="w-6 h-6 text-red-400 shrink-0 mt-0.5" />
               <div>
                 <h3 className="text-lg font-semibold text-red-400 mb-1">
-                  Atenção: Saldo negativo previsto!
+                  Atenção: Saldo disponível negativo previsto!
                 </h3>
                 <p className="text-sm text-gray-300 mb-2">
-                  Seu saldo ficará negativo em {diasNegativos.length} dia(s) no período selecionado:
+                  Seu saldo disponível (sem investimentos) ficará negativo em {diasNegativos.length} dia(s) no período selecionado:
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {diasNegativos.slice(0, 5).map((dia) => (
@@ -275,7 +282,7 @@ export function CashFlow() {
                       key={dia.dateKey}
                       className="px-2 py-1 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-300"
                     >
-                      {format(dia.date, "dd 'de' MMM", { locale: ptBR })}: {formatCurrency(dia.saldo)}
+                      {format(dia.date, "dd 'de' MMM", { locale: ptBR })}: {formatCurrency(dia.saldoDisponivel)}
                     </span>
                   ))}
                   {diasNegativos.length > 5 && (
@@ -291,7 +298,7 @@ export function CashFlow() {
       )}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
         <LearningTooltip content={learningContent.fluxoSaldoInicial} position="bottom">
           <Card hover>
             <CardContent>
@@ -300,6 +307,18 @@ export function CashFlow() {
                 {formatCurrency(saldoInicialContas)}
               </p>
               <p className="text-xs text-gray-500 mt-1">Hoje</p>
+            </CardContent>
+          </Card>
+        </LearningTooltip>
+
+        <LearningTooltip content={learningContent.fluxoSaldoDisponivel} position="bottom">
+          <Card hover className={saldoDisponivelContas < 0 ? 'border-2 border-orange-500/30' : ''}>
+            <CardContent>
+              <p className="text-sm text-gray-400 mb-1">Disponível Hoje</p>
+              <p className={`text-2xl font-bold ${saldoDisponivelContas >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {formatCurrency(saldoDisponivelContas)}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Sem investimentos</p>
             </CardContent>
           </Card>
         </LearningTooltip>
@@ -434,12 +453,17 @@ export function CashFlow() {
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Receitas</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Despesas</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Saldo do Dia</th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-emerald-500/80">
+                    <LearningTooltip content={learningContent.fluxoColunaSaldoDisponivel} position="bottom">
+                      <span className="cursor-help">Disponível</span>
+                    </LearningTooltip>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {dailyBalances.map((day, index) => {
                   const isToday = day.dateKey === format(new Date(), 'yyyy-MM-dd')
-                  const isNegative = day.saldo < 0
+                  const isNegative = day.saldoDisponivel < 0
                   const isFutureDay = index > 0
                   const hasTransactions = day.lancamentosDoDia.length > 0
                   const isExpanded = expandedDay === day.dateKey
@@ -500,12 +524,17 @@ export function CashFlow() {
                             {formatCurrency(day.saldo)}
                           </span>
                         </td>
+                        <td className="py-3 px-4 text-sm text-right">
+                          <span className={`font-semibold ${day.saldoDisponivel >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {formatCurrency(day.saldoDisponivel)}
+                          </span>
+                        </td>
                       </tr>
 
                       {/* Painel de detalhes expandido */}
                       {isExpanded && (
                         <tr className="border-b border-dark-800/50 bg-dark-900/40">
-                          <td colSpan={4} className="px-4 py-3">
+                          <td colSpan={5} className="px-4 py-3">
                             <div className="space-y-1.5 pl-4 border-l-2 border-dark-700">
                               {[...day.lancamentosDoDia]
                                 .sort((a, b) => b.valor - a.valor)

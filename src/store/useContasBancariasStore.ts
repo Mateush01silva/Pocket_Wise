@@ -29,6 +29,7 @@ interface ContasBancariasActions {
   getContaById: (id: string) => ContaBancaria | undefined
   getContasAtivas: () => ContaBancaria[]
   getSaldoTotal: () => number
+  getSaldoDisponivel: () => number
 }
 
 type ContasBancariasStore = ContasBancariasState & ContasBancariasActions
@@ -164,6 +165,12 @@ export const useContasBancariasStore = create<ContasBancariasStore>()(
       getSaldoTotal: () => {
         return get()
           .contas.filter((c) => c.ativo)
+          .reduce((sum, c) => sum + c.saldo_atual, 0)
+      },
+
+      getSaldoDisponivel: () => {
+        return get()
+          .contas.filter((c) => c.ativo && c.tipo !== 'investimento')
           .reduce((sum, c) => sum + c.saldo_atual, 0)
       },
     })),

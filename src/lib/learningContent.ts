@@ -355,12 +355,32 @@ export const learningContent = {
     dicaPratica: 'Se o menor saldo for negativo ou muito baixo, antecipe despesas ou adie gastos não essenciais.',
   } as LearningContent,
 
+  fluxoSaldoDisponivel: {
+    titulo: 'Disponível Hoje',
+    descricao: 'Quanto você tem nas contas de liquidez imediata — conta corrente, poupança, carteira digital e dinheiro. Contas de investimento não entram aqui.',
+    comoFunciona: 'Soma os saldos de todas as contas ativas, exceto as do tipo "investimento". É o dinheiro que você pode usar para pagar contas agora.',
+    comoCalculado: 'Soma de saldo_atual de todas as contas ativas com tipo ≠ investimento',
+    exemplo: 'Se você tem R$ 3.000 na conta corrente, R$ 500 na carteira digital e R$ 20.000 em investimentos, seu saldo disponível é R$ 3.500.',
+    porqueImportante: 'O saldo total pode parecer confortável, mas se a maior parte estiver em investimentos sem liquidez imediata, você pode ter dificuldade de pagar as contas do mês.',
+    dicaPratica: 'Mantenha sempre no disponível pelo menos o valor das despesas fixas do próximo mês. O resto pode ficar investido.',
+  } as LearningContent,
+
+  fluxoColunaSaldoDisponivel: {
+    titulo: 'Coluna Disponível',
+    descricao: 'Mostra o saldo acumulado dia a dia considerando apenas as contas de liquidez — sem investimentos. Representa o dinheiro que você efetivamente pode usar para pagar contas.',
+    comoFunciona: 'Parte do saldo disponível hoje (contas não-investimento) e aplica as receitas e despesas de cada dia ao longo do período.',
+    comoCalculado: 'Disponível hoje + receitas acumuladas − despesas acumuladas (sem contar o saldo de contas de investimento)',
+    exemplo: 'Se você tem R$ 3.500 disponíveis hoje e no dia 10 vence uma conta de R$ 800, o disponível naquele dia será R$ 2.700.',
+    porqueImportante: 'É a coluna mais importante para quem tem parte do patrimônio em investimentos. Ela mostra se você vai conseguir pagar as contas sem precisar resgatar investimentos.',
+    dicaPratica: 'Se o Disponível ficar negativo antes do saldo total, é sinal de que você pode precisar resgatar investimentos para honrar os compromissos.',
+  } as LearningContent,
+
   fluxoAlertaNegativo: {
-    titulo: 'Alerta de Saldo Negativo',
-    descricao: 'Aviso quando a projeção indica que você ficará com saldo negativo em algum dia do período.',
-    comoFunciona: 'O sistema simula o saldo dia a dia e alerta se algum dia ficar negativo.',
-    porqueImportante: 'Saldo negativo = cheque especial, juros altos, nome sujo. Evite a todo custo!',
-    dicaPratica: 'Ao ver esse alerta, corte gastos imediatamente ou busque antecipar uma receita.',
+    titulo: 'Alerta de Saldo Disponível Negativo',
+    descricao: 'Aviso quando a projeção indica que seu saldo disponível (sem investimentos) ficará negativo em algum dia do período.',
+    comoFunciona: 'O sistema simula o saldo disponível dia a dia e alerta se algum dia ficar negativo, indicando risco real de não conseguir pagar contas.',
+    porqueImportante: 'Diferente do saldo total, o saldo disponível negativo significa que você pode precisar resgatar investimentos ou recorrer a crédito para pagar contas.',
+    dicaPratica: 'Ao ver esse alerta, planeje antecipadamente: corte gastos, adiante uma receita ou separe o resgate de investimento necessário.',
   } as LearningContent,
 
   fluxoEvolucaoSaldo: {
