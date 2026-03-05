@@ -31,20 +31,37 @@ export function LearningTooltip({
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
   const triggerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cancelHide = () => {
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current)
+      hideTimeoutRef.current = null
+    }
+  }
+
+  const scheduleHide = () => {
+    cancelHide()
+    hideTimeoutRef.current = setTimeout(() => {
+      setIsVisible(false)
+    }, 150)
+  }
 
   const handleMouseEnter = () => {
     if (!isLearningMode) return
-    timeoutRef.current = setTimeout(() => {
+    cancelHide()
+    if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current)
+    showTimeoutRef.current = setTimeout(() => {
       setIsVisible(true)
     }, 300)
   }
 
   const handleMouseLeave = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
+    if (showTimeoutRef.current) {
+      clearTimeout(showTimeoutRef.current)
+      showTimeoutRef.current = null
     }
-    setIsVisible(false)
+    scheduleHide()
   }
 
   // Touch/click support: toggle on tap
@@ -152,8 +169,8 @@ export function LearningTooltip({
           ref={tooltipRef}
           className="fixed z-[9999] w-80 max-w-[calc(100vw-24px)] animate-in fade-in-0 zoom-in-95 duration-200"
           style={{ top: tooltipPosition.top, left: tooltipPosition.left }}
-          onMouseEnter={() => setIsVisible(true)}
-          onMouseLeave={handleMouseLeave}
+          onMouseEnter={() => { cancelHide(); setIsVisible(true) }}
+          onMouseLeave={scheduleHide}
         >
           <div className="bg-dark-800 border border-dark-600 rounded-xl shadow-2xl shadow-black/50 overflow-hidden">
             {/* Header */}
@@ -281,20 +298,38 @@ export function LearningTooltipMenu({
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 })
   const triggerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const showTimeoutRef2 = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hideTimeoutRef2 = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const cancelHide2 = () => {
+    if (hideTimeoutRef2.current) {
+      clearTimeout(hideTimeoutRef2.current)
+      hideTimeoutRef2.current = null
+    }
+  }
+
+  const scheduleHide2 = () => {
+    cancelHide2()
+    hideTimeoutRef2.current = setTimeout(() => {
+      setIsVisible(false)
+    }, 150)
+  }
 
   const handleMouseEnter = () => {
     if (!isLearningMode) return
-    timeoutRef.current = setTimeout(() => {
+    cancelHide2()
+    if (showTimeoutRef2.current) clearTimeout(showTimeoutRef2.current)
+    showTimeoutRef2.current = setTimeout(() => {
       setIsVisible(true)
     }, 400)
   }
 
   const handleMouseLeave = () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
+    if (showTimeoutRef2.current) {
+      clearTimeout(showTimeoutRef2.current)
+      showTimeoutRef2.current = null
     }
-    setIsVisible(false)
+    scheduleHide2()
   }
 
   // Touch/click support: toggle on tap (prevents navigation when in learning mode)
@@ -386,8 +421,8 @@ export function LearningTooltipMenu({
             'lg:slide-in-from-left-2'
           )}
           style={{ top: tooltipPosition.top, left: tooltipPosition.left }}
-          onMouseEnter={() => setIsVisible(true)}
-          onMouseLeave={handleMouseLeave}
+          onMouseEnter={() => { cancelHide2(); setIsVisible(true) }}
+          onMouseLeave={scheduleHide2}
         >
           <div className="bg-dark-800 border border-dark-600 rounded-lg shadow-xl shadow-black/50 overflow-hidden">
             <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 px-3 py-2 border-b border-dark-600">
