@@ -16,7 +16,7 @@ export interface LearningContent {
 interface LearningTooltipProps {
   children: ReactNode
   content: LearningContent
-  position?: 'top' | 'bottom' | 'left' | 'right'
+  position?: 'top' | 'bottom' | 'left' | 'right' | 'bottom-end' | 'top-end'
   className?: string
 }
 
@@ -93,55 +93,67 @@ export function LearningTooltip({
   }, [isVisible])
 
   useEffect(() => {
-    if (isVisible && triggerRef.current && tooltipRef.current) {
-      const triggerRect = triggerRef.current.getBoundingClientRect()
-      const tooltipRect = tooltipRef.current.getBoundingClientRect()
-      const padding = 12
-      const isMobile = window.innerWidth < 640
+    if (!isVisible || !triggerRef.current || !tooltipRef.current) return
 
-      let top = 0
-      let left = 0
+    const triggerRect = triggerRef.current.getBoundingClientRect()
+    // Use offsetWidth/offsetHeight — unaffected by CSS transform animations (zoom-in-95)
+    const tooltipW = tooltipRef.current.offsetWidth || 320
+    const tooltipH = tooltipRef.current.offsetHeight || 200
+    const padding = 12
+    const isMobile = window.innerWidth < 640
+    const viewportW = window.innerWidth
+    const viewportH = window.innerHeight
 
-      if (isMobile) {
-        // On mobile, position below the trigger, full width
-        top = triggerRect.bottom + padding
-        left = padding
-      } else {
-        switch (position) {
-          case 'top':
-            top = triggerRect.top - tooltipRect.height - padding
-            left = triggerRect.left + (triggerRect.width / 2) - (tooltipRect.width / 2)
-            break
-          case 'bottom':
-            top = triggerRect.bottom + padding
-            left = triggerRect.left + (triggerRect.width / 2) - (tooltipRect.width / 2)
-            break
-          case 'left':
-            top = triggerRect.top + (triggerRect.height / 2) - (tooltipRect.height / 2)
-            left = triggerRect.left - tooltipRect.width - padding
-            break
-          case 'right':
-            top = triggerRect.top + (triggerRect.height / 2) - (tooltipRect.height / 2)
-            left = triggerRect.right + padding
-            break
-        }
+    let top = 0
+    let left = 0
+
+    if (isMobile) {
+      top = triggerRect.bottom + padding
+      left = padding
+    } else {
+      // Auto-flip when not enough space in the requested direction
+      let resolvedPosition: typeof position = position
+      if ((position === 'top' || position === 'top-end') && triggerRect.top - tooltipH - padding < padding) {
+        resolvedPosition = position === 'top-end' ? 'bottom-end' : 'bottom'
+      } else if ((position === 'bottom' || position === 'bottom-end') && triggerRect.bottom + tooltipH + padding > viewportH - padding) {
+        resolvedPosition = position === 'bottom-end' ? 'top-end' : 'top'
       }
 
-      // Ajustar para não sair da tela
-      const viewportWidth = window.innerWidth
-      const viewportHeight = window.innerHeight
-
-      if (left < padding) left = padding
-      if (left + tooltipRect.width > viewportWidth - padding) {
-        left = viewportWidth - tooltipRect.width - padding
+      switch (resolvedPosition) {
+        case 'top':
+          top = triggerRect.top - tooltipH - padding
+          left = triggerRect.left + triggerRect.width / 2 - tooltipW / 2
+          break
+        case 'top-end':
+          top = triggerRect.top - tooltipH - padding
+          left = triggerRect.right - tooltipW
+          break
+        case 'bottom':
+          top = triggerRect.bottom + padding
+          left = triggerRect.left + triggerRect.width / 2 - tooltipW / 2
+          break
+        case 'bottom-end':
+          top = triggerRect.bottom + padding
+          left = triggerRect.right - tooltipW
+          break
+        case 'left':
+          top = triggerRect.top + triggerRect.height / 2 - tooltipH / 2
+          left = triggerRect.left - tooltipW - padding
+          break
+        case 'right':
+          top = triggerRect.top + triggerRect.height / 2 - tooltipH / 2
+          left = triggerRect.right + padding
+          break
       }
-      if (top < padding) top = padding
-      if (top + tooltipRect.height > viewportHeight - padding) {
-        top = viewportHeight - tooltipRect.height - padding
-      }
-
-      setTooltipPosition({ top, left })
     }
+
+    // Clamp to viewport
+    if (left < padding) left = padding
+    if (left + tooltipW > viewportW - padding) left = viewportW - tooltipW - padding
+    if (top < padding) top = padding
+    if (top + tooltipH > viewportH - padding) top = viewportH - tooltipH - padding
+
+    setTooltipPosition({ top, left })
   }, [isVisible, position])
 
   // Se não estiver em modo de aprendizagem, renderiza só os children
@@ -362,40 +374,36 @@ export function LearningTooltipMenu({
   }, [isVisible])
 
   useEffect(() => {
-    if (isVisible && triggerRef.current && tooltipRef.current) {
-      const triggerRect = triggerRef.current.getBoundingClientRect()
-      const tooltipRect = tooltipRef.current.getBoundingClientRect()
-      const padding = 8
-      const isMobile = window.innerWidth < 1024
+    if (!isVisible || !triggerRef.current || !tooltipRef.current) return
 
-      let top: number
-      let left: number
+    const triggerRect = triggerRef.current.getBoundingClientRect()
+    const tooltipW = tooltipRef.current.offsetWidth || 288
+    const tooltipH = tooltipRef.current.offsetHeight || 160
+    const padding = 8
+    const isMobile = window.innerWidth < 1024
+    const viewportW = window.innerWidth
+    const viewportH = window.innerHeight
 
-      if (isMobile) {
-        // On mobile/tablet, position below the trigger item
-        top = triggerRect.bottom + padding
-        left = padding
-      } else {
-        // On desktop, position to the right of the sidebar item
-        top = triggerRect.top + (triggerRect.height / 2) - (tooltipRect.height / 2)
-        left = triggerRect.right + padding
+    let top: number
+    let left: number
+
+    if (isMobile) {
+      top = triggerRect.bottom + padding
+      left = padding
+    } else {
+      top = triggerRect.top + triggerRect.height / 2 - tooltipH / 2
+      left = triggerRect.right + padding
+      if (left + tooltipW > viewportW - padding) {
+        left = triggerRect.left - tooltipW - padding
       }
-
-      // Ajustar para não sair da tela
-      const viewportWidth = window.innerWidth
-      const viewportHeight = window.innerHeight
-
-      if (left + tooltipRect.width > viewportWidth - padding) {
-        left = isMobile ? padding : triggerRect.left - tooltipRect.width - padding
-      }
-      if (left < padding) left = padding
-      if (top < padding) top = padding
-      if (top + tooltipRect.height > viewportHeight - padding) {
-        top = viewportHeight - tooltipRect.height - padding
-      }
-
-      setTooltipPosition({ top, left })
     }
+
+    if (left < padding) left = padding
+    if (left + tooltipW > viewportW - padding) left = viewportW - tooltipW - padding
+    if (top < padding) top = padding
+    if (top + tooltipH > viewportH - padding) top = viewportH - tooltipH - padding
+
+    setTooltipPosition({ top, left })
   }, [isVisible])
 
   if (!isLearningMode) {

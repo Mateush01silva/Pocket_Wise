@@ -454,7 +454,7 @@ export function CashFlow() {
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Despesas</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Saldo do Dia</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-emerald-500/80">
-                    <LearningTooltip content={learningContent.fluxoColunaSaldoDisponivel} position="bottom">
+                    <LearningTooltip content={learningContent.fluxoColunaSaldoDisponivel} position="bottom-end">
                       <span className="cursor-help">Disponível</span>
                     </LearningTooltip>
                   </th>
