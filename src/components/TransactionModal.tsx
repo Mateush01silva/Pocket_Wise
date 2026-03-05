@@ -26,6 +26,8 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
     (state) => state.createLancamentoRecorrente
   )
   const updateLancamento = useTransacoesStore((state) => state.updateLancamento)
+  const deleteLancamento = useTransacoesStore((state) => state.deleteLancamento)
+  const deleteGrupoParcelas = useTransacoesStore((state) => state.deleteGrupoParcelas)
 
   const [formData, setFormData] = useState<Partial<CreateLancamentoInput>>({
     tipo: 'despesa',
@@ -149,18 +151,64 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
 
       // Se está editando
       if (editingLancamento) {
-        await updateLancamento(editingLancamento.id, {
-          tipo: formData.tipo as 'receita' | 'despesa',
-          categoria_id: formData.categoria_id!,
-          subcategoria_id: formData.subcategoria_id,
-          valor: formData.valor!,
-          data: formData.data!,
-          forma_pagamento: formData.forma_pagamento as any,
-          cartao_id: formData.cartao_id,
-          conta_id: formData.conta_id,
-          observacao: formData.observacao,
-          status: formData.status,
-        })
+        const wasParcelado = editingLancamento.grupo_parcelas_id != null
+        const wantsParcelado =
+          formData.forma_pagamento === 'credito' &&
+          formData.cartao_id &&
+          parcelasNum > 1
+
+        if (wantsParcelado && !wasParcelado) {
+          // Conversão: à vista → parcelado
+          // Deleta a transação original e recria como parcelas
+          await deleteLancamento(editingLancamento.id)
+
+          const lancamentoData: CreateLancamentoInput = {
+            family_id: 'local-storage-family',
+            tipo: formData.tipo as 'receita' | 'despesa',
+            categoria_id: formData.categoria_id!,
+            subcategoria_id: formData.subcategoria_id,
+            valor: formData.valor!,
+            data: formData.data!,
+            forma_pagamento: formData.forma_pagamento as any,
+            cartao_id: formData.cartao_id,
+            conta_id: formData.conta_id,
+            observacao: formData.observacao,
+            status: formData.status || 'projetado',
+          }
+          await createLancamentoParcelado(lancamentoData, parcelasNum)
+        } else if (wantsParcelado && wasParcelado && parcelasNum !== (editingLancamento.parcela_total || 1)) {
+          // Parcelas existentes com quantidade alterada: recria o grupo inteiro
+          await deleteGrupoParcelas(editingLancamento.grupo_parcelas_id!)
+
+          const lancamentoData: CreateLancamentoInput = {
+            family_id: 'local-storage-family',
+            tipo: formData.tipo as 'receita' | 'despesa',
+            categoria_id: formData.categoria_id!,
+            subcategoria_id: formData.subcategoria_id,
+            valor: formData.valor!,
+            data: formData.data!,
+            forma_pagamento: formData.forma_pagamento as any,
+            cartao_id: formData.cartao_id,
+            conta_id: formData.conta_id,
+            observacao: formData.observacao,
+            status: formData.status || 'projetado',
+          }
+          await createLancamentoParcelado(lancamentoData, parcelasNum)
+        } else {
+          // Edição simples (sem mudança de parcelamento)
+          await updateLancamento(editingLancamento.id, {
+            tipo: formData.tipo as 'receita' | 'despesa',
+            categoria_id: formData.categoria_id!,
+            subcategoria_id: formData.subcategoria_id,
+            valor: formData.valor!,
+            data: formData.data!,
+            forma_pagamento: formData.forma_pagamento as any,
+            cartao_id: formData.cartao_id,
+            conta_id: formData.conta_id,
+            observacao: formData.observacao,
+            status: formData.status,
+          })
+        }
       } else {
         // Criando novo
         const lancamentoData: CreateLancamentoInput = {
