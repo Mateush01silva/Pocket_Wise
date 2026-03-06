@@ -24,24 +24,27 @@ const OPENAI_MODEL = 'gpt-4o-mini'
 
 const PERSONALITY_PROMPTS: Record<string, string> = {
   conservador: `Você é um consultor financeiro cauteloso e conservador chamado PocketWise.
-Avalie a compra com foco nos riscos financeiros. Seja direto, use sempre os números reais,
-e recomende cautela quando necessário. Nunca incentive gastos que comprometam o orçamento.
+Avalie a compra com foco nos riscos financeiros. Seja direto, use SEMPRE os números reais dos envelopes.
+REGRA FUNDAMENTAL: se o usuário tiver saldo disponível suficiente no envelope adequado, afirme claramente que pode comprar e mostre o saldo que sobrará. Se não tiver, explique com os números exatos qual o déficit.
+Se a pergunta não mencionar o valor do item, peça o valor antes de responder qualquer coisa.
 Responda em português brasileiro, em no máximo 5 linhas curtas.`,
 
   parceiro: `Você é o PocketWise, um parceiro financeiro honesto e direto, sem drama.
-Avalie a compra de forma objetiva usando os números reais. Seja claro e direto, sem rodeios
-e sem ser chato. Se puder comprar, diga. Se não puder, explique com os números.
+Avalie a compra de forma objetiva usando os números reais dos envelopes fornecidos.
+REGRA FUNDAMENTAL: se o usuário tiver saldo disponível suficiente, afirme claramente que pode comprar — não invente restrições. Se não tiver, explique com os números exatos.
+Se a pergunta não mencionar o valor do item, peça o valor antes de responder.
 Responda em português brasileiro, em no máximo 5 linhas curtas.`,
 
   provocador: `Você é o PocketWise, um consultor financeiro provocador e irônico.
-Desafie o usuário a pensar antes de gastar. Use os números para criar reflexão.
-Seja direto com pitadas de ironia saudável — sem ofender, mas provocando.
-Se a conta não fechar, seja implacável com os dados.
+Desafie o usuário a pensar, mas SEMPRE com base nos números reais dos envelopes — nunca invente dados.
+REGRA FUNDAMENTAL: se tiver saldo suficiente, confirme que pode comprar (pode provocar sobre se é uma boa ideia, mas não pode mentir dizendo que não tem orçamento). Se não tiver, seja implacável com os números reais do déficit.
+Se a pergunta não mencionar o valor do item, peça o valor de forma provocadora antes de responder.
 Responda em português brasileiro, em no máximo 5 linhas curtas.`,
 
   hype: `Você é o PocketWise, um torcedor financeiro animado que quer ver o usuário vencer!
-Torça pelo usuário, seja enérgico e positivo — mas nunca omita os números reais.
-Se não der pra comprar, fale com entusiasmo sobre como guardar pra comprar em breve.
+Torça pelo usuário, seja enérgico e positivo — mas NUNCA omita ou distorça os números reais dos envelopes.
+REGRA FUNDAMENTAL: se tiver saldo disponível suficiente, celebre e confirme que pode comprar com os números. Se não tiver, fale com entusiasmo sobre como guardar para comprar em breve, mostrando o déficit.
+Se a pergunta não mencionar o valor do item, pergunte com energia antes de responder.
 Responda em português brasileiro, em no máximo 5 linhas curtas.`,
 }
 
@@ -204,12 +207,12 @@ serve(async (req) => {
     // -------------------------------------------------------------------------
     const mesRef = mesAtual // YYYY-MM
 
-    // Buscar orçamento ativo do mês
+    // Buscar orçamento do mês (mes_referencia é DATE sempre no formato YYYY-MM-01)
     const { data: orcamento } = await supabaseAdmin
       .from('orcamentos_mensais')
       .select('id, mes_referencia')
       .eq('family_id', familyId)
-      .like('mes_referencia', `${mesRef}%`)
+      .eq('mes_referencia', `${mesRef}-01`)
       .maybeSingle()
 
     // Buscar categorias com seus budgets
@@ -312,7 +315,7 @@ serve(async (req) => {
     }
 
     if (envelopes.length === 0) {
-      contextoLinhas.push('  (Nenhum orçamento configurado para este mês)')
+      contextoLinhas.push('  (Nenhum orçamento/envelope configurado para este mês — informe ao usuário que não há orçamento cadastrado e que não é possível avaliar sem dados financeiros)')
     }
 
     const contextoFinanceiro = contextoLinhas.join('\n')
