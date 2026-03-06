@@ -1,17 +1,25 @@
 import { useState, useMemo } from 'react'
-import { ShoppingCart, AlertCircle, CheckCircle, AlertTriangle, X, GraduationCap, Lightbulb, Target, BookOpen } from 'lucide-react'
+import { ShoppingCart, AlertCircle, CheckCircle, AlertTriangle, X, GraduationCap, Lightbulb, Target, BookOpen, Sparkles } from 'lucide-react'
 import { CurrencyInput } from './ui/CurrencyInput'
 import { Select } from './ui/Select'
 import { Button } from './ui/Button'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useCategoriasStore } from '../store/useCategoriasStore'
 import { useLearningModeStore } from '../store/useLearningModeStore'
+import { usePossoComprarIA } from '../hooks/usePossoComprarIA'
+import { PossoComprarIAModal } from './PossoComprarIAModal'
+
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
 import { learningContent } from '../lib/learningContent'
 
+type ActiveTab = 'simular' | 'ia'
+
 export function PossoComprarFloating() {
   const [isOpen, setIsOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState<ActiveTab>('simular')
+
+  // --- Aba "Simular" (comportamento original intacto) ---
   const [valor, setValor] = useState(0)
   const [categoriaId, setCategoriaId] = useState('')
   const [resultado, setResultado] = useState<ReturnType<typeof simularCompra> | null>(null)
@@ -21,6 +29,10 @@ export function PossoComprarFloating() {
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
   const simularCompra = useOrcamentosStore((state) => state.simularCompra)
   const categoriasRaw = useCategoriasStore((state) => state.categorias)
+
+  // Hook da IA — instância única no componente pai, props passadas ao modal
+  const iaHook = usePossoComprarIA()
+  const { hasAccess: hasIAAccess, isCheckingAccess } = iaHook
 
   // Filtrar categorias
   const categorias = useMemo(
@@ -136,6 +148,10 @@ export function PossoComprarFloating() {
         {isLearningMode && (
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full animate-pulse shadow-lg shadow-amber-500/50 z-10 pointer-events-none" />
         )}
+        {/* Badge IA disponível */}
+        {!isCheckingAccess && hasIAAccess && !isLearningMode && (
+          <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-secondary-400 to-primary-500 rounded-full shadow-lg shadow-secondary-500/50 z-10 pointer-events-none" />
+        )}
         <button
           onClick={handleOpen}
           onMouseEnter={() => isLearningMode && setShowLearningTooltip(true)}
@@ -174,22 +190,29 @@ export function PossoComprarFloating() {
               <div className="flex items-center gap-3">
                 <div className={cn(
                   'w-10 h-10 rounded-lg flex items-center justify-center',
-                  !resultado && 'bg-secondary-500/20',
-                  resultado?.nivel === 'ok' && 'bg-green-500/20',
-                  resultado?.nivel === 'atencao' && 'bg-yellow-500/20',
-                  resultado?.nivel === 'critico' && 'bg-red-500/20'
+                  activeTab === 'ia'
+                    ? 'bg-gradient-to-br from-secondary-500/20 to-primary-500/20'
+                    : !resultado && 'bg-secondary-500/20',
+                  activeTab === 'simular' && resultado?.nivel === 'ok' && 'bg-green-500/20',
+                  activeTab === 'simular' && resultado?.nivel === 'atencao' && 'bg-yellow-500/20',
+                  activeTab === 'simular' && resultado?.nivel === 'critico' && 'bg-red-500/20'
                 )}>
-                  <Icon className={cn(
-                    'w-5 h-5',
-                    !resultado && 'text-secondary-400',
-                    resultado?.nivel === 'ok' && 'text-green-400',
-                    resultado?.nivel === 'atencao' && 'text-yellow-400',
-                    resultado?.nivel === 'critico' && 'text-red-400'
-                  )} />
+                  {activeTab === 'ia'
+                    ? <Sparkles className="w-5 h-5 text-secondary-400" />
+                    : <Icon className={cn(
+                        'w-5 h-5',
+                        !resultado && 'text-secondary-400',
+                        resultado?.nivel === 'ok' && 'text-green-400',
+                        resultado?.nivel === 'atencao' && 'text-yellow-400',
+                        resultado?.nivel === 'critico' && 'text-red-400'
+                      )} />
+                  }
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-gray-100">Posso Comprar?</h2>
-                  <p className="text-xs text-gray-500">Simule antes de gastar</p>
+                  <p className="text-xs text-gray-500">
+                    {activeTab === 'ia' ? 'Pergunte em linguagem natural' : 'Simule antes de gastar'}
+                  </p>
                 </div>
               </div>
               <button
@@ -200,117 +223,169 @@ export function PossoComprarFloating() {
               </button>
             </div>
 
-            {/* Content */}
-            <div className="p-4 space-y-4">
-              {/* Inputs */}
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Valor da Compra
-                  </label>
-                  <CurrencyInput
-                    value={valor}
-                    onChange={setValor}
-                    placeholder="R$ 0,00"
-                    className="w-full"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Categoria
-                  </label>
-                  <Select
-                    value={categoriaId}
-                    onChange={(e) => setCategoriaId(e.target.value)}
-                    className="w-full"
-                  >
-                    <option value="">Selecione a categoria</option>
-                    {categorias.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.nome}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              </div>
-
-              {/* Botão simular */}
-              <Button
-                onClick={handleSimular}
-                disabled={valor <= 0 || !categoriaId}
-                className="w-full"
-              >
-                <ShoppingCart size={18} className="mr-2" />
-                Simular Compra
-              </Button>
-
-              {/* Resultado */}
-              {resultado && (
-                <div
+            {/* Tabs — só exibe se o usuário tiver acesso à IA */}
+            {hasIAAccess && (
+              <div className="flex border-b border-dark-700">
+                <button
+                  onClick={() => setActiveTab('simular')}
                   className={cn(
-                    'p-4 rounded-lg border animate-in fade-in slide-in-from-top-2 duration-300',
-                    resultado.nivel === 'ok' && 'bg-green-500/10 border-green-500/30',
-                    resultado.nivel === 'atencao' && 'bg-yellow-500/10 border-yellow-500/30',
-                    resultado.nivel === 'critico' && 'bg-red-500/10 border-red-500/30'
+                    'flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors',
+                    activeTab === 'simular'
+                      ? 'text-gray-100 border-b-2 border-secondary-500'
+                      : 'text-gray-500 hover:text-gray-300'
                   )}
                 >
-                  <div className="flex items-start gap-3">
-                    <Icon
-                      size={24}
-                      className={cn(
-                        'mt-1 shrink-0',
-                        resultado.nivel === 'ok' && 'text-green-400',
-                        resultado.nivel === 'atencao' && 'text-yellow-400',
-                        resultado.nivel === 'critico' && 'text-red-400'
-                      )}
-                    />
-                    <div className="flex-1">
-                      <p
-                        className={cn(
-                          'font-medium mb-2',
-                          resultado.nivel === 'ok' && 'text-green-400',
-                          resultado.nivel === 'atencao' && 'text-yellow-400',
-                          resultado.nivel === 'critico' && 'text-red-400'
-                        )}
-                      >
-                        {resultado.pode_comprar ? '✓ Pode Comprar' : '✗ Não Recomendado'}
-                      </p>
-                      <p className="text-sm text-gray-300 mb-3">{resultado.mensagem}</p>
+                  <ShoppingCart size={14} />
+                  Simular
+                </button>
+                <button
+                  onClick={() => setActiveTab('ia')}
+                  className={cn(
+                    'flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors',
+                    activeTab === 'ia'
+                      ? 'text-gray-100 border-b-2 border-secondary-500'
+                      : 'text-gray-500 hover:text-gray-300'
+                  )}
+                >
+                  <Sparkles size={14} />
+                  Perguntar à IA
+                </button>
+              </div>
+            )}
 
-                      {/* Detalhes */}
-                      <div className="space-y-2 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Impacto na categoria:</span>
-                          <span className="text-gray-200 font-medium">
-                            +{resultado.impacto_categoria.toFixed(1)}%
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Margem restante:</span>
-                          <span
+            {/* Content */}
+            <div className="p-4">
+              {/* ABA: SIMULAR (original intacto) */}
+              {activeTab === 'simular' && (
+                <div className="space-y-4">
+                  {/* Inputs */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Valor da Compra
+                      </label>
+                      <CurrencyInput
+                        value={valor}
+                        onChange={setValor}
+                        placeholder="R$ 0,00"
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Categoria
+                      </label>
+                      <Select
+                        value={categoriaId}
+                        onChange={(e) => setCategoriaId(e.target.value)}
+                        className="w-full"
+                      >
+                        <option value="">Selecione a categoria</option>
+                        {categorias.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.nome}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Botão simular */}
+                  <Button
+                    onClick={handleSimular}
+                    disabled={valor <= 0 || !categoriaId}
+                    className="w-full"
+                  >
+                    <ShoppingCart size={18} className="mr-2" />
+                    Simular Compra
+                  </Button>
+
+                  {/* Resultado */}
+                  {resultado && (
+                    <div
+                      className={cn(
+                        'p-4 rounded-lg border animate-in fade-in slide-in-from-top-2 duration-300',
+                        resultado.nivel === 'ok' && 'bg-green-500/10 border-green-500/30',
+                        resultado.nivel === 'atencao' && 'bg-yellow-500/10 border-yellow-500/30',
+                        resultado.nivel === 'critico' && 'bg-red-500/10 border-red-500/30'
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Icon
+                          size={24}
+                          className={cn(
+                            'mt-1 shrink-0',
+                            resultado.nivel === 'ok' && 'text-green-400',
+                            resultado.nivel === 'atencao' && 'text-yellow-400',
+                            resultado.nivel === 'critico' && 'text-red-400'
+                          )}
+                        />
+                        <div className="flex-1">
+                          <p
                             className={cn(
-                              'font-medium',
-                              resultado.margem_restante_categoria >= 0 ? 'text-green-400' : 'text-red-400'
+                              'font-medium mb-2',
+                              resultado.nivel === 'ok' && 'text-green-400',
+                              resultado.nivel === 'atencao' && 'text-yellow-400',
+                              resultado.nivel === 'critico' && 'text-red-400'
                             )}
                           >
-                            {formatCurrency(resultado.margem_restante_categoria)}
-                          </span>
+                            {resultado.pode_comprar ? '✓ Pode Comprar' : '✗ Não Recomendado'}
+                          </p>
+                          <p className="text-sm text-gray-300 mb-3">{resultado.mensagem}</p>
+
+                          {/* Detalhes */}
+                          <div className="space-y-2 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Impacto na categoria:</span>
+                              <span className="text-gray-200 font-medium">
+                                +{resultado.impacto_categoria.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">Margem restante:</span>
+                              <span
+                                className={cn(
+                                  'font-medium',
+                                  resultado.margem_restante_categoria >= 0 ? 'text-green-400' : 'text-red-400'
+                                )}
+                              >
+                                {formatCurrency(resultado.margem_restante_categoria)}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Dica */}
+                  {!resultado && (
+                    <div className="p-3 bg-secondary-500/10 border border-secondary-500/30 rounded-lg">
+                      <p className="text-xs text-gray-400 text-center">
+                        Digite um valor e selecione uma categoria para ver se você pode fazer essa compra sem
+                        comprometer seu orçamento.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Dica */}
-              {!resultado && (
-                <div className="p-3 bg-secondary-500/10 border border-secondary-500/30 rounded-lg">
-                  <p className="text-xs text-gray-400 text-center">
-                    Digite um valor e selecione uma categoria para ver se você pode fazer essa compra sem
-                    comprometer seu orçamento.
-                  </p>
-                </div>
+              {/* ABA: IA — recebe props do hook (única instância, sem duplicação de estado) */}
+              {activeTab === 'ia' && (
+                <PossoComprarIAModal
+                  isLoading={iaHook.isLoading}
+                  resposta={iaHook.resposta}
+                  usosUsados={iaHook.usosUsados}
+                  usosRestantes={iaHook.usosRestantes}
+                  limite={iaHook.limite}
+                  tone={iaHook.tone}
+                  error={iaHook.error}
+                  limiteAtingido={iaHook.limiteAtingido}
+                  perguntar={iaHook.perguntar}
+                  resetResposta={iaHook.resetResposta}
+                  setTone={iaHook.setTone}
+                />
               )}
             </div>
           </div>
