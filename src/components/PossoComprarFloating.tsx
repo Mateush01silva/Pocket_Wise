@@ -377,7 +377,6 @@ export function PossoComprarFloating() {
                   isLoading={iaHook.isLoading}
                   resposta={iaHook.resposta}
                   usosUsados={iaHook.usosUsados}
-                  usosRestantes={iaHook.usosRestantes}
                   limite={iaHook.limite}
                   tone={iaHook.tone}
                   error={iaHook.error}

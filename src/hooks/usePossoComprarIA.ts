@@ -69,6 +69,13 @@ export function usePossoComprarIA(): UsePossoComprarIAReturn {
 
     async function checkAccess() {
       setIsCheckingAccess(true)
+
+      if (!supabase) {
+        setHasAccess(false)
+        setIsCheckingAccess(false)
+        return
+      }
+
       try {
         // Verificar feature flag
         const { data: accessData } = await supabase
@@ -125,7 +132,7 @@ export function usePossoComprarIA(): UsePossoComprarIAReturn {
   // Fazer pergunta à IA via Edge Function
   // -------------------------------------------------------------------------
   const perguntar = useCallback(async (pergunta: string) => {
-    if (!user || !activeFamilyId || !hasAccess) return
+    if (!user || !activeFamilyId || !hasAccess || !supabase) return
 
     setIsLoading(true)
     setError(null)
@@ -178,14 +185,14 @@ export function usePossoComprarIA(): UsePossoComprarIAReturn {
   // Salvar tom de personalidade
   // -------------------------------------------------------------------------
   const setTone = useCallback(async (newTone: PersonalityTone) => {
-    if (!user) return
+    if (!user || !supabase) return
     setToneState(newTone)
 
     // Upsert no Supabase (salva para a Edge Function usar no próximo prompt)
     await supabase
       .from('user_ai_preferences')
       .upsert(
-        { user_id: user.id, personality_tone: newTone, updated_at: new Date().toISOString() },
+        { user_id: user.id, personality_tone: newTone, updated_at: new Date().toISOString() } as { user_id: string; personality_tone: string; updated_at: string },
         { onConflict: 'user_id' }
       )
   }, [user])

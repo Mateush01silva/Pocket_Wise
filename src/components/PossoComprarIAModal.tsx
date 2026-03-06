@@ -29,7 +29,6 @@ type Props = Pick<
   | 'isLoading'
   | 'resposta'
   | 'usosUsados'
-  | 'usosRestantes'
   | 'limite'
   | 'tone'
   | 'error'
@@ -47,7 +46,6 @@ export function PossoComprarIAModal({
   isLoading,
   resposta,
   usosUsados,
-  usosRestantes,
   limite,
   tone,
   error,
