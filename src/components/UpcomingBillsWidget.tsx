@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Card, CardContent } from './ui'
-import { AlertCircle, Clock, Calendar, CheckCircle, TrendingUp, TrendingDown, Check } from 'lucide-react'
+import { AlertCircle, Clock, Calendar, CheckCircle, TrendingUp, TrendingDown, Check, Pencil } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore } from '../store'
 import { format, isToday, isThisWeek, isPast, addDays } from 'date-fns'
@@ -22,15 +22,34 @@ export function UpcomingBillsWidget() {
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
   const marcarComoPago = useTransacoesStore((state) => state.marcarComoPago)
+  const updateLancamento = useTransacoesStore((state) => state.updateLancamento)
   const navigate = useNavigate()
   const [loadingIds, setLoadingIds] = useState<string[]>([])
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingValue, setEditingValue] = useState('')
 
-  // Handler para marcar como pago
-  const handleMarcarComoPago = async (id: string, e: React.MouseEvent) => {
+  const handleStartEdit = (item: UpcomingItem, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingId(item.id)
+    setEditingValue(item.valor.toFixed(2).replace('.', ','))
+  }
+
+  // Handler para marcar como pago (com valor editado se houver)
+  const handleMarcarComoPago = async (id: string, e: React.MouseEvent | React.KeyboardEvent) => {
     e.stopPropagation()
     setLoadingIds(prev => [...prev, id])
     try {
-      await marcarComoPago(id)
+      if (editingId === id) {
+        const parsed = parseFloat(editingValue.replace(',', '.').replace(/[^\d.]/g, ''))
+        if (!isNaN(parsed) && parsed > 0) {
+          await updateLancamento(id, { valor: parsed, status: 'pago' })
+        } else {
+          await marcarComoPago(id)
+        }
+        setEditingId(null)
+      } else {
+        await marcarComoPago(id)
+      }
     } finally {
       setLoadingIds(prev => prev.filter(i => i !== id))
     }
@@ -187,10 +206,39 @@ export function UpcomingBillsWidget() {
           </div>
         </div>
 
-        {/* Valor */}
-        <span className={`${colorClass} font-semibold ml-2 whitespace-nowrap`}>
-          {item.tipo === 'receita' ? '+' : '-'}{formatCurrency(item.valor)}
-        </span>
+        {/* Valor — clique no lápis para editar antes de confirmar */}
+        {editingId === item.id ? (
+          <div className="flex items-center gap-1 ml-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+            <span className={`${colorClass} font-semibold text-sm`}>
+              {item.tipo === 'receita' ? '+' : '-'}R$
+            </span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={editingValue}
+              onChange={(e) => setEditingValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleMarcarComoPago(item.id, e as unknown as React.KeyboardEvent)
+                if (e.key === 'Escape') { e.stopPropagation(); setEditingId(null) }
+              }}
+              autoFocus
+              className="w-20 px-1.5 py-0.5 text-sm bg-dark-700 border border-primary-500/60 rounded text-gray-100 text-right focus:outline-none focus:border-primary-400"
+            />
+          </div>
+        ) : (
+          <div className="flex items-center gap-1 ml-2 shrink-0 group/val">
+            <span className={`${colorClass} font-semibold whitespace-nowrap`}>
+              {item.tipo === 'receita' ? '+' : '-'}{formatCurrency(item.valor)}
+            </span>
+            <button
+              onClick={(e) => handleStartEdit(item, e)}
+              title="Editar valor"
+              className="opacity-0 group-hover/val:opacity-60 hover:!opacity-100 transition-opacity p-0.5 rounded hover:bg-dark-700"
+            >
+              <Pencil className="w-3 h-3 text-gray-400" />
+            </button>
+          </div>
+        )}
       </div>
     )
   }
