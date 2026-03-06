@@ -19,6 +19,7 @@ import {
   Loader2,
   XCircle,
   BookOpen,
+  Sparkles,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -36,6 +37,7 @@ import { cancelSubscription } from '../services/paymentService'
 import { supabase } from '../lib/supabase'
 import { cn } from '../lib/cn'
 import { toast } from 'sonner'
+import { usePossoComprarIA, type PersonalityTone } from '../hooks/usePossoComprarIA'
 
 export function Settings() {
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -70,6 +72,9 @@ export function Settings() {
     if (nome) setFormNome(nome)
     if (email) setFormEmail(email)
   }, [userProfile, user])
+
+  // Hook de IA (verifica acesso e gerencia tom de personalidade)
+  const { hasAccess: hasIAAccess, isCheckingAccess: isCheckingIA, tone: iaTone, setTone: setIATone } = usePossoComprarIA()
 
   // Stores for export
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
@@ -553,6 +558,53 @@ export function Settings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Assistente IA — exibido apenas para usuários com acesso */}
+      {!isCheckingIA && hasIAAccess && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles size={20} className="text-secondary-400" />
+              Assistente IA
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-gray-400">
+              Escolha a personalidade do assistente para o "Posso Comprar? com IA".
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  { id: 'conservador', emoji: '🧓', label: 'Conservador', description: 'Cauteloso, foca nos riscos' },
+                  { id: 'parceiro',    emoji: '🤙', label: 'Parceiro',    description: 'Honesto e direto, sem drama' },
+                  { id: 'provocador',  emoji: '😈', label: 'Provocador',  description: 'Irônico, te desafia a poupar' },
+                  { id: 'hype',        emoji: '🎉', label: 'Hype',        description: 'Torce por você, mas é honesto' },
+                ] as Array<{ id: PersonalityTone; emoji: string; label: string; description: string }>
+              ).map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setIATone(t.id)}
+                  className={cn(
+                    'flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all duration-150',
+                    iaTone === t.id
+                      ? 'bg-secondary-500/20 border-secondary-500/50 text-gray-100'
+                      : 'bg-dark-800 border-dark-600 text-gray-400 hover:border-dark-500 hover:text-gray-300'
+                  )}
+                >
+                  <span className="text-xl leading-none">{t.emoji}</span>
+                  <div>
+                    <p className="text-sm font-medium leading-tight">{t.label}</p>
+                    <p className="text-xs text-gray-500 leading-tight">{t.description}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-600">
+              A personalidade selecionada será usada em todas as suas consultas à IA.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Dados */}
       <Card>

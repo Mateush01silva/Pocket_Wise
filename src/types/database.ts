@@ -438,6 +438,75 @@ export interface Database {
           updated_at?: string
         }
       }
+      ai_feature_access: {
+        Row: {
+          id: string
+          user_id: string | null
+          email: string
+          enabled: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          email: string
+          enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          email?: string
+          enabled?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      ai_usage_log: {
+        Row: {
+          id: string
+          user_id: string
+          mes_referencia: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          mes_referencia: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          mes_referencia?: string
+          created_at?: string
+        }
+      }
+      user_ai_preferences: {
+        Row: {
+          id: string
+          user_id: string
+          personality_tone: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          personality_tone?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          personality_tone?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
