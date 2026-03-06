@@ -78,11 +78,13 @@ export function usePossoComprarIA(): UsePossoComprarIAReturn {
 
       try {
         // Verificar feature flag
-        const { data: accessData } = await supabase
+        // Usa (supabase as any) pois as novas tabelas são consultadas via
+        // supabase-js sem regeneração automática de tipos — padrão do projeto.
+        const { data: accessData } = await (supabase as any)
           .from('ai_feature_access')
           .select('enabled')
           .eq('user_id', user!.id)
-          .maybeSingle()
+          .maybeSingle() as { data: { enabled: boolean } | null }
 
         if (cancelled) return
 
@@ -90,11 +92,11 @@ export function usePossoComprarIA(): UsePossoComprarIAReturn {
           setHasAccess(true)
 
           // Carregar preferência de tom
-          const { data: prefData } = await supabase
+          const { data: prefData } = await (supabase as any)
             .from('user_ai_preferences')
             .select('personality_tone')
             .eq('user_id', user!.id)
-            .maybeSingle()
+            .maybeSingle() as { data: { personality_tone: string } | null }
 
           if (!cancelled && prefData?.personality_tone) {
             setToneState(prefData.personality_tone as PersonalityTone)
@@ -102,7 +104,7 @@ export function usePossoComprarIA(): UsePossoComprarIAReturn {
 
           // Carregar uso do mês atual
           const mesAtual = new Date().toISOString().substring(0, 7)
-          const { count } = await supabase
+          const { count } = await (supabase as any)
             .from('ai_usage_log')
             .select('id', { count: 'exact', head: true })
             .eq('user_id', user!.id)
@@ -189,10 +191,10 @@ export function usePossoComprarIA(): UsePossoComprarIAReturn {
     setToneState(newTone)
 
     // Upsert no Supabase (salva para a Edge Function usar no próximo prompt)
-    await supabase
+    await (supabase as any)
       .from('user_ai_preferences')
       .upsert(
-        { user_id: user.id, personality_tone: newTone, updated_at: new Date().toISOString() } as { user_id: string; personality_tone: string; updated_at: string },
+        { user_id: user.id, personality_tone: newTone, updated_at: new Date().toISOString() },
         { onConflict: 'user_id' }
       )
   }, [user])
