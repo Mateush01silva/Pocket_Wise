@@ -26,6 +26,7 @@ import {
   Subscriptions,
   Family,
   Settings,
+  Assistente,
 } from './pages'
 import { Caixinhas } from './pages/Caixinhas'
 import { AcceptInvite } from './pages/AcceptInvite'
@@ -377,6 +378,16 @@ function AppRoutes() {
               <PrivateRoute>
                 <Layout>
                   <Settings />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/assistente"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Assistente />
                 </Layout>
               </PrivateRoute>
             }

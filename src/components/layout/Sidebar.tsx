@@ -14,6 +14,7 @@ import {
   FileBarChart,
   GraduationCap,
   LogOut,
+  Bot,
 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { useLearningModeStore } from '../../store/useLearningModeStore'
@@ -22,6 +23,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { LearningTooltipMenu } from '../ui/LearningTooltip'
 import { learningContent } from '../../lib/learningContent'
 import { FamilySwitcher } from '../ui/FamilySwitcher'
+import { useAssistenteIA } from '../../hooks/useAssistenteIA'
 
 interface NavItem {
   name: string
@@ -57,6 +59,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const isLearningMode = useLearningModeStore((state) => state.isEnabled)
   const toggleLearningMode = useLearningModeStore((state) => state.toggleLearningMode)
   const prefsName = useUserPreferencesStore((state) => state.nome)
+  const { hasAccess: hasAssistenteAccess } = useAssistenteIA()
 
   const userName = userProfile?.full_name || prefsName
   const userAvatar = userProfile?.avatar_url || null
@@ -133,6 +136,28 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               </li>
             )
           })}
+
+          {/* Item do Assistente Financeiro — visível apenas para usuários com acesso */}
+          {hasAssistenteAccess && (
+            <li>
+              <Link
+                to="/app/assistente"
+                onClick={onClose}
+                className={cn(
+                  'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200',
+                  location.pathname === '/app/assistente'
+                    ? 'bg-secondary-500/10 text-secondary-400 shadow-lg shadow-secondary-500/20'
+                    : 'text-gray-400 hover:bg-dark-800 hover:text-gray-200'
+                )}
+              >
+                <Bot className="w-5 h-5" />
+                <span className="font-medium">Assistente IA</span>
+                <span className="ml-auto text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-secondary-500/20 text-secondary-400">
+                  Beta
+                </span>
+              </Link>
+            </li>
+          )}
         </ul>
       </nav>
 
