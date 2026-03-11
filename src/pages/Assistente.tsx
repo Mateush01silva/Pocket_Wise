@@ -10,7 +10,7 @@ import {
   ChevronUp,
 } from 'lucide-react'
 import { cn } from '../lib/cn'
-import { useAssistenteIA } from '../hooks/useAssistenteIA'
+import { useAssistenteIA, ALERT_TRIGGER_KEYS } from '../hooks/useAssistenteIA'
 import { useAICredits } from '../hooks/useAICredits'
 import type { PersonalityTone } from '../hooks/usePossoComprarIA'
 
@@ -342,18 +342,45 @@ function ChatBubble({
     )
   }
 
-  const msgTone = TONES.find((t) => t.id === msg.tone) ?? currentTone
+  const isProactive = msg.message_type === 'proactive'
+  const isAlert     = isProactive && ALERT_TRIGGER_KEYS.has(msg.trigger_key ?? '')
+  const msgTone     = TONES.find((t) => t.id === msg.tone) ?? currentTone
 
   return (
     <div className="flex items-start gap-3">
-      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-secondary-500 to-primary-500 flex items-center justify-center shrink-0 mt-0.5">
+      {/* Ícone: âmbar para proativas, gradiente para manuais */}
+      <div className={cn(
+        'w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5',
+        isProactive
+          ? 'bg-gradient-to-br from-amber-500 to-amber-600 shadow-sm shadow-amber-500/30'
+          : 'bg-gradient-to-br from-secondary-500 to-primary-500'
+      )}>
         <Bot className="w-4 h-4 text-white" />
       </div>
-      <div className="max-w-[80%] bg-dark-800 border border-dark-600 rounded-xl rounded-tl-sm px-4 py-3">
+
+      {/* Bolha */}
+      <div className={cn(
+        'max-w-[80%] rounded-xl rounded-tl-sm px-4 py-3',
+        isProactive
+          ? 'bg-amber-500/5 border border-amber-500/20'
+          : 'bg-dark-800 border border-dark-600'
+      )}>
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs font-medium text-secondary-400">
-            PocketWise IA {msgTone?.emoji}
-          </span>
+          {isProactive ? (
+            // Chip de tipo: "Alerta" (vermelho) ou "Análise" (âmbar)
+            <span className={cn(
+              'text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded',
+              isAlert
+                ? 'text-red-400 bg-red-500/10 border border-red-500/20'
+                : 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+            )}>
+              {isAlert ? 'Alerta' : 'Análise'}
+            </span>
+          ) : (
+            <span className="text-xs font-medium text-secondary-400">
+              PocketWise IA {msgTone?.emoji}
+            </span>
+          )}
         </div>
         <p className="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{msg.conteudo}</p>
       </div>

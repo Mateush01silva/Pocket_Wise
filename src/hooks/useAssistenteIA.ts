@@ -12,8 +12,18 @@ export interface AssistenteMensagem {
   role: 'user' | 'assistant'
   conteudo: string
   tone?: PersonalityTone | null
+  message_type: 'manual' | 'proactive'
+  is_read: boolean
+  trigger_key?: string | null
   created_at: string
 }
+
+// Gatilhos de alerta (chip vermelho) vs análise (chip âmbar)
+export const ALERT_TRIGGER_KEYS = new Set([
+  'envelope_estourado_2x',
+  'conta_sem_cobertura',
+  'desequilibrio_casal_2x',
+])
 
 interface UseAssistenteIAState {
   // Acesso
@@ -26,6 +36,8 @@ interface UseAssistenteIAState {
   error: string | null
   // Preferências
   tone: PersonalityTone
+  // Badge de proativas não lidas
+  mensagensProativasNaoLidas: number
 }
 
 interface UseAssistenteIAActions {
@@ -43,13 +55,14 @@ export type UseAssistenteIAReturn = UseAssistenteIAState & UseAssistenteIAAction
 export function useAssistenteIA(): UseAssistenteIAReturn {
   const { user, activeFamilyId } = useAuth()
 
-  const [hasAccess, setHasAccess] = useState(false)
+  const [hasAccess,    setHasAccess]    = useState(false)
   const [isCheckingAccess, setIsCheckingAccess] = useState(true)
-  const [mensagens, setMensagens] = useState<AssistenteMensagem[]>([])
+  const [mensagens,    setMensagens]    = useState<AssistenteMensagem[]>([])
   const [isFetchingHistory, setIsFetchingHistory] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [tone, setToneState] = useState<PersonalityTone>('parceiro')
+  const [isLoading,    setIsLoading]    = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
+  const [tone,         setToneState]    = useState<PersonalityTone>('parceiro')
+  const [mensagensProativasNaoLidas, setMensagensProativasNaoLidas] = useState(0)
 
   // -------------------------------------------------------------------------
   // Verificar acesso ao montar
@@ -73,7 +86,7 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
       }
 
       try {
-        // 1. Verifica master flag
+        // 1. Master flag
         const { data: accessData } = await (supabase as any)
           .from('ai_feature_access')
           .select('id, enabled')
@@ -87,7 +100,7 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
           return
         }
 
-        // 2. Verifica permissão específica 'assistente'
+        // 2. Permissão 'assistente'
         const { data: permData } = await (supabase as any)
           .from('ai_feature_permissions')
           .select('enabled')
@@ -104,7 +117,7 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
 
         if (!cancelled) setHasAccess(true)
 
-        // 3. Carregar tom de personalidade
+        // 3. Tom de personalidade
         const { data: prefData } = await (supabase as any)
           .from('user_ai_preferences')
           .select('personality_tone')
@@ -126,7 +139,32 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
   }, [user])
 
   // -------------------------------------------------------------------------
-  // Carregar histórico de mensagens (chamado pela página do Assistente)
+  // Badge: contar proativas não lidas (atualiza quando acesso confirmado)
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!hasAccess || !activeFamilyId || !supabase) return
+
+    async function countUnread() {
+      try {
+        const { count } = await (supabase as any)
+          .from('assistente_mensagens')
+          .select('id', { count: 'exact', head: true })
+          .eq('family_id', activeFamilyId)
+          .eq('message_type', 'proactive')
+          .eq('is_read', false) as { count: number | null }
+
+        setMensagensProativasNaoLidas(count ?? 0)
+      } catch {
+        // Silencioso — não afeta o funcionamento do chat
+      }
+    }
+
+    countUnread()
+  }, [hasAccess, activeFamilyId])
+
+  // -------------------------------------------------------------------------
+  // Carregar histórico (chamado pela página do Assistente)
+  // Após carregar, marca todas as proativas como lidas e zera o badge.
   // -------------------------------------------------------------------------
   const loadHistorico = useCallback(async () => {
     if (!user || !activeFamilyId || !hasAccess || !supabase) return
@@ -135,12 +173,25 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
     try {
       const { data } = await (supabase as any)
         .from('assistente_mensagens')
-        .select('id, role, conteudo, tone, created_at')
+        .select('id, role, conteudo, tone, message_type, is_read, trigger_key, created_at')
         .eq('family_id', activeFamilyId)
         .order('created_at', { ascending: true })
         .limit(100) as { data: AssistenteMensagem[] | null }
 
       if (data) setMensagens(data)
+
+      // Marca proativas como lidas (em background, não bloqueia o chat)
+      const temNaoLidas = data?.some((m) => m.message_type === 'proactive' && !m.is_read)
+      if (temNaoLidas) {
+        setMensagensProativasNaoLidas(0)
+        ;(supabase as any)
+          .from('assistente_mensagens')
+          .update({ is_read: true })
+          .eq('family_id', activeFamilyId)
+          .eq('message_type', 'proactive')
+          .eq('is_read', false)
+          .then(() => {/* silencioso */})
+      }
     } catch (err) {
       console.error('useAssistenteIA: erro ao carregar histórico', err)
     } finally {
@@ -157,13 +208,16 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
     const textoTrimmed = mensagemTexto.trim()
     if (!textoTrimmed) return
 
-    // Adiciona mensagem do usuário otimisticamente
+    // Otimismo: adiciona mensagem do usuário imediatamente
     const mensagemUser: AssistenteMensagem = {
-      id: `temp-${Date.now()}`,
-      role: 'user',
-      conteudo: textoTrimmed,
-      tone: null,
-      created_at: new Date().toISOString(),
+      id          : `temp-${Date.now()}`,
+      role        : 'user',
+      conteudo    : textoTrimmed,
+      tone        : null,
+      message_type: 'manual',
+      is_read     : true,
+      trigger_key : null,
+      created_at  : new Date().toISOString(),
     }
     setMensagens((prev) => [...prev, mensagemUser])
     setIsLoading(true)
@@ -173,6 +227,8 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
       const { data, error: fnError } = await supabase.functions.invoke<{
         resposta: string
         tone: PersonalityTone
+        creditos_restantes?: number
+        limite_manual?: number
       }>('assistente-financeiro', {
         body: { mensagem: textoTrimmed, family_id: activeFamilyId },
       })
@@ -188,19 +244,20 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
         } else {
           setError(msg)
         }
-        // Remove a mensagem otimista em caso de erro
         setMensagens((prev) => prev.filter((m) => m.id !== mensagemUser.id))
         return
       }
 
       if (data) {
-        // Adiciona resposta da IA
         const mensagemIA: AssistenteMensagem = {
-          id: `temp-ia-${Date.now()}`,
-          role: 'assistant',
-          conteudo: data.resposta,
-          tone: data.tone,
-          created_at: new Date().toISOString(),
+          id          : `temp-ia-${Date.now()}`,
+          role        : 'assistant',
+          conteudo    : data.resposta,
+          tone        : data.tone,
+          message_type: 'manual',
+          is_read     : true,
+          trigger_key : null,
+          created_at  : new Date().toISOString(),
         }
         setMensagens((prev) => [...prev, mensagemIA])
         setToneState(data.tone)
@@ -237,6 +294,7 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
     isLoading,
     error,
     tone,
+    mensagensProativasNaoLidas,
     loadHistorico,
     enviar,
     setTone,
