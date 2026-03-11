@@ -86,12 +86,26 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
       }
 
       try {
-        // 1. Master flag
-        const { data: accessData } = await (supabase as any)
+        // 1. Master flag — tenta por user_id; fallback por email (RLS aceita os dois)
+        let accessData: { id: string; enabled: boolean } | null = null
+
+        const { data: byUserId } = await (supabase as any)
           .from('ai_feature_access')
           .select('id, enabled')
           .eq('user_id', user!.id)
           .maybeSingle() as { data: { id: string; enabled: boolean } | null }
+
+        accessData = byUserId
+
+        // Fallback: registro seed pode ter user_id=NULL mas RLS aceita por email
+        if (!accessData && user!.email) {
+          const { data: byEmail } = await (supabase as any)
+            .from('ai_feature_access')
+            .select('id, enabled')
+            .eq('email', user!.email)
+            .maybeSingle() as { data: { id: string; enabled: boolean } | null }
+          accessData = byEmail
+        }
 
         if (cancelled) return
 
@@ -110,7 +124,8 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
 
         if (cancelled) return
 
-        if (!permData?.enabled) {
+        // Se permData for null (sem linha), assume habilitado quando master flag = true
+        if (permData !== null && !permData?.enabled) {
           if (!cancelled) setHasAccess(false)
           return
         }
