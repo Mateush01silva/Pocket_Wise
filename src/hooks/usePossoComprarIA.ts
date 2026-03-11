@@ -102,19 +102,29 @@ export function usePossoComprarIA(): UsePossoComprarIAReturn {
             setToneState(prefData.personality_tone as PersonalityTone)
           }
 
-          // Carregar uso do mês atual
+          // Carregar uso do mês atual + configuração de créditos em paralelo
           const mesAtual = new Date().toISOString().substring(0, 7)
-          const { count } = await (supabase as any)
-            .from('ai_usage_log')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', user!.id)
-            .eq('mes_referencia', mesAtual)
+          const [usageRes, configRes] = await Promise.all([
+            (supabase as any)
+              .from('ai_usage_log')
+              .select('feature_type')
+              .eq('user_id', user!.id)
+              .eq('mes_referencia', mesAtual) as Promise<{ data: Array<{ feature_type: string | null }> | null }>,
+            (supabase as any)
+              .from('ai_credits_config')
+              .select('creditos_proativas')
+              .eq('user_id', user!.id)
+              .maybeSingle() as Promise<{ data: { creditos_proativas: number } | null }>,
+          ])
 
           if (!cancelled) {
-            const usados = count ?? 0
+            // Exclui proativas do contador manual — mesma lógica da Edge Function
+            const usados = (usageRes.data ?? []).filter((r) => r.feature_type !== 'proativa').length
+            const limiteManual = 30 - (configRes.data?.creditos_proativas ?? 10)
             setUsosUsados(usados)
-            setUsosRestantes(30 - usados)
-            setLimiteAtingido(usados >= 30)
+            setLimite(limiteManual)
+            setUsosRestantes(Math.max(0, limiteManual - usados))
+            setLimiteAtingido(usados >= limiteManual)
           }
         } else {
           if (!cancelled) setHasAccess(false)
@@ -158,7 +168,7 @@ export function usePossoComprarIA(): UsePossoComprarIAReturn {
 
         if (code === 'MONTHLY_LIMIT_REACHED') {
           setLimiteAtingido(true)
-          setError('Você atingiu o limite de 30 consultas este mês. O limite renova em 1° do próximo mês. 🎯')
+          setError(`Você atingiu o limite de ${limite} consultas este mês. O limite renova em 1° do próximo mês. 🎯`)
         } else if (code === 'FEATURE_NOT_ENABLED') {
           setHasAccess(false)
         } else {
