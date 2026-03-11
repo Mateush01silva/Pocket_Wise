@@ -15,7 +15,7 @@ const corsHeaders = {
 // CONSTANTS
 // ============================================================================
 
-const MONTHLY_USAGE_LIMIT = 30
+const TOTAL_LIMIT = 30        // pool total mensal
 const OPENAI_MODEL = 'gpt-4o-mini'
 
 // ============================================================================
@@ -72,6 +72,13 @@ function getCurrentMes(): string {
   return `${year}-${month}`
 }
 
+function getRenovacaoDate(mesAtual: string): string {
+  const [ano, mes] = mesAtual.split('-').map(Number)
+  // new Date usa mês 0-indexed: mes (1-based) já aponta pro mês seguinte
+  const dataRenovacao = new Date(ano, mes, 1)
+  return dataRenovacao.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -97,7 +104,6 @@ serve(async (req) => {
       return jsonResponse({ error: 'Token de autenticação não fornecido' }, 401)
     }
 
-    // Cliente com token do usuário (para getUser)
     const supabaseUser = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -109,18 +115,16 @@ serve(async (req) => {
       return jsonResponse({ error: 'Usuário não autenticado' }, 401)
     }
 
-    // Cliente admin (service role) para operações internas
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
     // -------------------------------------------------------------------------
-    // 2. VERIFICAR FEATURE FLAG — primeira coisa, antes de qualquer lógica
+    // 2. VERIFICAR FEATURE FLAG
     // -------------------------------------------------------------------------
     let accessRecord = null
 
-    // Tenta pelo user_id primeiro (mais rápido)
     const { data: accessByUid } = await supabaseAdmin
       .from('ai_feature_access')
       .select('id, user_id, email, enabled')
@@ -130,7 +134,6 @@ serve(async (req) => {
     if (accessByUid) {
       accessRecord = accessByUid
     } else {
-      // Fallback: tenta pelo email (para seeds sem user_id preenchido)
       const userEmail = user.email ?? ''
       const { data: accessByEmail } = await supabaseAdmin
         .from('ai_feature_access')
@@ -140,8 +143,6 @@ serve(async (req) => {
 
       if (accessByEmail) {
         accessRecord = accessByEmail
-
-        // Atualiza o user_id automaticamente para futuros lookups serem mais rápidos
         if (!accessByEmail.user_id) {
           await supabaseAdmin
             .from('ai_feature_access')
@@ -153,34 +154,44 @@ serve(async (req) => {
 
     if (!accessRecord || !accessRecord.enabled) {
       return jsonResponse(
-        {
-          error: 'Acesso à IA não disponível para este usuário',
-          code: 'FEATURE_NOT_ENABLED',
-        },
+        { error: 'Acesso à IA não disponível para este usuário', code: 'FEATURE_NOT_ENABLED' },
         403
       )
     }
 
     // -------------------------------------------------------------------------
-    // 3. VERIFICAR LIMITE DE USO (30/mês)
+    // 3. VERIFICAR CRÉDITOS DISPONÍVEIS (pool compartilhado)
     // -------------------------------------------------------------------------
     const mesAtual = getCurrentMes()
 
-    const { count: usageCount } = await supabaseAdmin
+    // Lê configuração de alocação do usuário (default: 10 proativas / 20 manuais)
+    const { data: creditsConfig } = await supabaseAdmin
+      .from('ai_credits_config')
+      .select('creditos_proativas')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const creditosProativas = creditsConfig?.creditos_proativas ?? 10
+    const limiteManual = TOTAL_LIMIT - creditosProativas
+
+    // Conta todos os usos manuais do mês (posso_comprar + assistente + legados NULL)
+    // Fetch completo: max 30 rows por mês/usuário — filtra em memória para lidar com NULLs
+    const { data: usageRows } = await supabaseAdmin
       .from('ai_usage_log')
-      .select('id', { count: 'exact', head: true })
+      .select('feature_type')
       .eq('user_id', user.id)
       .eq('mes_referencia', mesAtual)
 
-    const usosUsados = usageCount ?? 0
+    const usadoManual = (usageRows ?? []).filter((r) => r.feature_type !== 'proativa').length
 
-    if (usosUsados >= MONTHLY_USAGE_LIMIT) {
+    if (usadoManual >= limiteManual) {
       return jsonResponse(
         {
-          error: `Você atingiu o limite de ${MONTHLY_USAGE_LIMIT} consultas este mês. O limite renova em 1° do próximo mês.`,
+          error: `Você atingiu o limite de ${limiteManual} consultas manuais este mês. Seus créditos renovam em ${getRenovacaoDate(mesAtual)}.`,
           code: 'MONTHLY_LIMIT_REACHED',
-          usos_usados: usosUsados,
-          limite: MONTHLY_USAGE_LIMIT,
+          usos_usados: usadoManual,
+          usos_restantes: 0,
+          limite: limiteManual,
         },
         429
       )
@@ -214,9 +225,8 @@ serve(async (req) => {
     // -------------------------------------------------------------------------
     // 6. MONTAR CONTEXTO FINANCEIRO
     // -------------------------------------------------------------------------
-    const mesRef = mesAtual // YYYY-MM
+    const mesRef = mesAtual
 
-    // Buscar orçamento do mês (mes_referencia é DATE sempre no formato YYYY-MM-01)
     const { data: orcamento } = await supabaseAdmin
       .from('orcamentos_mensais')
       .select('id, mes_referencia')
@@ -224,7 +234,6 @@ serve(async (req) => {
       .eq('mes_referencia', `${mesRef}-01`)
       .maybeSingle()
 
-    // Buscar categorias com seus budgets
     let envelopes: Array<{
       nome: string
       valor_orcado: number
@@ -245,7 +254,6 @@ serve(async (req) => {
         .eq('family_id', familyId)
         .eq('tipo', 'despesa')
 
-      // Lançamentos do mês (pago + projetado)
       const mesStart = `${mesRef}-01`
       const mesEnd = `${mesRef}-31`
 
@@ -259,24 +267,20 @@ serve(async (req) => {
         .lte('data', mesEnd)
 
       if (budgets && categorias && lancamentos) {
-        // Calcular gasto por categoria (replica a lógica de getMesEnvelope)
         const gastosPorCategoria: Record<string, number> = {}
 
         for (const l of lancamentos) {
-          // Parcelas usam data_vencimento_fatura para determinar o mês do envelope
           let mesEnvelope: string
           if (l.parcela_total && l.parcela_total > 1 && l.data_vencimento_fatura) {
             mesEnvelope = l.data_vencimento_fatura.substring(0, 7)
           } else {
             mesEnvelope = l.data.substring(0, 7)
           }
-
           if (mesEnvelope === mesRef) {
             gastosPorCategoria[l.categoria_id] = (gastosPorCategoria[l.categoria_id] ?? 0) + l.valor
           }
         }
 
-        // Montar envelopes para o contexto
         for (const budget of budgets) {
           const cat = categorias.find((c) => c.id === budget.categoria_id)
           if (!cat) continue
@@ -287,26 +291,17 @@ serve(async (req) => {
             ? Math.round((gasto / budget.valor_orcado) * 10000) / 100
             : 0
 
-          envelopes.push({
-            nome: cat.nome,
-            valor_orcado: budget.valor_orcado,
-            valor_gasto: gasto,
-            disponivel,
-            percentual,
-          })
+          envelopes.push({ nome: cat.nome, valor_orcado: budget.valor_orcado, valor_gasto: gasto, disponivel, percentual })
         }
 
-        // Ordenar por percentual usado (mais críticos primeiro)
         envelopes.sort((a, b) => b.percentual - a.percentual)
       }
     }
 
-    // Calcular total disponível geral
     const totalOrcado = envelopes.reduce((s, e) => s + e.valor_orcado, 0)
     const totalGasto = envelopes.reduce((s, e) => s + e.valor_gasto, 0)
     const totalDisponivel = totalOrcado - totalGasto
 
-    // Montar texto do contexto financeiro
     const contextoLinhas: string[] = [
       `Mês de referência: ${mesRef}`,
       `[Totais apenas para referência geral — a decisão de compra deve ser baseada no envelope específico]`,
@@ -339,10 +334,7 @@ serve(async (req) => {
     }
 
     const messages = [
-      {
-        role: 'system',
-        content: systemPrompt,
-      },
+      { role: 'system', content: systemPrompt },
       {
         role: 'user',
         content: `Aqui está minha situação financeira atual:\n\n${contextoFinanceiro}\n\nMinha pergunta: ${pergunta.trim()}`,
@@ -377,21 +369,26 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------------------
-    // 8. REGISTRAR USO
+    // 8. REGISTRAR USO — em try-catch isolado: falha não bloqueia a resposta
     // -------------------------------------------------------------------------
-    await supabaseAdmin.from('ai_usage_log').insert({
-      user_id: user.id,
-      mes_referencia: mesAtual,
-    })
+    try {
+      await supabaseAdmin.from('ai_usage_log').insert({
+        user_id: user.id,
+        mes_referencia: mesAtual,
+        feature_type: 'posso_comprar',
+      })
+    } catch (trackErr) {
+      console.error('Erro ao registrar uso (não bloqueia resposta):', trackErr)
+    }
 
     // -------------------------------------------------------------------------
     // 9. RETORNAR RESPOSTA
     // -------------------------------------------------------------------------
     return jsonResponse({
       resposta,
-      usos_usados: usosUsados + 1,
-      usos_restantes: MONTHLY_USAGE_LIMIT - usosUsados - 1,
-      limite: MONTHLY_USAGE_LIMIT,
+      usos_usados: usadoManual + 1,
+      usos_restantes: limiteManual - usadoManual - 1,
+      limite: limiteManual,
       tone,
     })
   } catch (error) {
