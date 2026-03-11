@@ -59,7 +59,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const isLearningMode = useLearningModeStore((state) => state.isEnabled)
   const toggleLearningMode = useLearningModeStore((state) => state.toggleLearningMode)
   const prefsName = useUserPreferencesStore((state) => state.nome)
-  const { hasAccess: hasAssistenteAccess } = useAssistenteIA()
+  const { hasAccess: hasAssistenteAccess, mensagensProativasNaoLidas } = useAssistenteIA()
 
   const userName = userProfile?.full_name || prefsName
   const userAvatar = userProfile?.avatar_url || null
@@ -150,11 +150,22 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     : 'text-gray-400 hover:bg-dark-800 hover:text-gray-200'
                 )}
               >
-                <Bot className="w-5 h-5" />
+                {/* Ícone com badge numérica de proativas não lidas */}
+                <div className="relative shrink-0">
+                  <Bot className="w-5 h-5" />
+                  {mensagensProativasNaoLidas > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-amber-500 rounded-full text-[9px] font-bold text-dark-900 flex items-center justify-center leading-none">
+                      {mensagensProativasNaoLidas > 9 ? '9+' : mensagensProativasNaoLidas}
+                    </span>
+                  )}
+                </div>
                 <span className="font-medium">Assistente IA</span>
-                <span className="ml-auto text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-secondary-500/20 text-secondary-400">
-                  Beta
-                </span>
+                {/* Mostra "Beta" quando não há proativas não lidas */}
+                {mensagensProativasNaoLidas === 0 && (
+                  <span className="ml-auto text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-secondary-500/20 text-secondary-400">
+                    Beta
+                  </span>
+                )}
               </Link>
             </li>
           )}
