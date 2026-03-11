@@ -176,11 +176,17 @@ serve(async (req) => {
 
     // Conta todos os usos manuais do mês (posso_comprar + assistente + legados NULL)
     // Fetch completo: max 30 rows por mês/usuário — filtra em memória para lidar com NULLs
-    const { data: usageRows } = await supabaseAdmin
+    const { data: usageRows, error: usageErr } = await supabaseAdmin
       .from('ai_usage_log')
       .select('feature_type')
       .eq('user_id', user.id)
       .eq('mes_referencia', mesAtual)
+
+    // Fail-open intencional: se a leitura do log falhar, permite a consulta
+    // e loga para monitoramento — bloquear por falha de infra é pior que permitir.
+    if (usageErr) {
+      console.warn(`[posso-comprar-ia] falha ao ler usage_log (fail-open): ${usageErr.message}`)
+    }
 
     const usadoManual = (usageRows ?? []).filter((r) => r.feature_type !== 'proativa').length
 
