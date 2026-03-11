@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { cn } from '../lib/cn'
 import { useAssistenteIA } from '../hooks/useAssistenteIA'
+import { useAICredits } from '../hooks/useAICredits'
 import type { PersonalityTone } from '../hooks/usePossoComprarIA'
 
 // ============================================================================
@@ -47,6 +48,8 @@ export function Assistente() {
     setTone,
   } = useAssistenteIA()
 
+  const { creditosRestantes, limiteManual, isLoading: isLoadingCredits, refresh: refreshCredits } = useAICredits()
+
   const [input, setInput] = useState('')
   const [showToneSelector, setShowToneSelector] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -71,6 +74,7 @@ export function Assistente() {
     const texto = input
     setInput('')
     await enviar(texto)
+    refreshCredits()   // atualiza contador sem bloquear
     inputRef.current?.focus()
   }
 
@@ -136,6 +140,18 @@ export function Assistente() {
             <p className="text-xs text-gray-500">Pergunte qualquer coisa sobre suas finanças</p>
           </div>
         </div>
+
+        {/* Indicador discreto de créditos */}
+        {!isLoadingCredits && (
+          <span className={cn(
+            'hidden sm:inline-flex items-center text-xs font-medium px-2 py-1 rounded-lg',
+            creditosRestantes <= 5
+              ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+              : 'text-gray-500 bg-dark-800/50'
+          )}>
+            {creditosRestantes}/{limiteManual} créditos
+          </span>
+        )}
 
         {/* Botão de configuração do tom */}
         <button

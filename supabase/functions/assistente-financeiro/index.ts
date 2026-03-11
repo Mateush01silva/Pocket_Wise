@@ -15,8 +15,9 @@ const corsHeaders = {
 // CONSTANTS
 // ============================================================================
 
+const TOTAL_LIMIT = 30        // pool total mensal (compartilhado entre features)
 const OPENAI_MODEL = 'gpt-4o-mini'
-const HISTORY_WINDOW = 10 // últimas N mensagens usadas como contexto
+const HISTORY_WINDOW = 10     // últimas N mensagens usadas como contexto
 
 // ============================================================================
 // PERSONALITY PROMPTS
@@ -60,10 +61,10 @@ function getCurrentMes(): string {
   return `${year}-${month}`
 }
 
-function getPreviousMes(mesRef: string): string {
-  const [year, month] = mesRef.split('-').map(Number)
-  const d = new Date(year, month - 2, 1) // month-2 porque month é 1-based
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+function getRenovacaoDate(mesAtual: string): string {
+  const [ano, mes] = mesAtual.split('-').map(Number)
+  const dataRenovacao = new Date(ano, mes, 1)
+  return dataRenovacao.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -112,7 +113,6 @@ serve(async (req) => {
     // -------------------------------------------------------------------------
     let accessId: string | null = null
 
-    // Busca pelo user_id (mais rápido após primeiro acesso)
     const { data: accessByUid } = await supabaseAdmin
       .from('ai_feature_access')
       .select('id, enabled')
@@ -125,10 +125,9 @@ serve(async (req) => {
       }
       accessId = accessByUid.id
     } else {
-      // Fallback pelo email (seeds sem user_id vinculado)
       const { data: accessByEmail } = await supabaseAdmin
         .from('ai_feature_access')
-        .select('id, enabled')
+        .select('id, enabled, user_id')
         .eq('email', user.email ?? '')
         .maybeSingle()
 
@@ -137,7 +136,6 @@ serve(async (req) => {
       }
       accessId = accessByEmail.id
 
-      // Vincula user_id para futuros lookups
       if (!accessByEmail.user_id) {
         await supabaseAdmin
           .from('ai_feature_access')
@@ -146,7 +144,6 @@ serve(async (req) => {
       }
     }
 
-    // Verifica permissão específica da funcionalidade 'assistente'
     const { data: permission } = await supabaseAdmin
       .from('ai_feature_permissions')
       .select('enabled')
@@ -155,11 +152,46 @@ serve(async (req) => {
       .maybeSingle()
 
     if (!permission || !permission.enabled) {
-      return jsonResponse({ error: 'Funcionalidade Assistente não habilitada para este usuário', code: 'FEATURE_NOT_ENABLED' }, 403)
+      return jsonResponse({ error: 'Funcionalidade Assistente não habilitada', code: 'FEATURE_NOT_ENABLED' }, 403)
     }
 
     // -------------------------------------------------------------------------
-    // 3. LER BODY
+    // 3. VERIFICAR CRÉDITOS DISPONÍVEIS (pool compartilhado)
+    // -------------------------------------------------------------------------
+    const mesAtual = getCurrentMes()
+
+    const { data: creditsConfig } = await supabaseAdmin
+      .from('ai_credits_config')
+      .select('creditos_proativas')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const creditosProativas = creditsConfig?.creditos_proativas ?? 10
+    const limiteManual = TOTAL_LIMIT - creditosProativas
+
+    // Conta usos manuais do mês (posso_comprar + assistente + legados NULL)
+    const { data: usageRows } = await supabaseAdmin
+      .from('ai_usage_log')
+      .select('feature_type')
+      .eq('user_id', user.id)
+      .eq('mes_referencia', mesAtual)
+
+    const usadoManual = (usageRows ?? []).filter((r) => r.feature_type !== 'proativa').length
+
+    if (usadoManual >= limiteManual) {
+      return jsonResponse(
+        {
+          error: `Você atingiu o limite de ${limiteManual} consultas manuais este mês. Seus créditos renovam em ${getRenovacaoDate(mesAtual)}.`,
+          code: 'MONTHLY_LIMIT_REACHED',
+          creditos_restantes: 0,
+          limite_manual: limiteManual,
+        },
+        429
+      )
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. LER BODY
     // -------------------------------------------------------------------------
     const { mensagem, family_id: familyId } = await req.json()
 
@@ -172,7 +204,7 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------------------
-    // 4. TOM DE PERSONALIDADE
+    // 5. TOM DE PERSONALIDADE
     // -------------------------------------------------------------------------
     const { data: prefData } = await supabaseAdmin
       .from('user_ai_preferences')
@@ -184,12 +216,15 @@ serve(async (req) => {
     const systemBasePrompt = PERSONALITY_PROMPTS[tone] ?? PERSONALITY_PROMPTS['parceiro']
 
     // -------------------------------------------------------------------------
-    // 5. MONTAR CONTEXTO FINANCEIRO
+    // 6. MONTAR CONTEXTO FINANCEIRO
     // -------------------------------------------------------------------------
-    const mesRef = getCurrentMes()
-    const mesAnterior = getPreviousMes(mesRef)
+    const mesRef = mesAtual
+    const mesAnterior = (() => {
+      const [ano, mes] = mesRef.split('-').map(Number)
+      const d = new Date(ano, mes - 2, 1)
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    })()
 
-    // --- Envelopes do mês atual ---
     const { data: orcamento } = await supabaseAdmin
       .from('orcamentos_mensais')
       .select('id')
@@ -197,27 +232,14 @@ serve(async (req) => {
       .eq('mes_referencia', `${mesRef}-01`)
       .maybeSingle()
 
-    type Envelope = {
-      nome: string
-      valor_orcado: number
-      valor_gasto: number
-      disponivel: number
-      percentual: number
-    }
-
+    type Envelope = { nome: string; valor_orcado: number; valor_gasto: number; disponivel: number; percentual: number }
     let envelopes: Envelope[] = []
     let totalReceitas = 0
 
     if (orcamento) {
       const [budgetsRes, categoriasRes, lancamentosRes] = await Promise.all([
-        supabaseAdmin
-          .from('categorias_budget')
-          .select('categoria_id, valor_orcado')
-          .eq('orcamento_id', orcamento.id),
-        supabaseAdmin
-          .from('categorias')
-          .select('id, nome, tipo')
-          .eq('family_id', familyId),
+        supabaseAdmin.from('categorias_budget').select('categoria_id, valor_orcado').eq('orcamento_id', orcamento.id),
+        supabaseAdmin.from('categorias').select('id, nome, tipo').eq('family_id', familyId),
         supabaseAdmin
           .from('lancamentos')
           .select('categoria_id, valor, status, tipo, data, parcela_total, data_vencimento_fatura')
@@ -231,12 +253,10 @@ serve(async (req) => {
       const categorias = categoriasRes.data ?? []
       const lancamentos = lancamentosRes.data ?? []
 
-      // Totais de receita do mês
       totalReceitas = lancamentos
         .filter((l) => l.tipo === 'receita' && l.status === 'pago')
         .reduce((s, l) => s + l.valor, 0)
 
-      // Gastos por categoria (replica lógica de envelope)
       const gastosPorCategoria: Record<string, number> = {}
       for (const l of lancamentos) {
         if (l.tipo !== 'despesa') continue
@@ -256,9 +276,7 @@ serve(async (req) => {
         if (!cat) continue
         const gasto = Math.round((gastosPorCategoria[budget.categoria_id] ?? 0) * 100) / 100
         const disponivel = Math.round((budget.valor_orcado - gasto) * 100) / 100
-        const percentual = budget.valor_orcado > 0
-          ? Math.round((gasto / budget.valor_orcado) * 10000) / 100
-          : 0
+        const percentual = budget.valor_orcado > 0 ? Math.round((gasto / budget.valor_orcado) * 10000) / 100 : 0
         envelopes.push({ nome: cat.nome, valor_orcado: budget.valor_orcado, valor_gasto: gasto, disponivel, percentual })
       }
       envelopes.sort((a, b) => b.percentual - a.percentual)
@@ -268,45 +286,37 @@ serve(async (req) => {
     const totalGasto = envelopes.reduce((s, e) => s + e.valor_gasto, 0)
     const totalDisponivel = totalOrcado - totalGasto
 
-    // --- Contas a vencer nos próximos 15 dias ---
     const hoje = new Date()
     const em15Dias = new Date(hoje)
     em15Dias.setDate(em15Dias.getDate() + 15)
-    const hojeStr = hoje.toISOString().substring(0, 10)
-    const em15DiasStr = em15Dias.toISOString().substring(0, 10)
 
-    const { data: contasAVencer } = await supabaseAdmin
-      .from('lancamentos')
-      .select('descricao, valor, data, categoria_id')
-      .eq('family_id', familyId)
-      .eq('tipo', 'despesa')
-      .in('status', ['projetado', 'pendente'])
-      .gte('data', hojeStr)
-      .lte('data', em15DiasStr)
-      .order('data', { ascending: true })
-      .limit(10)
+    const [contasAVencerRes, caixinhasRes, lancMesAnteriorRes] = await Promise.all([
+      supabaseAdmin
+        .from('lancamentos')
+        .select('descricao, valor, data')
+        .eq('family_id', familyId)
+        .eq('tipo', 'despesa')
+        .in('status', ['projetado', 'pendente'])
+        .gte('data', hoje.toISOString().substring(0, 10))
+        .lte('data', em15Dias.toISOString().substring(0, 10))
+        .order('data', { ascending: true })
+        .limit(10),
+      supabaseAdmin.from('caixinhas').select('nome, meta, saldo_atual, tipo').eq('family_id', familyId),
+      supabaseAdmin
+        .from('lancamentos')
+        .select('valor, tipo, status')
+        .eq('family_id', familyId)
+        .eq('status', 'pago')
+        .gte('data', `${mesAnterior}-01`)
+        .lte('data', `${mesAnterior}-31`),
+    ])
 
-    // --- Caixinhas / Reservas ---
-    const { data: caixinhas } = await supabaseAdmin
-      .from('caixinhas')
-      .select('nome, meta, saldo_atual, tipo')
-      .eq('family_id', familyId)
+    const contasAVencer = contasAVencerRes.data ?? []
+    const caixinhas = caixinhasRes.data ?? []
+    const lancMesAnterior = lancMesAnteriorRes.data ?? []
+    const receitaAnterior = lancMesAnterior.filter((l) => l.tipo === 'receita').reduce((s, l) => s + l.valor, 0)
+    const despesaAnterior = lancMesAnterior.filter((l) => l.tipo === 'despesa').reduce((s, l) => s + l.valor, 0)
 
-    // --- Resumo do mês anterior ---
-    const { data: lancMesAnterior } = await supabaseAdmin
-      .from('lancamentos')
-      .select('valor, tipo, status')
-      .eq('family_id', familyId)
-      .in('status', ['pago'])
-      .gte('data', `${mesAnterior}-01`)
-      .lte('data', `${mesAnterior}-31`)
-
-    const receitaAnterior = (lancMesAnterior ?? [])
-      .filter((l) => l.tipo === 'receita').reduce((s, l) => s + l.valor, 0)
-    const despesaAnterior = (lancMesAnterior ?? [])
-      .filter((l) => l.tipo === 'despesa').reduce((s, l) => s + l.valor, 0)
-
-    // --- Montar texto do contexto ---
     const linhas: string[] = [
       `=== SITUAÇÃO FINANCEIRA ATUAL (${mesRef}) ===`,
       '',
@@ -327,7 +337,7 @@ serve(async (req) => {
       linhas.push('  (Nenhum orçamento configurado para este mês)')
     }
 
-    if (contasAVencer && contasAVencer.length > 0) {
+    if (contasAVencer.length > 0) {
       linhas.push('')
       linhas.push('--- CONTAS A PAGAR NOS PRÓXIMOS 15 DIAS ---')
       for (const c of contasAVencer) {
@@ -335,7 +345,7 @@ serve(async (req) => {
       }
     }
 
-    if (caixinhas && caixinhas.length > 0) {
+    if (caixinhas.length > 0) {
       linhas.push('')
       linhas.push('--- RESERVAS E INVESTIMENTOS (CAIXINHAS) ---')
       for (const cx of caixinhas) {
@@ -352,7 +362,7 @@ serve(async (req) => {
     const contextoFinanceiro = linhas.join('\n')
 
     // -------------------------------------------------------------------------
-    // 6. HISTÓRICO DE MENSAGENS (janela de contexto)
+    // 7. HISTÓRICO DE MENSAGENS (janela de contexto)
     // -------------------------------------------------------------------------
     const { data: historico } = await supabaseAdmin
       .from('assistente_mensagens')
@@ -361,27 +371,21 @@ serve(async (req) => {
       .order('created_at', { ascending: false })
       .limit(HISTORY_WINDOW)
 
-    // Histórico vem em ordem DESC, precisa inverter para ordem cronológica
     const historicoOrdenado = (historico ?? []).reverse()
 
     // -------------------------------------------------------------------------
-    // 7. MONTAR MESSAGES PARA OPENAI
+    // 8. MONTAR MESSAGES PARA OPENAI
     // -------------------------------------------------------------------------
-    const systemPrompt = `${systemBasePrompt}
-
-${contextoFinanceiro}`
+    const systemPrompt = `${systemBasePrompt}\n\n${contextoFinanceiro}`
 
     const messages = [
       { role: 'system', content: systemPrompt },
-      ...historicoOrdenado.map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.conteudo,
-      })),
+      ...historicoOrdenado.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.conteudo })),
       { role: 'user', content: mensagem.trim() },
     ]
 
     // -------------------------------------------------------------------------
-    // 8. CHAMAR OPENAI
+    // 9. CHAMAR OPENAI
     // -------------------------------------------------------------------------
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiKey) {
@@ -391,16 +395,8 @@ ${contextoFinanceiro}`
 
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${openaiKey}`,
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages,
-        max_tokens: 500,
-        temperature: 0.7,
-      }),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+      body: JSON.stringify({ model: OPENAI_MODEL, messages, max_tokens: 500, temperature: 0.7 }),
     })
 
     if (!openaiRes.ok) {
@@ -417,29 +413,33 @@ ${contextoFinanceiro}`
     }
 
     // -------------------------------------------------------------------------
-    // 9. SALVAR MENSAGENS NO BANCO
+    // 10. SALVAR MENSAGENS E REGISTRAR USO — em try-catch isolado
     // -------------------------------------------------------------------------
-    await supabaseAdmin.from('assistente_mensagens').insert([
-      {
-        family_id: familyId,
-        user_id: user.id,
-        role: 'user',
-        conteudo: mensagem.trim(),
-        tone: null,
-      },
-      {
-        family_id: familyId,
-        user_id: user.id,
-        role: 'assistant',
-        conteudo: resposta,
-        tone,
-      },
-    ])
+    try {
+      await Promise.all([
+        supabaseAdmin.from('assistente_mensagens').insert([
+          { family_id: familyId, user_id: user.id, role: 'user',      conteudo: mensagem.trim(), tone: null },
+          { family_id: familyId, user_id: user.id, role: 'assistant', conteudo: resposta, tone },
+        ]),
+        supabaseAdmin.from('ai_usage_log').insert({
+          user_id: user.id,
+          mes_referencia: mesAtual,
+          feature_type: 'assistente',
+        }),
+      ])
+    } catch (trackErr) {
+      console.error('Erro ao salvar mensagens/uso (não bloqueia resposta):', trackErr)
+    }
 
     // -------------------------------------------------------------------------
-    // 10. RETORNAR
+    // 11. RETORNAR
     // -------------------------------------------------------------------------
-    return jsonResponse({ resposta, tone })
+    return jsonResponse({
+      resposta,
+      tone,
+      creditos_restantes: limiteManual - usadoManual - 1,
+      limite_manual: limiteManual,
+    })
   } catch (error) {
     console.error('Erro no assistente-financeiro:', error)
     return jsonResponse({ error: error.message || 'Erro interno do servidor' }, 500)

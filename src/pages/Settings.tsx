@@ -38,6 +38,7 @@ import { supabase } from '../lib/supabase'
 import { cn } from '../lib/cn'
 import { toast } from 'sonner'
 import { usePossoComprarIA, type PersonalityTone } from '../hooks/usePossoComprarIA'
+import { useAICredits, AI_TOTAL_LIMIT } from '../hooks/useAICredits'
 
 export function Settings() {
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -75,6 +76,27 @@ export function Settings() {
 
   // Hook de IA (verifica acesso e gerencia tom de personalidade)
   const { hasAccess: hasIAAccess, isCheckingAccess: isCheckingIA, tone: iaTone, setTone: setIATone } = usePossoComprarIA()
+
+  // Hook de créditos de IA (uso do mês + configuração)
+  const {
+    creditosProativas,
+    limiteManual,
+    usadoPossoComprar,
+    usadoAssistente,
+    usadoProativas,
+    usadoManual,
+    creditosRestantes,
+    dataRenovacao,
+    isLoading: isLoadingCredits,
+    isSaving: isSavingCredits,
+    saveCreditsConfig,
+  } = useAICredits()
+
+  // Estado local do slider de proativas (sincroniza com o valor carregado)
+  const [sliderProativas, setSliderProativas] = useState(10)
+  useEffect(() => {
+    setSliderProativas(creditosProativas)
+  }, [creditosProativas])
 
   // Stores for export
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
@@ -568,40 +590,196 @@ export function Settings() {
               Assistente IA
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-gray-400">
-              Escolha a personalidade do assistente para o "Posso Comprar? com IA".
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              {(
-                [
-                  { id: 'conservador', emoji: '🧓', label: 'Conservador', description: 'Cauteloso, foca nos riscos' },
-                  { id: 'parceiro',    emoji: '🤙', label: 'Parceiro',    description: 'Honesto e direto, sem drama' },
-                  { id: 'provocador',  emoji: '😈', label: 'Provocador',  description: 'Irônico, te desafia a poupar' },
-                  { id: 'hype',        emoji: '🎉', label: 'Hype',        description: 'Torce por você, mas é honesto' },
-                ] as Array<{ id: PersonalityTone; emoji: string; label: string; description: string }>
-              ).map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setIATone(t.id)}
-                  className={cn(
-                    'flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all duration-150',
-                    iaTone === t.id
-                      ? 'bg-secondary-500/20 border-secondary-500/50 text-gray-100'
-                      : 'bg-dark-800 border-dark-600 text-gray-400 hover:border-dark-500 hover:text-gray-300'
-                  )}
-                >
-                  <span className="text-xl leading-none">{t.emoji}</span>
-                  <div>
-                    <p className="text-sm font-medium leading-tight">{t.label}</p>
-                    <p className="text-xs text-gray-500 leading-tight">{t.description}</p>
-                  </div>
-                </button>
-              ))}
+          <CardContent className="space-y-6">
+
+            {/* ---------------------------------------------------------------- */}
+            {/* PERSONALIDADE                                                    */}
+            {/* ---------------------------------------------------------------- */}
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium text-gray-300 mb-1">Personalidade do Assistente</p>
+                <p className="text-xs text-gray-500">
+                  Aplicada ao "Posso Comprar? com IA" e ao chat do Assistente Financeiro.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {(
+                  [
+                    { id: 'conservador', emoji: '🧓', label: 'Conservador', description: 'Cauteloso, foca nos riscos' },
+                    { id: 'parceiro',    emoji: '🤙', label: 'Parceiro',    description: 'Honesto e direto, sem drama' },
+                    { id: 'provocador',  emoji: '😈', label: 'Provocador',  description: 'Irônico, te desafia a poupar' },
+                    { id: 'hype',        emoji: '🎉', label: 'Hype',        description: 'Torce por você, mas é honesto' },
+                  ] as Array<{ id: PersonalityTone; emoji: string; label: string; description: string }>
+                ).map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setIATone(t.id)}
+                    className={cn(
+                      'flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all duration-150',
+                      iaTone === t.id
+                        ? 'bg-secondary-500/20 border-secondary-500/50 text-gray-100'
+                        : 'bg-dark-800 border-dark-600 text-gray-400 hover:border-dark-500 hover:text-gray-300'
+                    )}
+                  >
+                    <span className="text-xl leading-none">{t.emoji}</span>
+                    <div>
+                      <p className="text-sm font-medium leading-tight">{t.label}</p>
+                      <p className="text-xs text-gray-500 leading-tight">{t.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
-            <p className="text-xs text-gray-600">
-              A personalidade selecionada será usada em todas as suas consultas à IA.
-            </p>
+
+            <div className="border-t border-dark-700/50" />
+
+            {/* ---------------------------------------------------------------- */}
+            {/* USO DE CRÉDITOS DO MÊS                                           */}
+            {/* ---------------------------------------------------------------- */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-300">Créditos de IA este mês</p>
+                {!isLoadingCredits && (
+                  <span className={cn(
+                    'text-xs font-bold px-2 py-0.5 rounded-full',
+                    creditosRestantes <= 5
+                      ? 'text-amber-400 bg-amber-500/15'
+                      : 'text-secondary-400 bg-secondary-500/15'
+                  )}>
+                    {creditosRestantes} restantes
+                  </span>
+                )}
+              </div>
+
+              {isLoadingCredits ? (
+                <div className="flex items-center gap-2 py-4">
+                  <Loader2 size={14} className="animate-spin text-gray-500" />
+                  <span className="text-xs text-gray-500">Carregando uso...</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Barra de progresso total */}
+                  <div>
+                    <div className="flex justify-between text-[10px] text-gray-500 mb-1.5">
+                      <span>Consultas manuais usadas</span>
+                      <span>{usadoManual} / {limiteManual}</span>
+                    </div>
+                    <div className="h-2 bg-dark-700 rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all duration-500',
+                          usadoManual >= limiteManual
+                            ? 'bg-red-500'
+                            : usadoManual >= limiteManual * 0.8
+                              ? 'bg-amber-500'
+                              : 'bg-gradient-to-r from-secondary-500 to-primary-500'
+                        )}
+                        style={{ width: `${Math.min((usadoManual / Math.max(limiteManual, 1)) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Breakdown por tipo */}
+                  <div className="space-y-2 pl-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-secondary-500 shrink-0" />
+                        Posso Comprar? com IA
+                      </span>
+                      <span className="text-gray-400 font-medium">{usadoPossoComprar} uso{usadoPossoComprar !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary-500 shrink-0" />
+                        Chat do Assistente
+                      </span>
+                      <span className="text-gray-400 font-medium">{usadoAssistente} uso{usadoAssistente !== 1 ? 's' : ''}</span>
+                    </div>
+                    {usadoProativas > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                          Mensagens Proativas
+                        </span>
+                        <span className="text-gray-400 font-medium">{usadoProativas} uso{usadoProativas !== 1 ? 's' : ''}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Data de renovação */}
+                  <p className="text-[10px] text-gray-600">
+                    Renova automaticamente em{' '}
+                    <span className="text-gray-500 font-medium">
+                      {format(dataRenovacao, "dd 'de' MMMM", { locale: ptBR })}
+                    </span>
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-dark-700/50" />
+
+            {/* ---------------------------------------------------------------- */}
+            {/* RESERVA PARA MENSAGENS PROATIVAS                                 */}
+            {/* ---------------------------------------------------------------- */}
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium text-gray-300 mb-1">Reservar para mensagens proativas</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Defina quantos dos {AI_TOTAL_LIMIT} créditos mensais ficarão reservados para análises
+                  automáticas do PocketWise (em breve). O restante fica disponível para consultas manuais.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-gray-400">
+                  <span>Proativas</span>
+                  <span className="font-bold text-secondary-400">{sliderProativas} crédito{sliderProativas !== 1 ? 's' : ''}</span>
+                  <span>Manuais</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={30}
+                  value={sliderProativas}
+                  onChange={(e) => setSliderProativas(Number(e.target.value))}
+                  className="w-full h-2 appearance-none rounded-full bg-dark-700 accent-secondary-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-gray-600">
+                  <span>{sliderProativas} reservados para proativas</span>
+                  <span>{AI_TOTAL_LIMIT - sliderProativas} para consultas manuais</span>
+                </div>
+              </div>
+
+              <Button
+                size="sm"
+                onClick={() => saveCreditsConfig(sliderProativas)}
+                isLoading={isSavingCredits}
+                disabled={sliderProativas === creditosProativas || isSavingCredits}
+              >
+                Salvar configuração
+              </Button>
+            </div>
+
+            <div className="border-t border-dark-700/50" />
+
+            {/* ---------------------------------------------------------------- */}
+            {/* EXPLICAÇÃO                                                       */}
+            {/* ---------------------------------------------------------------- */}
+            <div className="p-3 bg-dark-800/50 rounded-xl border border-dark-700/50 space-y-2">
+              <p className="text-xs font-semibold text-gray-400">Como funcionam os créditos?</p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Cada consulta ao "Posso Comprar? com IA" ou mensagem no chat do Assistente consome
+                1 crédito do seu pool mensal de {AI_TOTAL_LIMIT}. O pool renova automaticamente
+                todo 1° do mês.
+              </p>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Você pode reservar parte dos créditos para mensagens proativas — análises automáticas
+                que o PocketWise envia sobre sua situação financeira (funcionalidade em breve).
+                Por padrão, 10 créditos ficam reservados.
+              </p>
+            </div>
+
           </CardContent>
         </Card>
       )}
