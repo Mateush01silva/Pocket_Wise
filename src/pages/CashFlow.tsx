@@ -99,9 +99,20 @@ export function CashFlow() {
         : despesasDoDia.filter(l => l.status !== 'pago').reduce((sum, l) => sum + l.valor, 0)
 
       // Calcular saldo acumulado (total e disponível)
+      // Para hoje (i===0): saldoInicialContas já reflete as transações confirmadas (pago)
+      // do dia, pois vem do saldo real das contas bancárias. Somar tudo de novo
+      // causaria dupla contagem. Somamos apenas o líquido das transações AINDA NÃO pagas.
+      // Para dias futuros: somamos tudo normalmente (nada está pago ainda).
+      const receitasParaAcumular = i === 0
+        ? lancamentosDoDia.filter(l => l.tipo === 'receita' && l.status !== 'pago').reduce((s, l) => s + l.valor, 0)
+        : receitasDia
+      const despesasParaAcumular = i === 0
+        ? lancamentosDoDia.filter(l => l.tipo === 'despesa' && l.status !== 'pago').reduce((s, l) => s + l.valor, 0)
+        : despesasDia
+
       const saldoInicial = saldoAcumulado
-      saldoAcumulado = saldoAcumulado + receitasDia - despesasDia
-      saldoDisponivelAcumulado = saldoDisponivelAcumulado + receitasDia - despesasDia
+      saldoAcumulado = saldoAcumulado + receitasParaAcumular - despesasParaAcumular
+      saldoDisponivelAcumulado = saldoDisponivelAcumulado + receitasParaAcumular - despesasParaAcumular
 
       balances.push({
         date: currentDate,
