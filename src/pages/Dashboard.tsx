@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Card, CardContent, Button } from '../components/ui'
 import { TrendingUp, TrendingDown, Wallet, CreditCard, Plus, ArrowUpRight, ArrowDownLeft, Clock, Package, AlertTriangle, Calculator, PiggyBank, Sparkles, Maximize2 } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
+import { parseLocalDate } from '../utils/date'
 import { useTransacoesStore, useCategoriasStore } from '../store'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
@@ -220,7 +221,7 @@ export function Dashboard() {
     const fim = endOfMonth(mesData)
 
     const lancamentosMesIteracao = lancamentos.filter(l => {
-      const dataLancamento = new Date(l.data_vencimento_fatura || l.data)
+      const dataLancamento = parseLocalDate(l.data_vencimento_fatura || l.data)
       return dataLancamento >= inicio && dataLancamento <= fim
     })
 
@@ -886,7 +887,7 @@ export function Dashboard() {
           <CardContent>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-100">Transações Recentes</h2>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/app/transacoes')}>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/app/transacoes?ordenar=cadastro&periodo=todos')}>
                 Ver todas
               </Button>
             </div>

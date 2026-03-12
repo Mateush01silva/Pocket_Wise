@@ -1,5 +1,6 @@
 import type { Lancamento, TransacaoCaixinha } from '../types'
 import { startOfMonth, endOfMonth, subMonths, format, isBefore, addMonths } from 'date-fns'
+import { parseLocalDate } from '../utils/date'
 
 /**
  * Calcula o saldo REAL (apenas transações com status='pago' até hoje)
@@ -13,7 +14,7 @@ export function calcularSaldoReal(lancamentos: Lancamento[]): {
   hoje.setHours(23, 59, 59, 999) // Fim do dia de hoje
 
   const lancamentosPagos = lancamentos.filter((l) => {
-    const dataLancamento = new Date(l.data)
+    const dataLancamento = parseLocalDate(l.data)
     return l.status === 'pago' && dataLancamento <= hoje
   })
 
@@ -51,7 +52,7 @@ export function calcularSaldoProjetado(
   // Filtrar por período se fornecido
   if (dataInicio && dataFim) {
     lancamentosFiltrados = lancamentos.filter((l) => {
-      const dataLancamento = new Date(l.data_vencimento_fatura || l.data)
+      const dataLancamento = parseLocalDate(l.data_vencimento_fatura || l.data)
       return dataLancamento >= dataInicio && dataLancamento <= dataFim
     })
   }
@@ -85,7 +86,7 @@ export function calcularFaturasCartao(
 
   if (dataInicio && dataFim) {
     lancamentosFiltrados = lancamentos.filter((l) => {
-      const dataLancamento = new Date(l.data_vencimento_fatura || l.data)
+      const dataLancamento = parseLocalDate(l.data_vencimento_fatura || l.data)
       return dataLancamento >= dataInicio && dataLancamento <= dataFim
     })
   }
@@ -119,7 +120,7 @@ export function filtrarPorPeriodo(
   dataFim: Date
 ): Lancamento[] {
   return lancamentos.filter((l) => {
-    const dataLancamento = new Date(l.data_vencimento_fatura || l.data)
+    const dataLancamento = parseLocalDate(l.data_vencimento_fatura || l.data)
     return dataLancamento >= dataInicio && dataLancamento <= dataFim
   })
 }
@@ -180,7 +181,7 @@ export function calcularSaldoAcumuladoNaoAlocado(
 
   // Encontrar a data mais antiga das transações
   const datasOrdenadas = lancamentos
-    .map((l) => new Date(l.data))
+    .map((l) => parseLocalDate(l.data))
     .sort((a, b) => a.getTime() - b.getTime())
 
   const dataInicio = startOfMonth(datasOrdenadas[0])
