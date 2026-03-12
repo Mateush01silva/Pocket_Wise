@@ -68,6 +68,12 @@ export function Transactions() {
       setFilterTipo(tipoParam as 'receita' | 'despesa')
     }
 
+    const ordenarParam = searchParams.get('ordenar')
+    if (ordenarParam === 'cadastro') {
+      setSortField('cadastro')
+      setSortOrder('desc')
+    }
+
     // Se periodo=todos, mostrar todas as transações (sem filtro de data)
     if (periodoParam === 'todos') {
       setPeriodFilter({

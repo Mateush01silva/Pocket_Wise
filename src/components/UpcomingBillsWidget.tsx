@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Card, CardContent } from './ui'
 import { AlertCircle, Clock, Calendar, CheckCircle, TrendingUp, TrendingDown, Check, Pencil } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
+import { parseLocalDate } from '../utils/date'
 import { useTransacoesStore, useCategoriasStore } from '../store'
 import { format, isToday, isThisWeek, isPast, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -71,15 +72,13 @@ export function UpcomingBillsWidget() {
         if (l.status !== 'pendente' && l.status !== 'projetado') return false
 
         // Despesas OU receitas (receitas para lembrar de conferir se recebeu)
-        const dataLancamento = new Date(l.data)
-        dataLancamento.setHours(0, 0, 0, 0)
+        const dataLancamento = parseLocalDate(l.data)
 
         // Mostrar: vencidos, hoje, esta semana, ou próximos 15 dias
         return dataLancamento <= proximos15Dias
       })
       .map(l => {
-        const dataLancamento = new Date(l.data)
-        dataLancamento.setHours(0, 0, 0, 0)
+        const dataLancamento = parseLocalDate(l.data)
         const categoria = categorias.find(c => c.id === l.categoria_id)
 
         let status: 'overdue' | 'today' | 'this_week' | 'upcoming' = 'upcoming'

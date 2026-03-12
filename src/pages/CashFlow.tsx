@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { Card, CardContent, Button } from '../components/ui'
 import { AlertTriangle, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
+import { parseLocalDate } from '../utils/date'
 import { useTransacoesStore, useContasBancariasStore, useCategoriasStore } from '../store'
 import { format, addDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -72,9 +73,10 @@ export function CashFlow() {
       // (quando o dinheiro efetivamente sai da conta, não na data da compra)
       // Para demais: posicionar na data da transação
       const lancamentosDoDia = lancamentos.filter(l => {
-        const dataRef = (l.forma_pagamento === 'credito' && l.data_vencimento_fatura)
-          ? new Date(l.data_vencimento_fatura)
-          : new Date(l.data)
+        const dataStr = (l.forma_pagamento === 'credito' && l.data_vencimento_fatura)
+          ? l.data_vencimento_fatura
+          : l.data
+        const dataRef = parseLocalDate(dataStr)
         return isWithinInterval(dataRef, { start: dateStart, end: dateEnd })
       })
 
