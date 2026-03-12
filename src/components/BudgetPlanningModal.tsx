@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Check, X, AlertTriangle, TrendingUp, Search, PiggyBank } from 'lucide-react'
+import { Check, X, AlertTriangle, TrendingUp, Search, PiggyBank, Clock } from 'lucide-react'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select } from './ui'
 import { CurrencyInput } from './ui/CurrencyInput'
 import { useOrcamentosStore } from '../store'
 import { useCategoriasStore } from '../store'
+import { useTransacoesStore } from '../store'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import type { OrcamentoMensal, Categoria, CategoriaPrioridade } from '../types'
 import { formatCurrency } from '../utils/currency'
@@ -41,6 +42,9 @@ export function BudgetPlanningModal({
   const caixinhas = useCaixinhasStore((state) => state.caixinhas)
   const transacoesCaixinhas = useCaixinhasStore((state) => state.transacoes)
 
+  // Lançamentos para sugestão de receitas pendentes
+  const lancamentos = useTransacoesStore((state) => state.lancamentos)
+
   const [metaPoupanca, setMetaPoupanca] = useState(0)
   const [metaPoupancaPercentual, setMetaPoupancaPercentual] = useState<number | null>(null)
   const [tipoMeta, setTipoMeta] = useState<'valor' | 'percentual'>('valor')
@@ -49,6 +53,7 @@ export function BudgetPlanningModal({
   const [isLoading, setIsLoading] = useState(false)
   const [filtroReceita, setFiltroReceita] = useState('')
   const [filtroDespesa, setFiltroDespesa] = useState('')
+  const [sugestaoReceitasDismissed, setSugestaoReceitasDismissed] = useState(false)
 
   const isEditMode = !!orcamento
 
@@ -63,6 +68,53 @@ export function BudgetPlanningModal({
     const todasTransacoes = Object.values(transacoesCaixinhas).flat()
     return getRetiradasCaixinhasParaMes(todasTransacoes, caixinhas, mesReferenciaFormatado)
   }, [transacoesCaixinhas, caixinhas, mesReferenciaFormatado])
+
+  // Receitas pendentes para o mês de referência (sugestão ao planejar)
+  const receitasPendentesMes = useMemo(() => {
+    return lancamentos.filter(
+      (l) =>
+        l.tipo === 'receita' &&
+        l.status === 'pendente' &&
+        l.data.startsWith(mesReferenciaFormatado)
+    )
+  }, [lancamentos, mesReferenciaFormatado])
+
+  // Agrupar receitas pendentes por categoria (soma)
+  const receitasPendentesPorCategoria = useMemo(() => {
+    return receitasPendentesMes.reduce(
+      (acc, l) => {
+        if (l.categoria_id) {
+          acc[l.categoria_id] = (acc[l.categoria_id] || 0) + l.valor
+        }
+        return acc
+      },
+      {} as Record<string, number>
+    )
+  }, [receitasPendentesMes])
+
+  const totalReceitasPendentes = useMemo(
+    () => receitasPendentesMes.reduce((sum, l) => sum + l.valor, 0),
+    [receitasPendentesMes]
+  )
+
+  const handleAplicarReceitasPendentes = () => {
+    const novasSelecionadas = [...categoriasReceitaSelecionadas]
+
+    Object.entries(receitasPendentesPorCategoria).forEach(([catId, valor]) => {
+      const jaExiste = novasSelecionadas.findIndex((c) => c.categoria_id === catId)
+      if (jaExiste >= 0) {
+        // Atualizar valor se já existe e o pendente é maior
+        if (valor > novasSelecionadas[jaExiste].valor_orcado) {
+          novasSelecionadas[jaExiste] = { ...novasSelecionadas[jaExiste], valor_orcado: valor }
+        }
+      } else {
+        novasSelecionadas.push({ categoria_id: catId, valor_orcado: valor, prioridade: 'importante' })
+      }
+    })
+
+    setCategoriasReceitaSelecionadas(novasSelecionadas)
+    setSugestaoReceitasDismissed(true)
+  }
 
   // Filtrar categorias de receita principais
   const categoriasReceita = useMemo(
@@ -267,6 +319,38 @@ export function BudgetPlanningModal({
                 <TrendingUp size={16} className="text-green-400" />
                 Receitas Previstas ({categoriasReceitaSelecionadas.length} categorias)
               </h3>
+
+              {/* Sugestão: receitas pendentes do mês */}
+              {receitasPendentesMes.length > 0 && !sugestaoReceitasDismissed && (
+                <div className="mb-3 flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <Clock size={16} className="text-yellow-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-yellow-300">
+                      Você tem {receitasPendentesMes.length} receita{receitasPendentesMes.length > 1 ? 's' : ''} pendente{receitasPendentesMes.length > 1 ? 's' : ''} no mês ({formatCurrency(totalReceitasPendentes)})
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Deseja usar esses valores como base para o planejamento de receitas?
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleAplicarReceitasPendentes}
+                      className="text-xs"
+                    >
+                      Incluir
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setSugestaoReceitasDismissed(true)}
+                      className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Busca de Receitas */}
               <div className="relative mb-3">

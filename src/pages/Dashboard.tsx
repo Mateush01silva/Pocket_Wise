@@ -27,6 +27,8 @@ export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isAlocarSaldoModalOpen, setIsAlocarSaldoModalOpen] = useState(false)
   const [isGastosModalOpen, setIsGastosModalOpen] = useState(false)
+  const [ajusteReceitasDismissed, setAjusteReceitasDismissed] = useState(false)
+  const [ajustandoReceitas, setAjustandoReceitas] = useState(false)
   const [periodFilter, setPeriodFilter] = useState<PeriodFilterValue>({
     tipo: 'mes-atual',
     dataInicio: startOfMonth(new Date()),
@@ -55,7 +57,8 @@ export function Dashboard() {
   const getProjecaoMensal = useOrcamentosStore((state) => state.getProjecaoMensal)
   const getEnvelopesDigitais = useOrcamentosStore((state) => state.getEnvelopesDigitais)
   const setOrcamentoAtual = useOrcamentosStore((state) => state.setOrcamentoAtual)
-
+  const categoriasBudgetAll = useOrcamentosStore((state) => state.categoriasBudget)
+  const updateCategoriaBudget = useOrcamentosStore((state) => state.updateCategoriaBudget)
 
   // Initialize budget store
   useEffect(() => {
@@ -254,6 +257,64 @@ export function Dashboard() {
     console.error('Erro ao calcular dados de orçamento:', err)
   }
 
+  // Revenue auto-adjustment: compare actual paid revenues vs budgeted revenues for current month
+  const mesAtualYYYYMM = format(startOfMonth(new Date()), 'yyyy-MM')
+  const categoriasBudgetReceitas = orcamentoAtual
+    ? categoriasBudgetAll.filter((cb) => {
+        const cat = categorias.find((c) => c.id === cb.categoria_id)
+        return cat?.tipo === 'receita' && cb.orcamento_id === orcamentoAtual.id
+      })
+    : []
+  const receitasOrcadas = categoriasBudgetReceitas.reduce((sum, cb) => sum + cb.valor_orcado, 0)
+  const receitasPagasMes = lancamentos
+    .filter((l) => l.tipo === 'receita' && l.status === 'pago' && l.data.startsWith(mesAtualYYYYMM))
+    .reduce((sum, l) => sum + l.valor, 0)
+  const superouReceitas =
+    !!orcamentoAtual && categoriasBudgetReceitas.length > 0 && receitasPagasMes > receitasOrcadas + 0.01
+  const excessoReceitas = superouReceitas ? receitasPagasMes - receitasOrcadas : 0
+
+  const handleAjustarReceitas = async () => {
+    if (!orcamentoAtual || categoriasBudgetReceitas.length === 0) return
+    setAjustandoReceitas(true)
+    try {
+      // Group actual paid revenues by category for the current month
+      const receitasPorCategoria = lancamentos
+        .filter((l) => l.tipo === 'receita' && l.status === 'pago' && l.data.startsWith(mesAtualYYYYMM))
+        .reduce(
+          (acc, l) => {
+            if (l.categoria_id) acc[l.categoria_id] = (acc[l.categoria_id] || 0) + l.valor
+            return acc
+          },
+          {} as Record<string, number>
+        )
+
+      // Update each revenue category to match actual income (only if actual > budgeted)
+      for (const cb of categoriasBudgetReceitas) {
+        const receitaReal = receitasPorCategoria[cb.categoria_id]
+        if (receitaReal !== undefined && receitaReal > cb.valor_orcado) {
+          await updateCategoriaBudget(cb.id, receitaReal)
+        }
+      }
+
+      // If no specific category matched but total actual > total budgeted, scale proportionally
+      const nenhumCategoriaAtualizada = categoriasBudgetReceitas.every(
+        (cb) => (receitasPorCategoria[cb.categoria_id] || 0) <= cb.valor_orcado
+      )
+      if (nenhumCategoriaAtualizada && receitasOrcadas > 0) {
+        const ratio = receitasPagasMes / receitasOrcadas
+        for (const cb of categoriasBudgetReceitas) {
+          await updateCategoriaBudget(cb.id, Math.round(cb.valor_orcado * ratio * 100) / 100)
+        }
+      }
+
+      setAjusteReceitasDismissed(true)
+    } catch (err) {
+      console.error('Erro ao ajustar receitas:', err)
+    } finally {
+      setAjustandoReceitas(false)
+    }
+  }
+
   // Chart colors
   const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#06B6D4', '#84CC16']
 
@@ -389,6 +450,41 @@ export function Dashboard() {
 
       {/* Bank Accounts Widget - Saldo em Contas */}
       <BankAccountsWidget />
+
+      {/* Revenue auto-adjustment alert */}
+      {canEdit && superouReceitas && !ajusteReceitasDismissed && (
+        <div className="flex flex-col sm:flex-row items-start gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
+          <TrendingUp className="w-5 h-5 text-green-400 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-green-300">
+              Suas receitas superaram o planejado!
+            </p>
+            <p className="text-xs text-gray-400 mt-1">
+              Você recebeu <span className="text-green-400 font-medium">{formatCurrency(receitasPagasMes)}</span> este mês, mas havia planejado{' '}
+              <span className="text-gray-300 font-medium">{formatCurrency(receitasOrcadas)}</span>{' '}
+              (<span className="text-green-400">+{formatCurrency(excessoReceitas)}</span>). Deseja atualizar o orçamento para refletir a receita real e aumentar a projeção de saldo?
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              onClick={handleAjustarReceitas}
+              disabled={ajustandoReceitas}
+              className="text-xs whitespace-nowrap"
+            >
+              {ajustandoReceitas ? 'Ajustando...' : 'Ajustar orçamento'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setAjusteReceitasDismissed(true)}
+              className="text-xs text-gray-400"
+            >
+              Ignorar
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Budget Section */}
       {orcamentoAtual && projecao && (
@@ -790,7 +886,7 @@ export function Dashboard() {
           <CardContent>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-gray-100">Transações Recentes</h2>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" onClick={() => navigate('/app/transacoes')}>
                 Ver todas
               </Button>
             </div>
