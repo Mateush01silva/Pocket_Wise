@@ -61,6 +61,18 @@ function getCurrentMes(): string {
   return `${year}-${month}`
 }
 
+function getLastDayOfMonth(mesRef: string): string {
+  const [ano, mes] = mesRef.split('-').map(Number)
+  const lastDay = new Date(ano, mes, 0).getDate() // day 0 of next month = last day of current
+  return `${mesRef}-${String(lastDay).padStart(2, '0')}`
+}
+
+function subMonths(mesRef: string, n: number): string {
+  const [ano, mes] = mesRef.split('-').map(Number)
+  const d = new Date(ano, mes - 1 - n, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 function getRenovacaoDate(mesAtual: string): string {
   const [ano, mes] = mesAtual.split('-').map(Number)
   const dataRenovacao = new Date(ano, mes, 1)
@@ -218,13 +230,11 @@ serve(async (req) => {
     // -------------------------------------------------------------------------
     // 6. MONTAR CONTEXTO FINANCEIRO
     // -------------------------------------------------------------------------
-    const mesRef = mesAtual
-    const mesAnterior = (() => {
-      const [ano, mes] = mesRef.split('-').map(Number)
-      const d = new Date(ano, mes - 2, 1)
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    })()
+    const mesRef    = mesAtual
+    const mesM1     = subMonths(mesRef, 1)  // mês anterior
+    const mesM2     = subMonths(mesRef, 2)  // 2 meses atrás
 
+    // ---- 6a. Orçamento do mês atual (envelopes) -----------------------------
     const { data: orcamento } = await supabaseAdmin
       .from('orcamentos_mensais')
       .select('id')
@@ -234,63 +244,115 @@ serve(async (req) => {
 
     type Envelope = { nome: string; valor_orcado: number; valor_gasto: number; disponivel: number; percentual: number }
     let envelopes: Envelope[] = []
-    let totalReceitas = 0
+    let totalReceitas  = 0  // receitas deste mês (pago + projetado)
+    let totalGastoReal = 0  // TODAS as despesas do mês (pago + projetado)
 
-    if (orcamento) {
-      const [budgetsRes, categoriasRes, lancamentosRes] = await Promise.all([
-        supabaseAdmin.from('categorias_budget').select('categoria_id, valor_orcado').eq('orcamento_id', orcamento.id),
-        supabaseAdmin.from('categorias').select('id, nome, tipo').eq('family_id', familyId),
-        supabaseAdmin
-          .from('lancamentos')
-          .select('categoria_id, valor, status, tipo, data, parcela_total, data_vencimento_fatura')
-          .eq('family_id', familyId)
-          .in('status', ['pago', 'projetado'])
-          .gte('data', `${mesRef}-01`)
-          .lte('data', `${mesRef}-31`),
-      ])
+    // ---- 6b. Lançamentos do mês atual + 2 meses anteriores (para média) -----
+    const [
+      lancAtualRes,
+      lancM1Res,
+      lancM2Res,
+      budgetsRes,
+      categoriasRes,
+    ] = await Promise.all([
+      // Mês atual — pago + projetado
+      supabaseAdmin
+        .from('lancamentos')
+        .select('categoria_id, valor, status, tipo, data, parcela_total, data_vencimento_fatura')
+        .eq('family_id', familyId)
+        .in('status', ['pago', 'projetado'])
+        .gte('data', `${mesRef}-01`)
+        .lte('data', getLastDayOfMonth(mesRef)),
 
-      const budgets = budgetsRes.data ?? []
-      const categorias = categoriasRes.data ?? []
-      const lancamentos = lancamentosRes.data ?? []
+      // Mês anterior — pago + projetado
+      supabaseAdmin
+        .from('lancamentos')
+        .select('valor, tipo')
+        .eq('family_id', familyId)
+        .in('status', ['pago', 'projetado'])
+        .gte('data', `${mesM1}-01`)
+        .lte('data', getLastDayOfMonth(mesM1)),
 
-      totalReceitas = lancamentos
-        .filter((l) => l.tipo === 'receita' && l.status === 'pago')
-        .reduce((s, l) => s + l.valor, 0)
+      // 2 meses atrás — pago + projetado
+      supabaseAdmin
+        .from('lancamentos')
+        .select('valor, tipo')
+        .eq('family_id', familyId)
+        .in('status', ['pago', 'projetado'])
+        .gte('data', `${mesM2}-01`)
+        .lte('data', getLastDayOfMonth(mesM2)),
 
-      const gastosPorCategoria: Record<string, number> = {}
-      for (const l of lancamentos) {
-        if (l.tipo !== 'despesa') continue
-        let mesEnvelope: string
-        if (l.parcela_total && l.parcela_total > 1 && l.data_vencimento_fatura) {
-          mesEnvelope = l.data_vencimento_fatura.substring(0, 7)
-        } else {
-          mesEnvelope = l.data.substring(0, 7)
-        }
-        if (mesEnvelope === mesRef) {
-          gastosPorCategoria[l.categoria_id] = (gastosPorCategoria[l.categoria_id] ?? 0) + l.valor
-        }
+      // Budgets do orçamento atual (null-safe: só executa se orcamento existir)
+      orcamento
+        ? supabaseAdmin.from('categorias_budget').select('categoria_id, valor_orcado').eq('orcamento_id', orcamento.id)
+        : Promise.resolve({ data: [] }),
+
+      // Categorias da família (com tipo para filtrar só despesas nos envelopes)
+      supabaseAdmin.from('categorias').select('id, nome, tipo').eq('family_id', familyId),
+    ])
+
+    const lancAtual    = lancAtualRes.data    ?? []
+    const lancM1       = lancM1Res.data       ?? []
+    const lancM2       = lancM2Res.data       ?? []
+    const budgets      = (budgetsRes as any).data ?? []
+    const categorias   = categoriasRes.data   ?? []
+
+    // Receitas do mês atual (pago + projetado — inclui salários lançados como projetado)
+    totalReceitas = lancAtual
+      .filter((l) => l.tipo === 'receita')
+      .reduce((s, l) => s + l.valor, 0)
+
+    // Total de despesas reais do mês (todos os lançamentos, com ou sem categoria orçada)
+    totalGastoReal = lancAtual
+      .filter((l) => l.tipo === 'despesa')
+      .reduce((s, l) => s + l.valor, 0)
+
+    // Receitas dos meses anteriores para média
+    const receitaM1 = lancM1.filter((l) => l.tipo === 'receita').reduce((s, l) => s + l.valor, 0)
+    const receitaM2 = lancM2.filter((l) => l.tipo === 'receita').reduce((s, l) => s + l.valor, 0)
+    const despesaM1 = lancM1.filter((l) => l.tipo === 'despesa').reduce((s, l) => s + l.valor, 0)
+    const despesaM2 = lancM2.filter((l) => l.tipo === 'despesa').reduce((s, l) => s + l.valor, 0)
+
+    // Média de receita dos últimos 3 meses (considera apenas meses com dados)
+    const mesesComReceita = [totalReceitas, receitaM1, receitaM2].filter((v) => v > 0)
+    const receitaMedia = mesesComReceita.length > 0
+      ? mesesComReceita.reduce((s, v) => s + v, 0) / mesesComReceita.length
+      : 0
+
+    // ---- 6c. Envelopes — apenas categorias de DESPESA -----------------------
+    const gastosPorCategoria: Record<string, number> = {}
+    for (const l of lancAtual) {
+      if (l.tipo !== 'despesa') continue
+      // Para parcelas de cartão, usa data_vencimento_fatura como mês de referência
+      const mesEnvelope = (l.parcela_total && l.parcela_total > 1 && l.data_vencimento_fatura)
+        ? l.data_vencimento_fatura.substring(0, 7)
+        : l.data.substring(0, 7)
+      if (mesEnvelope === mesRef) {
+        gastosPorCategoria[l.categoria_id] = (gastosPorCategoria[l.categoria_id] ?? 0) + l.valor
       }
-
-      for (const budget of budgets) {
-        const cat = categorias.find((c) => c.id === budget.categoria_id)
-        if (!cat) continue
-        const gasto = Math.round((gastosPorCategoria[budget.categoria_id] ?? 0) * 100) / 100
-        const disponivel = Math.round((budget.valor_orcado - gasto) * 100) / 100
-        const percentual = budget.valor_orcado > 0 ? Math.round((gasto / budget.valor_orcado) * 10000) / 100 : 0
-        envelopes.push({ nome: cat.nome, valor_orcado: budget.valor_orcado, valor_gasto: gasto, disponivel, percentual })
-      }
-      envelopes.sort((a, b) => b.percentual - a.percentual)
     }
 
-    const totalOrcado = envelopes.reduce((s, e) => s + e.valor_orcado, 0)
-    const totalGasto = envelopes.reduce((s, e) => s + e.valor_gasto, 0)
-    const totalDisponivel = totalOrcado - totalGasto
+    for (const budget of budgets) {
+      // Filtra apenas categorias de DESPESA — evita inflar totalOrcado com receitas
+      const cat = categorias.find((c) => c.id === budget.categoria_id && c.tipo === 'despesa')
+      if (!cat) continue
+      const gasto      = Math.round((gastosPorCategoria[budget.categoria_id] ?? 0) * 100) / 100
+      const disponivel = Math.round((budget.valor_orcado - gasto) * 100) / 100
+      const percentual = budget.valor_orcado > 0 ? Math.round((gasto / budget.valor_orcado) * 10000) / 100 : 0
+      envelopes.push({ nome: cat.nome, valor_orcado: budget.valor_orcado, valor_gasto: gasto, disponivel, percentual })
+    }
+    envelopes.sort((a, b) => b.percentual - a.percentual)
 
-    const hoje = new Date()
+    const totalOrcado    = envelopes.reduce((s, e) => s + e.valor_orcado, 0)
+    const totalGastoEnv  = envelopes.reduce((s, e) => s + e.valor_gasto, 0)  // gasto dentro de envelopes
+    const totalDisponivel = totalOrcado - totalGastoReal  // disponível real = orçado - tudo gasto
+
+    // ---- 6d. Consultas paralelas finais -------------------------------------
+    const hoje    = new Date()
     const em15Dias = new Date(hoje)
     em15Dias.setDate(em15Dias.getDate() + 15)
 
-    const [contasAVencerRes, caixinhasRes, lancMesAnteriorRes] = await Promise.all([
+    const [contasAVencerRes, caixinhasRes] = await Promise.all([
       supabaseAdmin
         .from('lancamentos')
         .select('descricao, valor, data')
@@ -301,31 +363,30 @@ serve(async (req) => {
         .lte('data', em15Dias.toISOString().substring(0, 10))
         .order('data', { ascending: true })
         .limit(10),
-      supabaseAdmin.from('caixinhas').select('nome, meta, saldo_atual, tipo').eq('family_id', familyId),
+
+      // Caixinhas ativas — campos corretos incluindo valor_mercado para investimentos
       supabaseAdmin
-        .from('lancamentos')
-        .select('valor, tipo, status')
+        .from('caixinhas')
+        .select('nome, meta_valor, saldo_atual, valor_mercado, subtipo_investimento, tipo')
         .eq('family_id', familyId)
-        .eq('status', 'pago')
-        .gte('data', `${mesAnterior}-01`)
-        .lte('data', `${mesAnterior}-31`),
+        .eq('ativa', true),
     ])
 
     const contasAVencer = contasAVencerRes.data ?? []
-    const caixinhas = caixinhasRes.data ?? []
-    const lancMesAnterior = lancMesAnteriorRes.data ?? []
-    const receitaAnterior = lancMesAnterior.filter((l) => l.tipo === 'receita').reduce((s, l) => s + l.valor, 0)
-    const despesaAnterior = lancMesAnterior.filter((l) => l.tipo === 'despesa').reduce((s, l) => s + l.valor, 0)
+    const caixinhas     = caixinhasRes.data     ?? []
 
+    // ---- 6e. Montar texto do contexto ---------------------------------------
     const linhas: string[] = [
       `=== SITUAÇÃO FINANCEIRA ATUAL (${mesRef}) ===`,
       '',
-      `Receitas recebidas este mês: ${formatBRL(totalReceitas)}`,
-      `Orçamento total de despesas: ${formatBRL(totalOrcado)}`,
-      `Total gasto este mês: ${formatBRL(totalGasto)}`,
-      `Saldo disponível no orçamento: ${formatBRL(totalDisponivel)}`,
+      `Receitas deste mês (pago + previsto): ${formatBRL(totalReceitas)}`,
+      `Receita média (últimos 3 meses): ${formatBRL(receitaMedia)}`,
+      `Total de despesas deste mês: ${formatBRL(totalGastoReal)}`,
+      `Orçamento total de despesas (envelopes): ${formatBRL(totalOrcado)}`,
+      `Gasto via envelopes: ${formatBRL(totalGastoEnv)}`,
+      `Saldo disponível (orçado - gasto real): ${formatBRL(totalDisponivel)}`,
       '',
-      '--- ENVELOPES (categorias de despesa) ---',
+      '--- ENVELOPES DE DESPESA ---',
     ]
 
     if (envelopes.length > 0) {
@@ -334,7 +395,7 @@ serve(async (req) => {
         linhas.push(`  ${status} ${env.nome}: orçado ${formatBRL(env.valor_orcado)}, gasto ${formatBRL(env.valor_gasto)} (${env.percentual}%), disponível ${formatBRL(env.disponivel)}`)
       }
     } else {
-      linhas.push('  (Nenhum orçamento configurado para este mês)')
+      linhas.push('  (Nenhum orçamento de despesas configurado para este mês)')
     }
 
     if (contasAVencer.length > 0) {
@@ -349,15 +410,28 @@ serve(async (req) => {
       linhas.push('')
       linhas.push('--- RESERVAS E INVESTIMENTOS (CAIXINHAS) ---')
       for (const cx of caixinhas) {
-        const tipo = cx.tipo === 'investimento' ? '📈' : '🐷'
-        const meta = cx.meta ? ` / meta: ${formatBRL(cx.meta)}` : ''
-        linhas.push(`  ${tipo} ${cx.nome}: ${formatBRL(cx.saldo_atual ?? 0)}${meta}`)
+        const icone = cx.tipo === 'investimento' ? '📈' : cx.tipo === 'emergencia' ? '🛡️' : '🐷'
+        const meta  = cx.meta_valor ? ` / meta: ${formatBRL(cx.meta_valor)}` : ''
+        // Para investimentos: mostra valor de mercado se disponível, senão saldo aportado
+        const valorExibido = (cx.tipo === 'investimento' && cx.valor_mercado != null)
+          ? cx.valor_mercado
+          : (cx.saldo_atual ?? 0)
+        const infoAporte = (cx.tipo === 'investimento' && cx.valor_mercado != null)
+          ? ` (total aportado: ${formatBRL(cx.saldo_atual ?? 0)})`
+          : ''
+        const subtipo = cx.subtipo_investimento ? ` [${cx.subtipo_investimento}]` : ''
+        linhas.push(`  ${icone} ${cx.nome}${subtipo}: ${formatBRL(valorExibido)}${infoAporte}${meta}`)
       }
+    } else {
+      linhas.push('')
+      linhas.push('--- RESERVAS E INVESTIMENTOS (CAIXINHAS) ---')
+      linhas.push('  (Nenhuma caixinha cadastrada)')
     }
 
     linhas.push('')
-    linhas.push(`--- MÊS ANTERIOR (${mesAnterior}) ---`)
-    linhas.push(`  Receitas: ${formatBRL(receitaAnterior)} | Despesas: ${formatBRL(despesaAnterior)} | Resultado: ${formatBRL(receitaAnterior - despesaAnterior)}`)
+    linhas.push(`--- HISTÓRICO MENSAL ---`)
+    linhas.push(`  ${mesM1}: Receitas ${formatBRL(receitaM1)} | Despesas ${formatBRL(despesaM1)} | Resultado ${formatBRL(receitaM1 - despesaM1)}`)
+    linhas.push(`  ${mesM2}: Receitas ${formatBRL(receitaM2)} | Despesas ${formatBRL(despesaM2)} | Resultado ${formatBRL(receitaM2 - despesaM2)}`)
 
     const contextoFinanceiro = linhas.join('\n')
 
