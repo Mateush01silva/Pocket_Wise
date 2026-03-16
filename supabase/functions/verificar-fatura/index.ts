@@ -34,7 +34,7 @@ interface PDFTransacao {
   valor: number
 }
 
-interface PDFExtracao {
+interface ExtracaoIA {
   total_pdf: number | null
   transacoes: PDFTransacao[]
 }
@@ -61,37 +61,35 @@ function getCurrentMes(): string {
 
 function getRenovacaoDate(mesAtual: string): string {
   const [ano, mes] = mesAtual.split('-').map(Number)
-  const dataRenovacao = new Date(ano, mes, 1)
-  return dataRenovacao.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })
+  return new Date(ano, mes, 1).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })
 }
 
 // ---------------------------------------------------------------------------
-// Value-based matching: deterministic, no AI name confusion
+// Value-based matching (deterministic, no AI name confusion)
 // ---------------------------------------------------------------------------
 function matchTransacoes(
   appItems: TransacaoSimples[],
-  pdfItems: PDFTransacao[],
+  extItems: PDFTransacao[],
 ): {
-  no_pdf_nao_no_app: PDFTransacao[]
-  no_app_nao_no_pdf: TransacaoSimples[]
+  no_ext_nao_no_app: PDFTransacao[]
+  no_app_nao_no_ext: TransacaoSimples[]
 } {
   const appPool = appItems.map((item) => ({ item, matched: false }))
-  const pdfPool = pdfItems.map((item) => ({ item, matched: false }))
+  const extPool = extItems.map((item) => ({ item, matched: false }))
 
-  // Greedy value-based matching (tolerance: R$0.10 for rounding)
-  for (const pdfEntry of pdfPool) {
+  for (const extEntry of extPool) {
     const idx = appPool.findIndex(
-      (a) => !a.matched && Math.abs(a.item.valor - pdfEntry.item.valor) < 0.10,
+      (a) => !a.matched && Math.abs(a.item.valor - extEntry.item.valor) < 0.10,
     )
     if (idx !== -1) {
       appPool[idx].matched = true
-      pdfEntry.matched = true
+      extEntry.matched = true
     }
   }
 
   return {
-    no_pdf_nao_no_app: pdfPool.filter((e) => !e.matched).map((e) => e.item),
-    no_app_nao_no_pdf: appPool.filter((e) => !e.matched).map((e) => e.item),
+    no_ext_nao_no_app: extPool.filter((e) => !e.matched).map((e) => e.item),
+    no_app_nao_no_ext: appPool.filter((e) => !e.matched).map((e) => e.item),
   }
 }
 
@@ -110,11 +108,11 @@ function gerarResumo(params: {
       partes.push(`Os totais conferem: ambos somam ${formatBRL(totalApp)}.`)
     } else if (diferencaTotal > 0) {
       partes.push(
-        `O total do PDF (${formatBRL(totalPdf!)}) é ${formatBRL(diferencaTotal)} maior que o registrado no app (${formatBRL(totalApp)}).`,
+        `O total da fatura (${formatBRL(totalPdf!)}) é ${formatBRL(diferencaTotal)} maior que o registrado no app (${formatBRL(totalApp)}).`,
       )
     } else {
       partes.push(
-        `O total do PDF (${formatBRL(totalPdf!)}) é ${formatBRL(Math.abs(diferencaTotal))} menor que o registrado no app (${formatBRL(totalApp)}).`,
+        `O total da fatura (${formatBRL(totalPdf!)}) é ${formatBRL(Math.abs(diferencaTotal))} menor que o registrado no app (${formatBRL(totalApp)}).`,
       )
     }
   }
@@ -123,18 +121,71 @@ function gerarResumo(params: {
     partes.push('Todos os lançamentos conferem perfeitamente.')
   } else {
     if (noPdfNaoNoApp.length > 0) {
-      partes.push(
-        `${noPdfNaoNoApp.length} lançamento(s) da fatura não ${noPdfNaoNoApp.length === 1 ? 'está registrado' : 'estão registrados'} no app.`,
-      )
+      partes.push(`${noPdfNaoNoApp.length} lançamento(s) da fatura não ${noPdfNaoNoApp.length === 1 ? 'está registrado' : 'estão registrados'} no app.`)
     }
     if (noAppNaoNoPdf.length > 0) {
-      partes.push(
-        `${noAppNaoNoPdf.length} lançamento(s) do app não ${noAppNaoNoPdf.length === 1 ? 'foi encontrado' : 'foram encontrados'} na fatura PDF.`,
-      )
+      partes.push(`${noAppNaoNoPdf.length} lançamento(s) do app não ${noAppNaoNoPdf.length === 1 ? 'foi encontrado' : 'foram encontrados'} na fatura.`)
     }
   }
 
   return partes.join(' ')
+}
+
+// ============================================================================
+// PROMPTS
+// ============================================================================
+
+function buildPdfPrompt(pdfTexto: string): { system: string; user: string } {
+  const system = `Você é um parser de documentos financeiros brasileiros. Extraia todas as transações desta fatura de cartão de crédito a partir de texto extraído por OCR. Retorne SOMENTE JSON válido, sem markdown, sem texto adicional.`
+
+  const user = `Extraia TODAS as transações individuais desta fatura de cartão de crédito.
+
+REGRAS:
+1. Cada linha de lançamento é uma transação SEPARADA — nunca agrupe por estabelecimento.
+2. Para parcelas (ex: "Loja X 2/6"), cada parcela é uma transação separada.
+3. "valor" deve ser número positivo (sem sinal negativo).
+4. Inclua compras, tarifas, encargos, IOF, anuidades — tudo que gera débito.
+5. Ignore linhas de pagamento/crédito (valores que reduzem a fatura).
+
+=== TEXTO DA FATURA PDF (extraído por OCR) ===
+${pdfTexto}
+
+Retorne JSON com esta estrutura EXATA:
+{
+  "total_pdf": <número com o total/valor a pagar da fatura, ou null se não encontrado>,
+  "transacoes": [
+    {"data": "<data como aparece>", "descricao": "<nome do estabelecimento>", "valor": <número positivo>}
+  ]
+}`
+
+  return { system, user }
+}
+
+function buildExcelPrompt(excelTexto: string): { system: string; user: string } {
+  const system = `Você é um processador especializado em faturas de cartão de crédito brasileiras exportadas em planilha. Você recebe o conteúdo da planilha em formato de texto tabulado (colunas separadas por tab). Retorne SOMENTE JSON válido, sem markdown, sem texto adicional.`
+
+  const user = `Analise esta planilha de fatura de cartão de crédito e extraia os lançamentos de COMPRAS/DÉBITOS.
+
+REGRAS DE EXTRAÇÃO:
+1. A planilha pode ter cabeçalhos, informações do titular e linhas em branco antes dos dados — identifique onde começam os lançamentos.
+2. Extraia SOMENTE transações de DÉBITO (compras, tarifas, juros, IOF, anuidade). Ignore pagamentos e créditos.
+3. Para estornos (estorno/cancelamento de uma compra): se o estorno e a compra original AMBOS aparecem na planilha, exclua os dois do resultado final (cancelam-se mutuamente). Se apenas o estorno aparece sem a compra original, ignore-o também.
+4. Cada linha de compra é uma transação SEPARADA — não agrupe por estabelecimento.
+5. "valor" deve ser número positivo.
+6. Identifique e retorne o total da fatura se houver linha de total/subtotal.
+
+=== PLANILHA (texto tabulado, colunas separadas por tab) ===
+${excelTexto}
+
+Retorne JSON com esta estrutura EXATA:
+{
+  "total_pdf": <número com o total a pagar da fatura, ou null se não encontrado>,
+  "transacoes": [
+    {"data": "<data como aparece>", "descricao": "<estabelecimento ou descrição>", "valor": <número positivo>}
+  ]
+}`
+
+  return { system, user }
 }
 
 // ============================================================================
@@ -248,63 +299,46 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------------------
-    // 4. LER BODY
+    // 4. LER BODY — aceita PDF ou Excel
     // -------------------------------------------------------------------------
     const body = await req.json()
-    const { pdf_texto, transacoes, total_app, cartao_nome, periodo } = body as {
-      pdf_texto: string
+    const { pdf_texto, excel_texto, transacoes, total_app, cartao_nome, periodo } = body as {
+      pdf_texto?: string
+      excel_texto?: string
       transacoes: TransacaoSimples[]
       total_app: number
       cartao_nome: string
       periodo: string
     }
 
-    if (!pdf_texto || typeof pdf_texto !== 'string' || pdf_texto.trim().length < 20) {
-      return jsonResponse({ error: 'Texto do PDF inválido ou muito curto' }, 400)
+    const isExcel = Boolean(excel_texto && !pdf_texto)
+    const textoFonte = excel_texto ?? pdf_texto ?? ''
+
+    if (!textoFonte || textoFonte.trim().length < 20) {
+      return jsonResponse({ error: 'Conteúdo do arquivo inválido ou muito curto' }, 400)
     }
 
     if (!transacoes || !Array.isArray(transacoes)) {
       return jsonResponse({ error: 'Lista de transações inválida' }, 400)
     }
 
-    // Limitar texto do PDF (~8k tokens, suficiente para extração)
-    const pdfTextoLimitado = pdf_texto.length > 32000
-      ? pdf_texto.substring(0, 32000) + '\n[... texto truncado por tamanho ...]'
-      : pdf_texto
+    // Limitar tamanho (~8k tokens para PDF, Excel já vem limitado do client)
+    const textoLimitado = textoFonte.length > 32000
+      ? textoFonte.substring(0, 32000) + '\n[... truncado ...]'
+      : textoFonte
 
     // -------------------------------------------------------------------------
-    // 5. PROMPT: SOMENTE EXTRAÇÃO DO PDF (sem comparação)
-    //    A IA faz apenas o que faz bem: ler o texto e estruturar em JSON.
-    //    O matching é feito em TypeScript (determinístico, por valor).
+    // 5. PROMPT — diferente para Excel vs PDF
     // -------------------------------------------------------------------------
-    const systemPrompt = `Você é um parser de documentos financeiros brasileiros. Extraia todas as transações desta fatura de cartão de crédito. Retorne SOMENTE JSON válido, sem markdown, sem texto adicional.`
-
-    const userPrompt = `Extraia TODAS as transações individuais desta fatura de cartão de crédito.
-
-REGRAS:
-1. Cada linha de lançamento é uma transação SEPARADA — nunca agrupe por estabelecimento.
-2. Para parcelas (ex: "Loja X 2/6"), cada parcela é uma transação individual.
-3. "valor" deve ser número positivo (sem sinal negativo).
-4. Inclua compras, tarifas, encargos, IOF, anuidades — tudo.
-5. Ignore linhas de pagamento/crédito (valores que reduzem a fatura).
-
-=== TEXTO DA FATURA PDF ===
-${pdfTextoLimitado}
-
-Retorne JSON com esta estrutura EXATA:
-{
-  "total_pdf": <número com o total/valor a pagar da fatura, ou null se não encontrado>,
-  "transacoes": [
-    {"data": "<data como aparece no PDF>", "descricao": "<nome do estabelecimento>", "valor": <número positivo>}
-  ]
-}`
+    const { system: systemPrompt, user: userPrompt } = isExcel
+      ? buildExcelPrompt(textoLimitado)
+      : buildPdfPrompt(textoLimitado)
 
     // -------------------------------------------------------------------------
-    // 6. CHAMAR A API DA OPENAI
+    // 6. CHAMAR OPENAI
     // -------------------------------------------------------------------------
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiKey) {
-      console.error('OPENAI_API_KEY não configurada')
       return jsonResponse({ error: 'Configuração de IA incompleta no servidor' }, 500)
     }
 
@@ -339,40 +373,33 @@ Retorne JSON com esta estrutura EXATA:
       return jsonResponse({ error: 'A IA não retornou uma resposta válida.' }, 502)
     }
 
-    let extracao: PDFExtracao
+    let extracao: ExtracaoIA
     try {
       const jsonStart = content.indexOf('{')
       const jsonEnd = content.lastIndexOf('}')
-      if (jsonStart === -1 || jsonEnd === -1 || jsonEnd < jsonStart) {
-        throw new Error('no JSON object found')
-      }
-      extracao = JSON.parse(content.slice(jsonStart, jsonEnd + 1)) as PDFExtracao
-      if (!Array.isArray(extracao.transacoes)) {
-        extracao.transacoes = []
-      }
+      if (jsonStart === -1 || jsonEnd === -1 || jsonEnd < jsonStart) throw new Error('no JSON')
+      extracao = JSON.parse(content.slice(jsonStart, jsonEnd + 1)) as ExtracaoIA
+      if (!Array.isArray(extracao.transacoes)) extracao.transacoes = []
     } catch {
       const finishReason = openaiData.choices?.[0]?.finish_reason
-      console.error('Falha ao parsear extração da IA (finish_reason:', finishReason, '):', content.slice(0, 300))
+      console.error('Falha ao parsear extração (finish_reason:', finishReason, '):', content.slice(0, 300))
       if (finishReason === 'length') {
-        return jsonResponse({ error: 'O PDF é muito extenso para processar. Tente um período menor.' }, 502)
+        return jsonResponse({ error: 'O arquivo é muito extenso para processar. Tente um período menor.' }, 502)
       }
-      return jsonResponse({ error: 'Falha ao extrair transações do PDF. Tente novamente.' }, 502)
+      return jsonResponse({ error: 'Falha ao extrair transações. Tente novamente.' }, 502)
     }
 
     // -------------------------------------------------------------------------
     // 7. MATCHING POR VALOR (TypeScript, determinístico)
     // -------------------------------------------------------------------------
-    const { no_pdf_nao_no_app, no_app_nao_no_pdf } = matchTransacoes(
-      transacoes,
-      extracao.transacoes,
-    )
+    const { no_ext_nao_no_app, no_app_nao_no_ext } = matchTransacoes(transacoes, extracao.transacoes)
 
     const totalPdf = extracao.total_pdf ?? null
     const diferencaTotal = totalPdf !== null ? totalPdf - total_app : null
 
     const resumo = gerarResumo({
-      noPdfNaoNoApp: no_pdf_nao_no_app,
-      noAppNaoNoPdf: no_app_nao_no_pdf,
+      noPdfNaoNoApp: no_ext_nao_no_app,
+      noAppNaoNoPdf: no_app_nao_no_ext,
       totalPdf,
       totalApp: total_app,
       diferencaTotal,
@@ -381,9 +408,9 @@ Retorne JSON com esta estrutura EXATA:
     const analise = {
       total_pdf: totalPdf,
       diferenca_total: diferencaTotal,
-      no_pdf_nao_no_app,
-      no_app_nao_no_pdf,
-      valores_divergentes: [], // value-based matching: divergências são tratadas como ausentes
+      no_pdf_nao_no_app: no_ext_nao_no_app,
+      no_app_nao_no_pdf: no_app_nao_no_ext,
+      valores_divergentes: [],
       resumo,
     }
 
@@ -397,11 +424,11 @@ Retorne JSON com esta estrutura EXATA:
         feature_type: 'verificar_fatura',
       })
     } catch (trackErr) {
-      console.error('Erro ao registrar uso (não bloqueia resposta):', trackErr)
+      console.error('Erro ao registrar uso:', trackErr)
     }
 
     // -------------------------------------------------------------------------
-    // 9. RETORNAR RESPOSTA
+    // 9. RETORNAR
     // -------------------------------------------------------------------------
     return jsonResponse({ analise })
   } catch (error) {
