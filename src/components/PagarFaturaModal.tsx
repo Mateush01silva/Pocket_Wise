@@ -63,8 +63,10 @@ export function PagarFaturaModal({
     setErro(null)
 
     try {
-      // Atualizar todas as transações da fatura com a conta e status pago
-      for (const transacao of fatura.transacoes) {
+      // Marcar como pagas apenas as transações ainda não pagas
+      // (evita dupla baixa no saldo caso alguma já estivesse como 'pago')
+      const pendentes = fatura.transacoes.filter((t) => t.status !== 'pago')
+      for (const transacao of pendentes) {
         await updateLancamento(transacao.id, {
           conta_id: contaSelecionada,
           status: 'pago'
