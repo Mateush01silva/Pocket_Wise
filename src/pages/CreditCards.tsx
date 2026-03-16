@@ -864,7 +864,18 @@ export function CreditCards() {
         const cartao = cartoesComEstatisticas.find((c) => c.id === verificarFaturaFechadaCartaoId)
         if (!cartao?.faturaFechadaPendente) return null
 
-        const { transacoes, total } = cartao.faturaFechadaPendente
+        const { mesFatura, total } = cartao.faturaFechadaPendente
+        const mesFaturaTime = startOfMonth(mesFatura).getTime()
+
+        // Para verificação: inclui TODAS as transações do mês da fatura,
+        // independente do status (pagas incluídas — ex: parcelas já quitadas)
+        const transacoesParaVerificar = lancamentos.filter((l) => {
+          if (l.cartao_id !== cartao.id || l.forma_pagamento !== 'credito') return false
+          const mes = l.data_vencimento_fatura
+            ? startOfMonth(parseISO(l.data_vencimento_fatura)).getTime()
+            : calcularMesFatura(l.data, cartao.dia_fechamento).getTime()
+          return mes === mesFaturaTime
+        })
 
         return (
           <FaturaDetailsModal
@@ -872,7 +883,7 @@ export function CreditCards() {
             onClose={() => setVerificarFaturaFechadaCartaoId(null)}
             cartaoNome={cartao.nome}
             cartaoCor={cartao.cor || '#6b7280'}
-            transacoes={transacoes}
+            transacoes={transacoesParaVerificar}
             totalFatura={total}
             diaFechamento={cartao.dia_fechamento}
             showVerificarButton={true}
