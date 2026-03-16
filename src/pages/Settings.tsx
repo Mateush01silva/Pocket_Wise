@@ -83,6 +83,7 @@ export function Settings() {
     limiteManual,
     usadoPossoComprar,
     usadoAssistente,
+    usadoVerificarFatura,
     usadoProativas,
     usadoManual,
     creditosRestantes,
@@ -695,6 +696,15 @@ export function Settings() {
                       </span>
                       <span className="text-gray-400 font-medium">{usadoAssistente} uso{usadoAssistente !== 1 ? 's' : ''}</span>
                     </div>
+                    {usadoVerificarFatura > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                          Verificar Fatura
+                        </span>
+                        <span className="text-gray-400 font-medium">{usadoVerificarFatura} uso{usadoVerificarFatura !== 1 ? 's' : ''}</span>
+                      </div>
+                    )}
                     {usadoProativas > 0 && (
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-gray-500 flex items-center gap-1.5">
@@ -769,9 +779,9 @@ export function Settings() {
             <div className="p-3 bg-dark-800/50 rounded-xl border border-dark-700/50 space-y-2">
               <p className="text-xs font-semibold text-gray-400">Como funcionam os créditos?</p>
               <p className="text-xs text-gray-500 leading-relaxed">
-                Cada consulta ao "Posso Comprar? com IA" ou mensagem no chat do Assistente consome
-                1 crédito do seu pool mensal de {AI_TOTAL_LIMIT}. O pool renova automaticamente
-                todo 1° do mês.
+                Cada consulta ao "Posso Comprar? com IA", mensagem no chat do Assistente ou
+                verificação de fatura PDF consome 1 crédito do seu pool mensal de {AI_TOTAL_LIMIT}.
+                O pool renova automaticamente todo 1° do mês.
               </p>
               <p className="text-xs text-gray-500 leading-relaxed">
                 Você pode reservar parte dos créditos para mensagens proativas — análises automáticas

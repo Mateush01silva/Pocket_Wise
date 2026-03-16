@@ -20,8 +20,9 @@ export interface AICreditsState {
   // Uso do mês atual
   usadoPossoComprar: number     // "Posso Comprar?" + legados NULL
   usadoAssistente: number       // chat do Assistente
+  usadoVerificarFatura: number  // verificação de fatura PDF
   usadoProativas: number        // mensagens automáticas (Fase 3)
-  usadoManual: number           // posso_comprar + assistente (total manual)
+  usadoManual: number           // posso_comprar + assistente + verificar_fatura (total manual)
   totalUsado: number            // todos os tipos
 
   // Saldo
@@ -63,6 +64,7 @@ function buildDefaultState(creditosProativas = 10): AICreditsState {
     limiteManual,
     usadoPossoComprar: 0,
     usadoAssistente: 0,
+    usadoVerificarFatura: 0,
     usadoProativas: 0,
     usadoManual: 0,
     totalUsado: 0,
@@ -117,10 +119,11 @@ export function useAICredits(): UseAICreditsReturn {
       const usadoPossoComprar = rows.filter(
         (r) => r.feature_type === 'posso_comprar' || r.feature_type === null
       ).length
-      const usadoAssistente = rows.filter((r) => r.feature_type === 'assistente').length
-      const usadoProativas  = rows.filter((r) => r.feature_type === 'proativa').length
-      const usadoManual     = usadoPossoComprar + usadoAssistente
-      const totalUsado      = rows.length
+      const usadoAssistente       = rows.filter((r) => r.feature_type === 'assistente').length
+      const usadoVerificarFatura  = rows.filter((r) => r.feature_type === 'verificar_fatura').length
+      const usadoProativas        = rows.filter((r) => r.feature_type === 'proativa').length
+      const usadoManual           = usadoPossoComprar + usadoAssistente + usadoVerificarFatura
+      const totalUsado            = rows.length
       const creditosRestantes = Math.max(0, limiteManual - usadoManual)
 
       setState({
@@ -128,6 +131,7 @@ export function useAICredits(): UseAICreditsReturn {
         limiteManual,
         usadoPossoComprar,
         usadoAssistente,
+        usadoVerificarFatura,
         usadoProativas,
         usadoManual,
         totalUsado,
