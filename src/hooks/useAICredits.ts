@@ -151,6 +151,15 @@ export function useAICredits(): UseAICreditsReturn {
     refresh()
   }, [refresh])
 
+  // Re-fetch quando o usuário volta para a aba (ex: após usar verificar fatura)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden) refresh()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [refresh])
+
   // -------------------------------------------------------------------------
   // Salvar configuração de créditos proativos
   // -------------------------------------------------------------------------
