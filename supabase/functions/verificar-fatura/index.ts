@@ -184,49 +184,62 @@ serve(async (req) => {
       return jsonResponse({ error: 'Lista de transações inválida' }, 400)
     }
 
-    // Limitar texto do PDF para não exceder tokens (max ~8000 chars)
-    const pdfTextoLimitado = pdf_texto.length > 8000
-      ? pdf_texto.substring(0, 8000) + '\n[... texto truncado por tamanho ...]'
+    // Limitar texto do PDF (GPT-4o-mini suporta 128k tokens; 32k chars ≈ ~8k tokens, seguro)
+    const pdfTextoLimitado = pdf_texto.length > 32000
+      ? pdf_texto.substring(0, 32000) + '\n[... texto truncado por tamanho ...]'
       : pdf_texto
 
     // -------------------------------------------------------------------------
     // 5. MONTAR PROMPT
     // -------------------------------------------------------------------------
     const transacoesTexto = transacoes.length > 0
-      ? transacoes.map((t) => {
+      ? transacoes.map((t, i) => {
           const parcela = t.parcela ? ` (parcela ${t.parcela})` : ''
-          return `- ${t.data}: ${t.descricao}${parcela} | ${formatBRL(t.valor)}`
+          return `${i + 1}. ${t.data}: ${t.descricao}${parcela} | ${formatBRL(t.valor)}`
         }).join('\n')
       : '(nenhuma transação registrada no app para este período)'
 
     const systemPrompt = `Você é um auditor financeiro especializado em faturas de cartão de crédito brasileiro.
-Sua tarefa é comparar as transações registradas em um app de finanças pessoais com o extrato real de uma fatura em PDF.
-Seja preciso, objetivo e sempre responda em português brasileiro.
-Retorne SOMENTE um JSON válido, sem markdown, sem explicações fora do JSON.`
+Sua tarefa é comparar lançamento por lançamento as transações de um app com o extrato de uma fatura PDF.
 
-    const userPrompt = `Compare as transações do app com o texto da fatura PDF e identifique todas as discrepâncias.
+REGRAS CRÍTICAS:
+1. Compare CADA transação individualmente — NUNCA consolide ou some múltiplas compras do mesmo estabelecimento.
+2. O mesmo estabelecimento pode aparecer várias vezes com datas e valores diferentes. Cada ocorrência é uma transação SEPARADA.
+3. Para considerar duas transações como a mesma, o nome do estabelecimento E o valor devem ser similares. Não agrupe só pelo nome.
+4. Para parcelas, considere o número da parcela (ex: 2/6 e 3/6 são transações diferentes).
+5. Ignore diferenças mínimas de centavos (< R$0,10) causadas por arredondamento.
+6. Use correspondência flexível para nomes: "Droga Raia84" e "Droga Raia" são o mesmo estabelecimento se o valor for igual.
+7. Retorne SOMENTE JSON válido, sem markdown.`
 
-=== TRANSAÇÕES NO APP (${cartao_nome} - ${periodo}) ===
+    const userPrompt = `Compare cada transação individualmente entre o app e a fatura PDF.
+
+=== TRANSAÇÕES NO APP (${cartao_nome} - ${periodo}) — ${transacoes.length} itens ===
 ${transacoesTexto}
 TOTAL NO APP: ${formatBRL(total_app)}
 
 === TEXTO EXTRAÍDO DA FATURA PDF ===
 ${pdfTextoLimitado}
 
+INSTRUÇÕES DE COMPARAÇÃO:
+- Percorra CADA linha de transação do PDF e verifique se existe correspondente no app com mesmo estabelecimento E valor similar.
+- Percorra CADA transação do app e verifique se existe correspondente no PDF.
+- Se "Centro Automotivo Lui" aparece 3x no PDF com valores R$311, R$307, R$289 — são 3 transações distintas, NÃO some os valores.
+- Só marque como divergente se tiver certeza que é o mesmo item com valor diferente.
+
 Retorne um JSON com exatamente esta estrutura:
 {
-  "total_pdf": <número com o total encontrado no PDF, ou null se não encontrado>,
+  "total_pdf": <número com o total da fatura encontrado no PDF, ou null>,
   "diferenca_total": <total_pdf - total_app, ou null>,
   "no_pdf_nao_no_app": [
-    { "data": "<data>", "descricao": "<descrição>", "valor": <número> }
+    { "data": "<data como aparece no PDF>", "descricao": "<nome do estabelecimento>", "valor": <número> }
   ],
   "no_app_nao_no_pdf": [
     { "data": "<data>", "descricao": "<descrição>", "valor": <número> }
   ],
   "valores_divergentes": [
-    { "descricao": "<descrição>", "valor_app": <número>, "valor_pdf": <número>, "diferenca": <número> }
+    { "descricao": "<estabelecimento>", "valor_app": <número>, "valor_pdf": <número>, "diferenca": <valor_pdf - valor_app> }
   ],
-  "resumo": "<explicação em português do que foi encontrado, por que os valores podem estar diferentes e o que o usuário deve checar>"
+  "resumo": "<resumo em 2-3 frases explicando as principais discrepâncias encontradas e o que o usuário deve verificar>"
 }`
 
     // -------------------------------------------------------------------------
@@ -250,7 +263,7 @@ Retorne um JSON com exatamente esta estrutura:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 1500,
+        max_tokens: 4000,
         temperature: 0.1,
         response_format: { type: 'json_object' },
       }),
