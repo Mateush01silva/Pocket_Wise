@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import * as XLSX from 'https://esm.sh/xlsx@0.18.5'
 
 // ============================================================================
 // CORS
@@ -299,33 +300,78 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------------------
-    // 4. LER BODY — aceita PDF ou Excel
+    // 4. LER BODY — aceita PDF (texto) ou Excel (base64 binário)
     // -------------------------------------------------------------------------
     const body = await req.json()
-    const { pdf_texto, excel_texto, transacoes, total_app, cartao_nome, periodo } = body as {
+    const { pdf_texto, excel_base64, excel_senha, transacoes, total_app, cartao_nome, periodo } = body as {
       pdf_texto?: string
-      excel_texto?: string
+      excel_base64?: string   // raw Excel file encoded as base64
+      excel_senha?: string    // optional password for encrypted files
       transacoes: TransacaoSimples[]
       total_app: number
       cartao_nome: string
       periodo: string
     }
 
-    const isExcel = Boolean(excel_texto && !pdf_texto)
-    const textoFonte = excel_texto ?? pdf_texto ?? ''
-
-    if (!textoFonte || textoFonte.trim().length < 20) {
-      return jsonResponse({ error: 'Conteúdo do arquivo inválido ou muito curto' }, 400)
-    }
-
     if (!transacoes || !Array.isArray(transacoes)) {
       return jsonResponse({ error: 'Lista de transações inválida' }, 400)
     }
 
-    // Limitar tamanho (~8k tokens para PDF, Excel já vem limitado do client)
-    const textoLimitado = textoFonte.length > 32000
-      ? textoFonte.substring(0, 32000) + '\n[... truncado ...]'
-      : textoFonte
+    let isExcel = false
+    let textoLimitado = ''
+
+    if (excel_base64) {
+      // -----------------------------------------------------------------------
+      // Excel path: parse binary with SheetJS (Deno has full crypto support)
+      // -----------------------------------------------------------------------
+      isExcel = true
+      try {
+        const workbook = XLSX.read(excel_base64, {
+          type: 'base64',
+          password: excel_senha || undefined,
+          raw: false,
+          cellDates: false,
+        })
+
+        // Pick the sheet with most rows
+        let sheetName = workbook.SheetNames[0]
+        let maxRows = 0
+        for (const name of workbook.SheetNames) {
+          const sheet = workbook.Sheets[name]
+          if (!sheet['!ref']) continue
+          const range = XLSX.utils.decode_range(sheet['!ref'])
+          const rows = range.e.r - range.s.r
+          if (rows > maxRows) { maxRows = rows; sheetName = name }
+        }
+
+        const sheet = workbook.Sheets[sheetName]
+        const csv = XLSX.utils.sheet_to_csv(sheet, { FS: '\t', blankrows: false })
+        textoLimitado = csv.length > 24000 ? csv.substring(0, 24000) + '\n[... truncado ...]' : csv
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message.toLowerCase() : ''
+        if (msg.includes('password') || msg.includes('encrypted') || msg.includes('cfb')) {
+          return jsonResponse({
+            error: excel_senha
+              ? 'Senha incorreta. Verifique a senha do arquivo e tente novamente.'
+              : 'Este arquivo está protegido por senha. Informe a senha para continuar.',
+          }, 400)
+        }
+        console.error('Erro ao parsear Excel:', err)
+        return jsonResponse({ error: 'Não foi possível abrir o arquivo Excel. Verifique se é um .xlsx ou .xls válido.' }, 400)
+      }
+    } else if (pdf_texto) {
+      // -----------------------------------------------------------------------
+      // PDF path: text already extracted by pdfjs on the client
+      // -----------------------------------------------------------------------
+      if (pdf_texto.trim().length < 20) {
+        return jsonResponse({ error: 'Texto do PDF inválido ou muito curto' }, 400)
+      }
+      textoLimitado = pdf_texto.length > 32000
+        ? pdf_texto.substring(0, 32000) + '\n[... truncado ...]'
+        : pdf_texto
+    } else {
+      return jsonResponse({ error: 'Nenhum arquivo enviado (pdf_texto ou excel_base64 obrigatório)' }, 400)
+    }
 
     // -------------------------------------------------------------------------
     // 5. PROMPT — diferente para Excel vs PDF

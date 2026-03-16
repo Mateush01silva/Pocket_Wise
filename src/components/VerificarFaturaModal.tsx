@@ -1,8 +1,8 @@
 import { useRef, useState, useCallback } from 'react'
-import { X, Upload, FileText, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2, LayoutPanelLeft, TableIcon, Lock, Sparkles } from 'lucide-react'
+import { X, Upload, FileText, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2, LayoutPanelLeft, TableIcon, Lock } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { Button } from './ui/Button'
-import { useVerificarFatura } from '../hooks/useVerificarFatura'
+import { useVerificarFatura, isExcelFile } from '../hooks/useVerificarFatura'
 import { DiscrepanciasSplitView } from './DiscrepanciasSplitView'
 import type { Lancamento } from '../types'
 import type { ResultadoVerificacao } from '../hooks/useVerificarFatura'
@@ -16,11 +16,6 @@ interface VerificarFaturaModalProps {
   totalFatura: number
   periodo: string
   getCategoryName: (categoriaId: string | null) => string
-}
-
-function isExcelFile(file: File) {
-  const name = file.name.toLowerCase()
-  return name.endsWith('.xlsx') || name.endsWith('.xls')
 }
 
 export function VerificarFaturaModal({
@@ -130,12 +125,12 @@ export function VerificarFaturaModal({
               </p>
 
               {/* Format hint */}
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <span className="flex items-center gap-1 text-xs text-gray-500 bg-dark-700/50 px-2 py-1 rounded-md">
-                  <FileText size={11} /> PDF (usa 1 crédito de IA)
+                  <FileText size={11} /> PDF · 1 crédito de IA
                 </span>
                 <span className="flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md">
-                  <TableIcon size={11} /> Excel · sem crédito · mais preciso
+                  <TableIcon size={11} /> Excel · 1 crédito · maior precisão
                 </span>
               </div>
 
@@ -181,8 +176,8 @@ export function VerificarFaturaModal({
                       {(arquivoSelecionado.size / 1024).toFixed(0)} KB · Clique para trocar
                     </p>
                     {isExcel && (
-                      <p className="text-xs text-emerald-500 mt-1 flex items-center justify-center gap-1">
-                        <Sparkles size={10} /> Processamento local — sem uso de crédito
+                      <p className="text-xs text-emerald-500 mt-1">
+                        Sem OCR — maior precisão na extração
                       </p>
                     )}
                   </>
