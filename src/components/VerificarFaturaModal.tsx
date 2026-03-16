@@ -230,18 +230,33 @@ export function VerificarFaturaModal({
                 )}
               </div>
 
-              {/* Password field (Excel only) */}
+              {/* Password field + instructions (Excel only) */}
               {isExcel && arquivoSelecionado && (
-                <div className="flex items-center gap-2 p-3 bg-dark-700/40 rounded-xl border border-dark-600">
-                  <Lock size={15} className="text-gray-500 shrink-0" />
-                  <input
-                    type="password"
-                    placeholder="Senha do arquivo (se houver)"
-                    value={senha}
-                    onChange={(e) => setSenha(e.target.value)}
-                    disabled={isLoading}
-                    className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-600 outline-none"
-                  />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-3 bg-dark-700/40 rounded-xl border border-dark-600">
+                    <Lock size={15} className="text-gray-500 shrink-0" />
+                    <input
+                      type="password"
+                      placeholder="Senha do arquivo (se houver)"
+                      value={senha}
+                      onChange={(e) => setSenha(e.target.value)}
+                      disabled={isLoading}
+                      className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-600 outline-none"
+                    />
+                  </div>
+                  {/* Proactive instructions for password-protected files */}
+                  <div className="p-3 bg-amber-500/8 border border-amber-500/20 rounded-xl space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Lock size={12} className="text-amber-400 shrink-0" />
+                      <p className="text-xs font-medium text-amber-400">Arquivo com senha? Siga estes passos antes de enviar:</p>
+                    </div>
+                    <ol className="text-xs text-gray-400 space-y-1 list-none pl-1">
+                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">1.</span>Abra o Excel normalmente (com a senha)</li>
+                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">2.</span>Clique com o botão direito na aba de lançamentos → <strong>Mover ou Copiar</strong></li>
+                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">3.</span>Selecione <strong>Nova pasta de trabalho</strong> e marque <strong>Criar uma cópia</strong></li>
+                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">4.</span>Salve o novo arquivo como .xlsx <strong>sem senha</strong> e envie aqui</li>
+                    </ol>
+                  </div>
                 </div>
               )}
 
@@ -257,29 +272,11 @@ export function VerificarFaturaModal({
               )}
 
               {/* Error state */}
-              {error && (
-                error === 'EXCEL_PASSWORD_PROTECTED' ? (
-                  <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Lock size={16} className="text-amber-400 shrink-0" />
-                      <p className="text-sm font-medium text-amber-300">Arquivo protegido por senha</p>
-                    </div>
-                    <p className="text-xs text-gray-400 leading-relaxed">
-                      Não foi possível abrir o arquivo com a senha informada. Para resolver, siga estes passos:
-                    </p>
-                    <ol className="text-xs text-gray-400 space-y-1 list-none pl-1">
-                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">1.</span>Abra o arquivo Excel normalmente no seu computador (com a senha)</li>
-                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">2.</span>Selecione a aba com os lançamentos e copie os dados</li>
-                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">3.</span>Cole em uma nova pasta de trabalho (Arquivo → Novo)</li>
-                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">4.</span>Salve como .xlsx <strong>sem senha</strong> e envie esse novo arquivo</li>
-                    </ol>
-                  </div>
-                ) : (
-                  <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-                    <AlertTriangle size={18} className="text-red-400 shrink-0 mt-0.5" />
-                    <p className="text-sm text-red-300">{error}</p>
-                  </div>
-                )
+              {error && error !== 'EXCEL_PASSWORD_PROTECTED' && (
+                <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                  <AlertTriangle size={18} className="text-red-400 shrink-0 mt-0.5" />
+                  <p className="text-sm text-red-300">{error}</p>
+                </div>
               )}
             </div>
           )}
