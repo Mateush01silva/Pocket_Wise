@@ -84,7 +84,21 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
   }, [])
 
   const verificar = useCallback(
-    async ({ arquivo, transacoes, totalFatura, cartaoNome, periodo, getCategoryName }) => {
+    async ({
+      arquivo,
+      transacoes,
+      totalFatura,
+      cartaoNome,
+      periodo,
+      getCategoryName,
+    }: {
+      arquivo: File
+      transacoes: Lancamento[]
+      totalFatura: number
+      cartaoNome: string
+      periodo: string
+      getCategoryName: (categoriaId: string | null) => string
+    }) => {
       setError(null)
       setResultado(null)
 
@@ -108,7 +122,7 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
       }
 
       // Etapa 2: Preparar transações para envio
-      const transacoesSimples = transacoes.map((t) => {
+      const transacoesSimples = transacoes.map((t: Lancamento) => {
         const descricao = t.observacao || getCategoryName(t.categoria_id)
         const parcela =
           t.parcela_atual && t.parcela_total

@@ -76,12 +76,6 @@ export function VerificarFaturaModal({
 
   if (!isOpen) return null
 
-  const totalItensProblema = resultado
-    ? resultado.no_pdf_nao_no_app.length +
-      resultado.no_app_nao_no_pdf.length +
-      resultado.valores_divergentes.length
-    : 0
-
   return (
     <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[60] sm:p-4">
       <div className="bg-dark-800 shadow-xl sm:max-w-2xl w-full max-h-[100dvh] sm:max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-lg">
