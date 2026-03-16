@@ -218,10 +218,28 @@ export function VerificarFaturaModal({
 
               {/* Error state */}
               {error && (
-                <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-                  <AlertTriangle size={18} className="text-red-400 shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-300">{error}</p>
-                </div>
+                error === 'EXCEL_PASSWORD_PROTECTED' ? (
+                  <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Lock size={16} className="text-amber-400 shrink-0" />
+                      <p className="text-sm font-medium text-amber-300">Arquivo protegido por senha</p>
+                    </div>
+                    <p className="text-xs text-gray-400 leading-relaxed">
+                      Não foi possível abrir o arquivo com a senha informada. Para resolver, siga estes passos:
+                    </p>
+                    <ol className="text-xs text-gray-400 space-y-1 list-none pl-1">
+                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">1.</span>Abra o arquivo Excel normalmente no seu computador (com a senha)</li>
+                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">2.</span>Selecione a aba com os lançamentos e copie os dados</li>
+                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">3.</span>Cole em uma nova pasta de trabalho (Arquivo → Novo)</li>
+                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">4.</span>Salve como .xlsx <strong>sem senha</strong> e envie esse novo arquivo</li>
+                    </ol>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                    <AlertTriangle size={18} className="text-red-400 shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-300">{error}</p>
+                  </div>
+                )
               )}
             </div>
           )}

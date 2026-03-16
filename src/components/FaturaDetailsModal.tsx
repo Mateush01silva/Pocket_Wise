@@ -218,7 +218,7 @@ export function FaturaDetailsModal({
               className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-dark-600 text-sm text-gray-300 hover:text-gray-100 hover:bg-dark-700/50 hover:border-dark-500 transition-colors"
             >
               <FileSearch size={16} />
-              Verificar com PDF da fatura
+              Verificar fatura (PDF ou Excel)
             </button>
           )}
         </div>
