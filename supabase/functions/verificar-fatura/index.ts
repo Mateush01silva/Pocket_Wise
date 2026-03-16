@@ -263,7 +263,7 @@ Retorne um JSON com exatamente esta estrutura:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 4000,
+        max_tokens: 8000,
         temperature: 0.1,
         response_format: { type: 'json_object' },
       }),
@@ -284,9 +284,19 @@ Retorne um JSON com exatamente esta estrutura:
 
     let analise
     try {
-      analise = JSON.parse(content)
+      // Extract JSON even if model adds surrounding text
+      const jsonStart = content.indexOf('{')
+      const jsonEnd = content.lastIndexOf('}')
+      if (jsonStart === -1 || jsonEnd === -1 || jsonEnd < jsonStart) {
+        throw new Error('no JSON object found')
+      }
+      analise = JSON.parse(content.slice(jsonStart, jsonEnd + 1))
     } catch {
-      console.error('Falha ao parsear JSON da IA:', content)
+      console.error('Falha ao parsear JSON da IA (finish_reason:', openaiData.choices?.[0]?.finish_reason, '):', content.slice(0, 300))
+      const finishReason = openaiData.choices?.[0]?.finish_reason
+      if (finishReason === 'length') {
+        return jsonResponse({ error: 'A fatura tem muitas transações e a resposta foi cortada. Tente dividir o PDF por período.' }, 502)
+      }
       return jsonResponse({ error: 'Resposta da IA em formato inválido. Tente novamente.' }, 502)
     }
 
