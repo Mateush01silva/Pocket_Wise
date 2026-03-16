@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { format, parseISO, addMonths, startOfMonth, setDate } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { X, Calendar, ShoppingBag } from 'lucide-react'
+import { X, Calendar, ShoppingBag, FileSearch } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useCategoriasStore } from '../store'
 import type { Lancamento } from '../types'
+import { VerificarFaturaModal } from './VerificarFaturaModal'
 
 interface FaturaDetailsModalProps {
   isOpen: boolean
@@ -58,6 +60,7 @@ export function FaturaDetailsModal({
   diaFechamento,
 }: FaturaDetailsModalProps) {
   const categorias = useCategoriasStore((state) => state.categorias)
+  const [verificarOpen, setVerificarOpen] = useState(false)
 
   if (!isOpen) return null
 
@@ -201,14 +204,36 @@ export function FaturaDetailsModal({
 
         {/* Footer */}
         <div className="p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6 border-t border-dark-700 bg-dark-800/50 shrink-0">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <span className="text-gray-400">Total da Fatura</span>
             <span className="text-2xl font-bold text-primary-400">
               {formatCurrency(totalFatura)}
             </span>
           </div>
+          <button
+            onClick={() => setVerificarOpen(true)}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-dark-600 text-sm text-gray-300 hover:text-gray-100 hover:bg-dark-700/50 hover:border-dark-500 transition-colors"
+          >
+            <FileSearch size={16} />
+            Verificar com PDF da fatura
+          </button>
         </div>
       </div>
+
+      <VerificarFaturaModal
+        isOpen={verificarOpen}
+        onClose={() => setVerificarOpen(false)}
+        cartaoNome={cartaoNome}
+        cartaoCor={cartaoCor}
+        transacoes={transacoes}
+        totalFatura={totalFatura}
+        periodo={
+          mesesOrdenados.length > 0
+            ? mesesOrdenados.map(([chave]) => chave.split('|')[0]).join(', ')
+            : ''
+        }
+        getCategoryName={getCategoryName}
+      />
     </div>
   )
 }
