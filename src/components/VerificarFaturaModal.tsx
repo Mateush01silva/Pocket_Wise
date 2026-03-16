@@ -1,8 +1,9 @@
 import { useRef, useState, useCallback } from 'react'
-import { X, Upload, FileText, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2 } from 'lucide-react'
+import { X, Upload, FileText, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2, LayoutPanelLeft } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { Button } from './ui/Button'
 import { useVerificarFatura } from '../hooks/useVerificarFatura'
+import { DiscrepanciasSplitView } from './DiscrepanciasSplitView'
 import type { Lancamento } from '../types'
 import type { ResultadoVerificacao } from '../hooks/useVerificarFatura'
 
@@ -30,6 +31,7 @@ export function VerificarFaturaModal({
   const inputRef = useRef<HTMLInputElement>(null)
   const [arquivoSelecionado, setArquivoSelecionado] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [splitViewOpen, setSplitViewOpen] = useState(false)
   const { isExtraindo, isAnalisando, resultado, error, verificar, limpar } = useVerificarFatura()
 
   const isLoading = isExtraindo || isAnalisando
@@ -185,18 +187,31 @@ export function VerificarFaturaModal({
         {/* Footer */}
         <div className="p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6 border-t border-dark-700 bg-dark-800/50 shrink-0">
           {resultado ? (
-            <div className="flex gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => { setArquivoSelecionado(null); limpar() }}
-                className="flex-1"
-              >
-                Analisar outro PDF
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleClose} className="flex-1">
-                Fechar
-              </Button>
+            <div className="flex flex-col gap-2">
+              {(resultado.no_pdf_nao_no_app.length > 0 || resultado.no_app_nao_no_pdf.length > 0 || resultado.valores_divergentes.length > 0) && (
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => setSplitViewOpen(true)}
+                  className="w-full"
+                >
+                  <LayoutPanelLeft size={16} className="mr-2" />
+                  Lançar Discrepâncias
+                </Button>
+              )}
+              <div className="flex gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setArquivoSelecionado(null); limpar() }}
+                  className="flex-1"
+                >
+                  Analisar outro PDF
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleClose} className="flex-1">
+                  Fechar
+                </Button>
+              </div>
             </div>
           ) : (
             <Button
@@ -212,6 +227,16 @@ export function VerificarFaturaModal({
           )}
         </div>
       </div>
+
+      {resultado && (
+        <DiscrepanciasSplitView
+          isOpen={splitViewOpen}
+          onClose={() => setSplitViewOpen(false)}
+          cartaoNome={cartaoNome}
+          cartaoCor={cartaoCor}
+          resultado={resultado}
+        />
+      )}
     </div>
   )
 }
@@ -335,6 +360,55 @@ function ResultadoView({ resultado, totalApp }: { resultado: ResultadoVerificaca
           <p className="text-sm text-gray-400">Todos os lançamentos conferem com a fatura do banco.</p>
         </div>
       )}
+
+      {/* Resumo financeiro dos ajustes */}
+      {temDivergencias && (() => {
+        const totalFaltante = resultado.no_pdf_nao_no_app.reduce((s, i) => s + i.valor, 0)
+        const totalExtra = resultado.no_app_nao_no_pdf.reduce((s, i) => s + i.valor, 0)
+        const totalCorrecao = resultado.valores_divergentes.reduce((s, i) => s + i.diferenca, 0)
+        const totalAjustado = totalApp + totalFaltante - totalExtra + totalCorrecao
+        const diferencaResidual = resultado.total_pdf !== null ? totalAjustado - resultado.total_pdf : null
+
+        return (
+          <div className="p-4 bg-dark-700/40 rounded-xl border border-dark-600">
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">Resumo financeiro dos ajustes</p>
+            <div className="space-y-1.5 text-sm">
+              {totalFaltante > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Faltam no app (na fatura)</span>
+                  <span className="text-red-400 font-medium">+{formatCurrency(totalFaltante)}</span>
+                </div>
+              )}
+              {totalExtra > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Extras no app (não na fatura)</span>
+                  <span className="text-blue-400 font-medium">−{formatCurrency(totalExtra)}</span>
+                </div>
+              )}
+              {Math.abs(totalCorrecao) > 0.01 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Correções de valor</span>
+                  <span className={`font-medium ${totalCorrecao > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                    {totalCorrecao > 0 ? '+' : ''}{formatCurrency(totalCorrecao)}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between pt-2 border-t border-dark-600">
+                <span className="text-gray-300 font-medium">Total ajustado no app</span>
+                <span className="text-gray-100 font-bold">{formatCurrency(totalAjustado)}</span>
+              </div>
+              {diferencaResidual !== null && (
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Diferença residual c/ fatura PDF</span>
+                  <span className={`font-medium ${Math.abs(diferencaResidual) < 0.02 ? 'text-green-400' : 'text-yellow-400'}`}>
+                    {diferencaResidual > 0 ? '+' : ''}{formatCurrency(diferencaResidual)}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
