@@ -154,7 +154,21 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
         })
 
         if (fnError) {
-          setError('Erro ao conectar com o servidor. Tente novamente.')
+          // Try to extract structured error from edge function response
+          try {
+            const errBody = await (fnError as any).context?.json?.()
+            if (errBody?.code === 'FEATURE_NOT_ENABLED') {
+              setError('Esta funcionalidade de IA não está disponível para sua conta.')
+            } else if (errBody?.code === 'MONTHLY_LIMIT_REACHED') {
+              setError(errBody.error)
+            } else if (errBody?.error) {
+              setError(errBody.error)
+            } else {
+              setError('Erro ao conectar com o servidor. Tente novamente.')
+            }
+          } catch {
+            setError('Erro ao conectar com o servidor. Tente novamente.')
+          }
           return
         }
 

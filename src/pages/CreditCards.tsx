@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Eye,
   Target,
+  FileSearch,
 } from 'lucide-react'
 import { format, parseISO, addMonths, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -191,6 +192,7 @@ export function CreditCards() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [cartaoToEdit, setCartaoToEdit] = useState<Cartao | undefined>()
   const [faturaDetailsCartaoId, setFaturaDetailsCartaoId] = useState<string | null>(null)
+  const [verificarFaturaFechadaCartaoId, setVerificarFaturaFechadaCartaoId] = useState<string | null>(null)
   const [pagarFaturaCartao, setPagarFaturaCartao] = useState<typeof cartoesComEstatisticas[0] | null>(null)
 
   const diaAtual = new Date().getDate()
@@ -474,16 +476,25 @@ export function CreditCards() {
                   {formatCurrency(cartao.faturaFechadaPendente.total)}
                 </span>
               </div>
-              {canEdit && (
-                <Button
-                  onClick={() => handlePagarFatura(cartao)}
-                  className={`w-full ${cartao.faturaFechadaPendente.vencida ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
-                  size="sm"
+              <div className="flex gap-2">
+                {canEdit && (
+                  <Button
+                    onClick={() => handlePagarFatura(cartao)}
+                    className={`flex-1 ${cartao.faturaFechadaPendente.vencida ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}
+                    size="sm"
+                  >
+                    <DollarSign size={14} className="mr-2" />
+                    {cartao.faturaFechadaPendente.vencida ? 'Pagar Fatura Vencida' : 'Pagar Fatura'}
+                  </Button>
+                )}
+                <button
+                  onClick={() => setVerificarFaturaFechadaCartaoId(cartao.id)}
+                  className="p-2 hover:bg-dark-700 rounded transition-colors text-gray-400 hover:text-primary-400 border border-dark-600 hover:border-dark-500"
+                  title="Verificar fatura com PDF"
                 >
-                  <DollarSign size={14} className="mr-2" />
-                  {cartao.faturaFechadaPendente.vencida ? 'Pagar Fatura Vencida' : 'Pagar Fatura'}
-                </Button>
-              )}
+                  <FileSearch size={16} />
+                </button>
+              </div>
             </div>
           )}
 
@@ -847,6 +858,27 @@ export function CreditCards() {
           onSuccess={handlePagarFaturaSuccess}
         />
       )}
+
+      {/* Modal de Verificar Fatura Fechada com PDF */}
+      {verificarFaturaFechadaCartaoId && (() => {
+        const cartao = cartoesComEstatisticas.find((c) => c.id === verificarFaturaFechadaCartaoId)
+        if (!cartao?.faturaFechadaPendente) return null
+
+        const { transacoes, total } = cartao.faturaFechadaPendente
+
+        return (
+          <FaturaDetailsModal
+            isOpen={true}
+            onClose={() => setVerificarFaturaFechadaCartaoId(null)}
+            cartaoNome={cartao.nome}
+            cartaoCor={cartao.cor || '#6b7280'}
+            transacoes={transacoes}
+            totalFatura={total}
+            diaFechamento={cartao.dia_fechamento}
+            showVerificarButton={true}
+          />
+        )
+      })()}
     </div>
   )
 }
