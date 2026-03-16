@@ -25,7 +25,18 @@ interface TransacaoSimples {
   data: string
   descricao: string
   valor: number
-  parcela?: string // ex: "2/6"
+  parcela?: string
+}
+
+interface PDFTransacao {
+  data: string
+  descricao: string
+  valor: number
+}
+
+interface PDFExtracao {
+  total_pdf: number | null
+  transacoes: PDFTransacao[]
 }
 
 // ============================================================================
@@ -52,6 +63,78 @@ function getRenovacaoDate(mesAtual: string): string {
   const [ano, mes] = mesAtual.split('-').map(Number)
   const dataRenovacao = new Date(ano, mes, 1)
   return dataRenovacao.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })
+}
+
+// ---------------------------------------------------------------------------
+// Value-based matching: deterministic, no AI name confusion
+// ---------------------------------------------------------------------------
+function matchTransacoes(
+  appItems: TransacaoSimples[],
+  pdfItems: PDFTransacao[],
+): {
+  no_pdf_nao_no_app: PDFTransacao[]
+  no_app_nao_no_pdf: TransacaoSimples[]
+} {
+  const appPool = appItems.map((item) => ({ item, matched: false }))
+  const pdfPool = pdfItems.map((item) => ({ item, matched: false }))
+
+  // Greedy value-based matching (tolerance: R$0.10 for rounding)
+  for (const pdfEntry of pdfPool) {
+    const idx = appPool.findIndex(
+      (a) => !a.matched && Math.abs(a.item.valor - pdfEntry.item.valor) < 0.10,
+    )
+    if (idx !== -1) {
+      appPool[idx].matched = true
+      pdfEntry.matched = true
+    }
+  }
+
+  return {
+    no_pdf_nao_no_app: pdfPool.filter((e) => !e.matched).map((e) => e.item),
+    no_app_nao_no_pdf: appPool.filter((e) => !e.matched).map((e) => e.item),
+  }
+}
+
+function gerarResumo(params: {
+  noPdfNaoNoApp: PDFTransacao[]
+  noAppNaoNoPdf: TransacaoSimples[]
+  totalPdf: number | null
+  totalApp: number
+  diferencaTotal: number | null
+}): string {
+  const { noPdfNaoNoApp, noAppNaoNoPdf, totalPdf, totalApp, diferencaTotal } = params
+  const partes: string[] = []
+
+  if (diferencaTotal !== null) {
+    if (Math.abs(diferencaTotal) < 0.10) {
+      partes.push(`Os totais conferem: ambos somam ${formatBRL(totalApp)}.`)
+    } else if (diferencaTotal > 0) {
+      partes.push(
+        `O total do PDF (${formatBRL(totalPdf!)}) é ${formatBRL(diferencaTotal)} maior que o registrado no app (${formatBRL(totalApp)}).`,
+      )
+    } else {
+      partes.push(
+        `O total do PDF (${formatBRL(totalPdf!)}) é ${formatBRL(Math.abs(diferencaTotal))} menor que o registrado no app (${formatBRL(totalApp)}).`,
+      )
+    }
+  }
+
+  if (noPdfNaoNoApp.length === 0 && noAppNaoNoPdf.length === 0) {
+    partes.push('Todos os lançamentos conferem perfeitamente.')
+  } else {
+    if (noPdfNaoNoApp.length > 0) {
+      partes.push(
+        `${noPdfNaoNoApp.length} lançamento(s) da fatura não ${noPdfNaoNoApp.length === 1 ? 'está registrado' : 'estão registrados'} no app.`,
+      )
+    }
+    if (noAppNaoNoPdf.length > 0) {
+      partes.push(
+        `${noAppNaoNoPdf.length} lançamento(s) do app não ${noAppNaoNoPdf.length === 1 ? 'foi encontrado' : 'foram encontrados'} na fatura PDF.`,
+      )
+    }
+  }
+
+  return partes.join(' ')
 }
 
 // ============================================================================
@@ -184,62 +267,36 @@ serve(async (req) => {
       return jsonResponse({ error: 'Lista de transações inválida' }, 400)
     }
 
-    // Limitar texto do PDF (GPT-4o-mini suporta 128k tokens; 32k chars ≈ ~8k tokens, seguro)
+    // Limitar texto do PDF (~8k tokens, suficiente para extração)
     const pdfTextoLimitado = pdf_texto.length > 32000
       ? pdf_texto.substring(0, 32000) + '\n[... texto truncado por tamanho ...]'
       : pdf_texto
 
     // -------------------------------------------------------------------------
-    // 5. MONTAR PROMPT
+    // 5. PROMPT: SOMENTE EXTRAÇÃO DO PDF (sem comparação)
+    //    A IA faz apenas o que faz bem: ler o texto e estruturar em JSON.
+    //    O matching é feito em TypeScript (determinístico, por valor).
     // -------------------------------------------------------------------------
-    const transacoesTexto = transacoes.length > 0
-      ? transacoes.map((t, i) => {
-          const parcela = t.parcela ? ` (parcela ${t.parcela})` : ''
-          return `${i + 1}. ${t.data}: ${t.descricao}${parcela} | ${formatBRL(t.valor)}`
-        }).join('\n')
-      : '(nenhuma transação registrada no app para este período)'
+    const systemPrompt = `Você é um parser de documentos financeiros brasileiros. Extraia todas as transações desta fatura de cartão de crédito. Retorne SOMENTE JSON válido, sem markdown, sem texto adicional.`
 
-    const systemPrompt = `Você é um auditor financeiro especializado em faturas de cartão de crédito brasileiro.
-Sua tarefa é comparar lançamento por lançamento as transações de um app com o extrato de uma fatura PDF.
+    const userPrompt = `Extraia TODAS as transações individuais desta fatura de cartão de crédito.
 
-REGRAS CRÍTICAS:
-1. Compare CADA transação individualmente — NUNCA consolide ou some múltiplas compras do mesmo estabelecimento.
-2. O mesmo estabelecimento pode aparecer várias vezes com datas e valores diferentes. Cada ocorrência é uma transação SEPARADA.
-3. Para considerar duas transações como a mesma, o nome do estabelecimento E o valor devem ser similares. Não agrupe só pelo nome.
-4. Para parcelas, considere o número da parcela (ex: 2/6 e 3/6 são transações diferentes).
-5. Ignore diferenças mínimas de centavos (< R$0,10) causadas por arredondamento.
-6. Use correspondência flexível para nomes: "Droga Raia84" e "Droga Raia" são o mesmo estabelecimento se o valor for igual.
-7. Retorne SOMENTE JSON válido, sem markdown.`
+REGRAS:
+1. Cada linha de lançamento é uma transação SEPARADA — nunca agrupe por estabelecimento.
+2. Para parcelas (ex: "Loja X 2/6"), cada parcela é uma transação individual.
+3. "valor" deve ser número positivo (sem sinal negativo).
+4. Inclua compras, tarifas, encargos, IOF, anuidades — tudo.
+5. Ignore linhas de pagamento/crédito (valores que reduzem a fatura).
 
-    const userPrompt = `Compare cada transação individualmente entre o app e a fatura PDF.
-
-=== TRANSAÇÕES NO APP (${cartao_nome} - ${periodo}) — ${transacoes.length} itens ===
-${transacoesTexto}
-TOTAL NO APP: ${formatBRL(total_app)}
-
-=== TEXTO EXTRAÍDO DA FATURA PDF ===
+=== TEXTO DA FATURA PDF ===
 ${pdfTextoLimitado}
 
-INSTRUÇÕES DE COMPARAÇÃO:
-- Percorra CADA linha de transação do PDF e verifique se existe correspondente no app com mesmo estabelecimento E valor similar.
-- Percorra CADA transação do app e verifique se existe correspondente no PDF.
-- Se "Centro Automotivo Lui" aparece 3x no PDF com valores R$311, R$307, R$289 — são 3 transações distintas, NÃO some os valores.
-- Só marque como divergente se tiver certeza que é o mesmo item com valor diferente.
-
-Retorne um JSON com exatamente esta estrutura:
+Retorne JSON com esta estrutura EXATA:
 {
-  "total_pdf": <número com o total da fatura encontrado no PDF, ou null>,
-  "diferenca_total": <total_pdf - total_app, ou null>,
-  "no_pdf_nao_no_app": [
-    { "data": "<data como aparece no PDF>", "descricao": "<nome do estabelecimento>", "valor": <número> }
-  ],
-  "no_app_nao_no_pdf": [
-    { "data": "<data>", "descricao": "<descrição>", "valor": <número> }
-  ],
-  "valores_divergentes": [
-    { "descricao": "<estabelecimento>", "valor_app": <número>, "valor_pdf": <número>, "diferenca": <valor_pdf - valor_app> }
-  ],
-  "resumo": "<resumo em 2-3 frases explicando as principais discrepâncias encontradas e o que o usuário deve verificar>"
+  "total_pdf": <número com o total/valor a pagar da fatura, ou null se não encontrado>,
+  "transacoes": [
+    {"data": "<data como aparece no PDF>", "descricao": "<nome do estabelecimento>", "valor": <número positivo>}
+  ]
 }`
 
     // -------------------------------------------------------------------------
@@ -264,7 +321,7 @@ Retorne um JSON com exatamente esta estrutura:
           { role: 'user', content: userPrompt },
         ],
         max_tokens: 8000,
-        temperature: 0.1,
+        temperature: 0.0,
         response_format: { type: 'json_object' },
       }),
     })
@@ -282,26 +339,56 @@ Retorne um JSON com exatamente esta estrutura:
       return jsonResponse({ error: 'A IA não retornou uma resposta válida.' }, 502)
     }
 
-    let analise
+    let extracao: PDFExtracao
     try {
-      // Extract JSON even if model adds surrounding text
       const jsonStart = content.indexOf('{')
       const jsonEnd = content.lastIndexOf('}')
       if (jsonStart === -1 || jsonEnd === -1 || jsonEnd < jsonStart) {
         throw new Error('no JSON object found')
       }
-      analise = JSON.parse(content.slice(jsonStart, jsonEnd + 1))
-    } catch {
-      console.error('Falha ao parsear JSON da IA (finish_reason:', openaiData.choices?.[0]?.finish_reason, '):', content.slice(0, 300))
-      const finishReason = openaiData.choices?.[0]?.finish_reason
-      if (finishReason === 'length') {
-        return jsonResponse({ error: 'A fatura tem muitas transações e a resposta foi cortada. Tente dividir o PDF por período.' }, 502)
+      extracao = JSON.parse(content.slice(jsonStart, jsonEnd + 1)) as PDFExtracao
+      if (!Array.isArray(extracao.transacoes)) {
+        extracao.transacoes = []
       }
-      return jsonResponse({ error: 'Resposta da IA em formato inválido. Tente novamente.' }, 502)
+    } catch {
+      const finishReason = openaiData.choices?.[0]?.finish_reason
+      console.error('Falha ao parsear extração da IA (finish_reason:', finishReason, '):', content.slice(0, 300))
+      if (finishReason === 'length') {
+        return jsonResponse({ error: 'O PDF é muito extenso para processar. Tente um período menor.' }, 502)
+      }
+      return jsonResponse({ error: 'Falha ao extrair transações do PDF. Tente novamente.' }, 502)
     }
 
     // -------------------------------------------------------------------------
-    // 7. REGISTRAR USO
+    // 7. MATCHING POR VALOR (TypeScript, determinístico)
+    // -------------------------------------------------------------------------
+    const { no_pdf_nao_no_app, no_app_nao_no_pdf } = matchTransacoes(
+      transacoes,
+      extracao.transacoes,
+    )
+
+    const totalPdf = extracao.total_pdf ?? null
+    const diferencaTotal = totalPdf !== null ? totalPdf - total_app : null
+
+    const resumo = gerarResumo({
+      noPdfNaoNoApp: no_pdf_nao_no_app,
+      noAppNaoNoPdf: no_app_nao_no_pdf,
+      totalPdf,
+      totalApp: total_app,
+      diferencaTotal,
+    })
+
+    const analise = {
+      total_pdf: totalPdf,
+      diferenca_total: diferencaTotal,
+      no_pdf_nao_no_app,
+      no_app_nao_no_pdf,
+      valores_divergentes: [], // value-based matching: divergências são tratadas como ausentes
+      resumo,
+    }
+
+    // -------------------------------------------------------------------------
+    // 8. REGISTRAR USO
     // -------------------------------------------------------------------------
     try {
       await supabaseAdmin.from('ai_usage_log').insert({
@@ -314,7 +401,7 @@ Retorne um JSON com exatamente esta estrutura:
     }
 
     // -------------------------------------------------------------------------
-    // 8. RETORNAR RESPOSTA
+    // 9. RETORNAR RESPOSTA
     // -------------------------------------------------------------------------
     return jsonResponse({ analise })
   } catch (error) {
