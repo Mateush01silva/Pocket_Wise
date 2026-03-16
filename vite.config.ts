@@ -44,6 +44,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,jpeg,jpg}'],
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // 4 MiB (xlsx adds ~500KB)
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

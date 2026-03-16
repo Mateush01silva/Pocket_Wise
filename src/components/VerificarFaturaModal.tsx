@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback } from 'react'
-import { X, Upload, FileText, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2, LayoutPanelLeft } from 'lucide-react'
+import { X, Upload, FileText, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2, LayoutPanelLeft, TableIcon, Lock, Sparkles } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { Button } from './ui/Button'
 import { useVerificarFatura } from '../hooks/useVerificarFatura'
@@ -18,6 +18,11 @@ interface VerificarFaturaModalProps {
   getCategoryName: (categoriaId: string | null) => string
 }
 
+function isExcelFile(file: File) {
+  const name = file.name.toLowerCase()
+  return name.endsWith('.xlsx') || name.endsWith('.xls')
+}
+
 export function VerificarFaturaModal({
   isOpen,
   onClose,
@@ -32,23 +37,27 @@ export function VerificarFaturaModal({
   const [arquivoSelecionado, setArquivoSelecionado] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [splitViewOpen, setSplitViewOpen] = useState(false)
+  const [senha, setSenha] = useState('')
   const { isExtraindo, isAnalisando, resultado, error, verificar, limpar } = useVerificarFatura()
 
   const isLoading = isExtraindo || isAnalisando
+  const isExcel = arquivoSelecionado ? isExcelFile(arquivoSelecionado) : false
 
   const handleClose = useCallback(() => {
     if (!isLoading) {
       setArquivoSelecionado(null)
+      setSenha('')
       limpar()
       onClose()
     }
   }, [isLoading, limpar, onClose])
 
   const handleArquivo = useCallback((file: File) => {
-    if (file.type !== 'application/pdf') {
-      return
-    }
+    const name = file.name.toLowerCase()
+    const valid = file.type === 'application/pdf' || name.endsWith('.xlsx') || name.endsWith('.xls')
+    if (!valid) return
     setArquivoSelecionado(file)
+    setSenha('')
     limpar()
   }, [limpar])
 
@@ -68,15 +77,23 @@ export function VerificarFaturaModal({
     if (!arquivoSelecionado) return
     await verificar({
       arquivo: arquivoSelecionado,
+      senha: senha || undefined,
       transacoes,
       totalFatura,
       cartaoNome,
       periodo,
       getCategoryName,
     })
-  }, [arquivoSelecionado, verificar, transacoes, totalFatura, cartaoNome, periodo, getCategoryName])
+  }, [arquivoSelecionado, senha, verificar, transacoes, totalFatura, cartaoNome, periodo, getCategoryName])
 
   if (!isOpen) return null
+
+  const loadingLabel = isExtraindo
+    ? (isExcel ? 'Lendo arquivo Excel...' : 'Extraindo texto do PDF...')
+    : 'Analisando com IA...'
+  const loadingSubLabel = isExtraindo
+    ? (isExcel ? 'Processando planilha localmente' : 'Lendo as páginas do PDF')
+    : 'Comparando com seus lançamentos'
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[60] sm:p-4">
@@ -107,11 +124,22 @@ export function VerificarFaturaModal({
 
           {/* Upload area */}
           {!resultado && (
-            <div>
-              <p className="text-sm text-gray-400 mb-3">
-                Anexe o PDF da fatura do seu banco para verificar se os lançamentos registrados no app conferem com os da fatura real.
+            <div className="space-y-3">
+              <p className="text-sm text-gray-400">
+                Anexe a fatura do seu banco para verificar se os lançamentos no app conferem com os reais.
               </p>
 
+              {/* Format hint */}
+              <div className="flex gap-2">
+                <span className="flex items-center gap-1 text-xs text-gray-500 bg-dark-700/50 px-2 py-1 rounded-md">
+                  <FileText size={11} /> PDF (usa 1 crédito de IA)
+                </span>
+                <span className="flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md">
+                  <TableIcon size={11} /> Excel · sem crédito · mais preciso
+                </span>
+              </div>
+
+              {/* Drop zone */}
               <div
                 role="button"
                 tabIndex={0}
@@ -126,53 +154,76 @@ export function VerificarFaturaModal({
                     : isDragOver
                     ? 'border-primary-400 bg-primary-500/10'
                     : arquivoSelecionado
-                    ? 'border-green-500/50 bg-green-500/5 hover:bg-green-500/10'
+                    ? isExcel
+                      ? 'border-emerald-500/50 bg-emerald-500/5 hover:bg-emerald-500/10'
+                      : 'border-green-500/50 bg-green-500/5 hover:bg-green-500/10'
                     : 'border-dark-600 hover:border-dark-500 hover:bg-dark-700/30'
                 }`}
               >
                 <input
                   ref={inputRef}
                   type="file"
-                  accept="application/pdf"
+                  accept="application/pdf,.xlsx,.xls"
                   className="hidden"
                   onChange={handleInputChange}
                   disabled={isLoading}
                 />
                 {arquivoSelecionado ? (
                   <>
-                    <FileText size={32} className="mx-auto mb-2 text-green-400" />
-                    <p className="text-sm font-medium text-green-400 truncate px-4">{arquivoSelecionado.name}</p>
+                    {isExcel
+                      ? <TableIcon size={32} className="mx-auto mb-2 text-emerald-400" />
+                      : <FileText size={32} className="mx-auto mb-2 text-green-400" />
+                    }
+                    <p className={`text-sm font-medium truncate px-4 ${isExcel ? 'text-emerald-400' : 'text-green-400'}`}>
+                      {arquivoSelecionado.name}
+                    </p>
                     <p className="text-xs text-gray-500 mt-1">
                       {(arquivoSelecionado.size / 1024).toFixed(0)} KB · Clique para trocar
                     </p>
+                    {isExcel && (
+                      <p className="text-xs text-emerald-500 mt-1 flex items-center justify-center gap-1">
+                        <Sparkles size={10} /> Processamento local — sem uso de crédito
+                      </p>
+                    )}
                   </>
                 ) : (
                   <>
                     <Upload size={32} className="mx-auto mb-2 text-gray-500" />
-                    <p className="text-sm font-medium text-gray-300">Arraste o PDF aqui ou clique para selecionar</p>
-                    <p className="text-xs text-gray-500 mt-1">Apenas arquivos PDF</p>
+                    <p className="text-sm font-medium text-gray-300">Arraste o arquivo aqui ou clique para selecionar</p>
+                    <p className="text-xs text-gray-500 mt-1">PDF ou Excel (.xlsx / .xls)</p>
                   </>
                 )}
               </div>
 
+              {/* Password field (Excel only) */}
+              {isExcel && arquivoSelecionado && (
+                <div className="flex items-center gap-2 p-3 bg-dark-700/40 rounded-xl border border-dark-600">
+                  <Lock size={15} className="text-gray-500 shrink-0" />
+                  <input
+                    type="password"
+                    placeholder="Senha do arquivo (se houver)"
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    disabled={isLoading}
+                    className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-600 outline-none"
+                  />
+                </div>
+              )}
+
               {/* Loading state */}
               {isLoading && (
-                <div className="mt-4 flex items-center gap-3 p-4 bg-dark-700/50 rounded-xl">
+                <div className="flex items-center gap-3 p-4 bg-dark-700/50 rounded-xl">
                   <Loader2 size={20} className="text-primary-400 animate-spin shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-gray-200">
-                      {isExtraindo ? 'Extraindo texto do PDF...' : 'Analisando discrepâncias com IA...'}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {isExtraindo ? 'Lendo as páginas do PDF' : 'Comparando com seus lançamentos'}
-                    </p>
+                    <p className="text-sm font-medium text-gray-200">{loadingLabel}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{loadingSubLabel}</p>
                   </div>
                 </div>
               )}
 
               {/* Error state */}
               {error && (
-                <div className="mt-4 flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
                   <AlertTriangle size={18} className="text-red-400 shrink-0 mt-0.5" />
                   <p className="text-sm text-red-300">{error}</p>
                 </div>
@@ -203,10 +254,10 @@ export function VerificarFaturaModal({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => { setArquivoSelecionado(null); limpar() }}
+                  onClick={() => { setArquivoSelecionado(null); setSenha(''); limpar() }}
                   className="flex-1"
                 >
-                  Analisar outro PDF
+                  Analisar outro arquivo
                 </Button>
                 <Button variant="ghost" size="sm" onClick={handleClose} className="flex-1">
                   Fechar
@@ -222,7 +273,12 @@ export function VerificarFaturaModal({
               isLoading={isLoading}
               className="w-full"
             >
-              {isLoading ? (isExtraindo ? 'Extraindo PDF...' : 'Analisando...') : 'Analisar Fatura'}
+              {isLoading
+                ? loadingLabel
+                : isExcel
+                  ? 'Analisar Fatura (Excel)'
+                  : 'Analisar Fatura (PDF)'
+              }
             </Button>
           )}
         </div>
@@ -271,6 +327,11 @@ function ResultadoView({ resultado, totalApp }: { resultado: ResultadoVerificaca
           <span className={`font-semibold text-sm ${temDivergencias ? 'text-yellow-300' : 'text-green-300'}`}>
             {temDivergencias ? 'Discrepâncias encontradas' : 'Fatura confere com o app'}
           </span>
+          {resultado.fonte === 'excel' && (
+            <span className="ml-auto text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <TableIcon size={9} /> Excel
+            </span>
+          )}
         </div>
         <div className="grid grid-cols-3 gap-3 text-center">
           <div>
@@ -297,30 +358,32 @@ function ResultadoView({ resultado, totalApp }: { resultado: ResultadoVerificaca
         </div>
       </div>
 
-      {/* Resumo da IA */}
+      {/* Resumo */}
       {resultado.resumo && (
         <div className="p-4 bg-dark-700/40 rounded-xl">
-          <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">Análise da IA</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">
+            {resultado.fonte === 'excel' ? 'Resumo' : 'Análise da IA'}
+          </p>
           <p className="text-sm text-gray-300 leading-relaxed">{resultado.resumo}</p>
         </div>
       )}
 
-      {/* No PDF mas não no app */}
+      {/* Na fatura, não no app */}
       {resultado.no_pdf_nao_no_app.length > 0 && (
         <Section
           title="Na fatura, mas não no app"
-          subtitle="Estes lançamentos aparecem no PDF mas não foram registrados"
+          subtitle="Estes lançamentos aparecem na fatura mas não foram registrados"
           icon={<TrendingDown size={16} className="text-red-400" />}
           cor="red"
           itens={resultado.no_pdf_nao_no_app}
         />
       )}
 
-      {/* No app mas não no PDF */}
+      {/* No app, não na fatura */}
       {resultado.no_app_nao_no_pdf.length > 0 && (
         <Section
           title="No app, mas não na fatura"
-          subtitle="Estes lançamentos estão no app mas não aparecem no PDF"
+          subtitle="Estes lançamentos estão no app mas não aparecem na fatura"
           icon={<TrendingUp size={16} className="text-blue-400" />}
           cor="blue"
           itens={resultado.no_app_nao_no_pdf}
@@ -343,7 +406,7 @@ function ResultadoView({ resultado, totalApp }: { resultado: ResultadoVerificaca
                 <p className="text-sm text-gray-200 mb-2">{item.descricao}</p>
                 <div className="flex gap-4 text-xs">
                   <span className="text-gray-500">App: <span className="text-gray-300">{formatCurrency(item.valor_app)}</span></span>
-                  <span className="text-gray-500">PDF: <span className="text-gray-300">{formatCurrency(item.valor_pdf)}</span></span>
+                  <span className="text-gray-500">Fatura: <span className="text-gray-300">{formatCurrency(item.valor_pdf)}</span></span>
                   <span className={`font-medium ${item.diferenca > 0 ? 'text-red-400' : 'text-green-400'}`}>
                     {item.diferenca > 0 ? '+' : ''}{formatCurrency(item.diferenca)}
                   </span>
@@ -399,7 +462,7 @@ function ResultadoView({ resultado, totalApp }: { resultado: ResultadoVerificaca
               </div>
               {diferencaResidual !== null && (
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Diferença residual c/ fatura PDF</span>
+                  <span className="text-gray-400">Diferença residual c/ fatura</span>
                   <span className={`font-medium ${Math.abs(diferencaResidual) < 0.02 ? 'text-green-400' : 'text-yellow-400'}`}>
                     {diferencaResidual > 0 ? '+' : ''}{formatCurrency(diferencaResidual)}
                   </span>
