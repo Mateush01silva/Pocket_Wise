@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
+import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import type { Lancamento } from '../types'
 
@@ -33,6 +34,7 @@ export interface ResultadoVerificacao {
   no_app_nao_no_pdf: ItemFatura[]
   valores_divergentes: ItemDivergente[]
   resumo: string
+  fonte: 'pdf' | 'excel'
 }
 
 interface UseVerificarFaturaState {
@@ -45,6 +47,7 @@ interface UseVerificarFaturaState {
 interface UseVerificarFaturaActions {
   verificar: (params: {
     arquivo: File
+    senha?: string
     transacoes: Lancamento[]
     totalFatura: number
     cartaoNome: string
@@ -55,6 +58,58 @@ interface UseVerificarFaturaActions {
 }
 
 export type UseVerificarFaturaReturn = UseVerificarFaturaState & UseVerificarFaturaActions
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+function isExcelFile(file: File): boolean {
+  const name = file.name.toLowerCase()
+  return name.endsWith('.xlsx') || name.endsWith('.xls')
+}
+
+/**
+ * Converts an Excel file to a tab-separated text representation.
+ * All rows are preserved so the AI can understand the full sheet structure
+ * (header rows, totals, account info, etc.) regardless of where data starts.
+ */
+function excelParaTexto(arrayBuffer: ArrayBuffer, senha?: string): string {
+  let workbook: XLSX.WorkBook
+  try {
+    workbook = XLSX.read(arrayBuffer, {
+      type: 'array',
+      password: senha || undefined,
+      cellDates: false, // keep dates as formatted strings
+      raw: false,       // use formatted cell values
+    })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message.toLowerCase() : ''
+    if (msg.includes('password') || msg.includes('encrypted') || msg.includes('cfb')) {
+      throw new Error(senha
+        ? 'Senha incorreta. Verifique a senha do arquivo e tente novamente.'
+        : 'Este arquivo está protegido por senha. Informe a senha para continuar.')
+    }
+    throw new Error('Não foi possível abrir o arquivo Excel. Verifique se é um arquivo .xlsx ou .xls válido.')
+  }
+
+  // Use the sheet with the most rows (likely the transactions sheet)
+  let sheetName = workbook.SheetNames[0]
+  let maxRows = 0
+  for (const name of workbook.SheetNames) {
+    const sheet = workbook.Sheets[name]
+    if (!sheet['!ref']) continue
+    const range = XLSX.utils.decode_range(sheet['!ref'])
+    const rows = range.e.r - range.s.r
+    if (rows > maxRows) { maxRows = rows; sheetName = name }
+  }
+
+  const sheet = workbook.Sheets[sheetName]
+  // Convert to CSV preserving all rows — AI will identify the structure
+  const csv = XLSX.utils.sheet_to_csv(sheet, { FS: '\t', blankrows: false })
+
+  // Limit to ~24k chars so we stay within token budget
+  return csv.length > 24000 ? csv.substring(0, 24000) + '\n[... planilha truncada ...]' : csv
+}
 
 // ============================================================================
 // HOOK
@@ -86,6 +141,7 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
   const verificar = useCallback(
     async ({
       arquivo,
+      senha,
       transacoes,
       totalFatura,
       cartaoNome,
@@ -93,6 +149,7 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
       getCategoryName,
     }: {
       arquivo: File
+      senha?: string
       transacoes: Lancamento[]
       totalFatura: number
       cartaoNome: string
@@ -102,56 +159,54 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
       setError(null)
       setResultado(null)
 
-      // Etapa 1: Extrair texto do PDF
+      const excel = isExcelFile(arquivo)
+
+      const transacoesSimples = transacoes.map((t: Lancamento) => ({
+        data: t.data,
+        descricao: t.observacao || getCategoryName(t.categoria_id),
+        valor: t.valor,
+        ...(t.parcela_atual && t.parcela_total
+          ? { parcela: `${t.parcela_atual}/${t.parcela_total}` }
+          : {}),
+      }))
+
+      // ------------------------------------------------------------------
+      // Step 1: Extract text content from the file
+      // ------------------------------------------------------------------
       setIsExtraindo(true)
-      let pdfTexto: string
+      let textoExtraido: string
       try {
-        pdfTexto = await extrairTextoPDF(arquivo)
-        if (!pdfTexto.trim()) {
-          setError('Não foi possível extrair texto do PDF. Verifique se o arquivo não é uma imagem escaneada.')
-          setIsExtraindo(false)
-          return
+        if (excel) {
+          const arrayBuffer = await arquivo.arrayBuffer()
+          textoExtraido = excelParaTexto(arrayBuffer, senha)
+        } else {
+          textoExtraido = await extrairTextoPDF(arquivo)
+          if (!textoExtraido.trim()) {
+            setError('Não foi possível extrair texto do PDF. Verifique se o arquivo não é uma imagem escaneada.')
+            return
+          }
         }
-      } catch (err) {
-        console.error('Erro ao extrair texto do PDF:', err)
-        setError('Erro ao ler o arquivo PDF. Verifique se é um PDF válido.')
-        setIsExtraindo(false)
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Erro ao ler o arquivo.')
         return
       } finally {
         setIsExtraindo(false)
       }
 
-      // Etapa 2: Preparar transações para envio
-      const transacoesSimples = transacoes.map((t: Lancamento) => {
-        const descricao = t.observacao || getCategoryName(t.categoria_id)
-        const parcela =
-          t.parcela_atual && t.parcela_total
-            ? `${t.parcela_atual}/${t.parcela_total}`
-            : undefined
-        return {
-          data: t.data,
-          descricao,
-          valor: t.valor,
-          ...(parcela ? { parcela } : {}),
-        }
-      })
-
-      // Etapa 3: Chamar Edge Function
+      // ------------------------------------------------------------------
+      // Step 2: Send to edge function (AI extraction + value-based matching)
+      // ------------------------------------------------------------------
       setIsAnalisando(true)
       try {
+        const body = excel
+          ? { excel_texto: textoExtraido, transacoes: transacoesSimples, total_app: totalFatura, cartao_nome: cartaoNome, periodo }
+          : { pdf_texto: textoExtraido, transacoes: transacoesSimples, total_app: totalFatura, cartao_nome: cartaoNome, periodo }
+
         const { data, error: fnError } = await supabase!.functions.invoke<{
           analise: ResultadoVerificacao
           error?: string
           code?: string
-        }>('verificar-fatura', {
-          body: {
-            pdf_texto: pdfTexto,
-            transacoes: transacoesSimples,
-            total_app: totalFatura,
-            cartao_nome: cartaoNome,
-            periodo,
-          },
-        })
+        }>('verificar-fatura', { body })
 
         if (fnError) {
           let errMsg = 'Erro ao conectar com o servidor. Tente novamente.'
@@ -172,7 +227,7 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
                 console.error('[verificar-fatura] resposta de erro não-JSON:', text.slice(0, 300))
               }
             } else {
-              console.error('[verificar-fatura] fnError sem context (relay/network error):', fnError)
+              console.error('[verificar-fatura] fnError sem context:', fnError)
             }
           } catch (e) {
             console.error('[verificar-fatura] falha ao ler corpo do erro:', e)
@@ -197,7 +252,7 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
           return
         }
 
-        setResultado(data.analise)
+        setResultado({ ...data.analise, fonte: excel ? 'excel' : 'pdf' })
       } catch (err) {
         console.error('Erro ao verificar fatura:', err)
         setError('Erro inesperado ao analisar a fatura. Tente novamente.')
