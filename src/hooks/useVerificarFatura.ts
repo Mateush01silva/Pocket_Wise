@@ -154,21 +154,30 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
         })
 
         if (fnError) {
-          // Try to extract structured error from edge function response
+          let errMsg = 'Erro ao conectar com o servidor. Tente novamente.'
           try {
-            const errBody = await (fnError as any).context?.json?.()
-            if (errBody?.code === 'FEATURE_NOT_ENABLED') {
-              setError('Esta funcionalidade de IA não está disponível para sua conta.')
-            } else if (errBody?.code === 'MONTHLY_LIMIT_REACHED') {
-              setError(errBody.error)
-            } else if (errBody?.error) {
-              setError(errBody.error)
+            const response = (fnError as any).context as Response | undefined
+            if (response) {
+              const text = await response.text()
+              try {
+                const errBody = JSON.parse(text)
+                if (errBody?.code === 'FEATURE_NOT_ENABLED') {
+                  errMsg = 'Esta funcionalidade de IA não está disponível para sua conta.'
+                } else if (errBody?.code === 'MONTHLY_LIMIT_REACHED') {
+                  errMsg = errBody.error
+                } else if (errBody?.error) {
+                  errMsg = errBody.error
+                }
+              } catch {
+                console.error('[verificar-fatura] resposta de erro não-JSON:', text.slice(0, 300))
+              }
             } else {
-              setError('Erro ao conectar com o servidor. Tente novamente.')
+              console.error('[verificar-fatura] fnError sem context (relay/network error):', fnError)
             }
-          } catch {
-            setError('Erro ao conectar com o servidor. Tente novamente.')
+          } catch (e) {
+            console.error('[verificar-fatura] falha ao ler corpo do erro:', e)
           }
+          setError(errMsg)
           return
         }
 
