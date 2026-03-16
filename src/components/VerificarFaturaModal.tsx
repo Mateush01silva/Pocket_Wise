@@ -1,5 +1,7 @@
-import { useRef, useState, useCallback } from 'react'
-import { X, Upload, FileText, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2, LayoutPanelLeft, TableIcon, Lock } from 'lucide-react'
+import { useRef, useState, useCallback, useEffect } from 'react'
+import { X, Upload, FileText, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2, LayoutPanelLeft, TableIcon, Lock, Clock, RotateCcw } from 'lucide-react'
+import { format, parseISO } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { formatCurrency } from '../utils/currency'
 import { Button } from './ui/Button'
 import { useVerificarFatura, isExcelFile } from '../hooks/useVerificarFatura'
@@ -33,19 +35,57 @@ export function VerificarFaturaModal({
   const [isDragOver, setIsDragOver] = useState(false)
   const [splitViewOpen, setSplitViewOpen] = useState(false)
   const [senha, setSenha] = useState('')
+  const [mostrarNovaAnalise, setMostrarNovaAnalise] = useState(false)
+  const [resultadoSalvo, setResultadoSalvo] = useState<{
+    resultado: ResultadoVerificacao
+    timestamp: string
+    totalApp: number
+  } | null>(null)
   const { isExtraindo, isAnalisando, resultado, error, verificar, limpar } = useVerificarFatura()
 
   const isLoading = isExtraindo || isAnalisando
   const isExcel = arquivoSelecionado ? isExcelFile(arquivoSelecionado) : false
+  const storageKey = `pw_vf_${cartaoNome}_${periodo}`
+
+  // Displayed result: fresh result takes priority, then saved, then null
+  const resultadoExibir = resultado ?? (mostrarNovaAnalise ? null : resultadoSalvo?.resultado ?? null)
+  const isResultadoSalvo = !resultado && !mostrarNovaAnalise && resultadoSalvo != null
+
+  // Load saved result when modal opens
+  useEffect(() => {
+    if (!isOpen) return
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (raw) setResultadoSalvo(JSON.parse(raw))
+    } catch {
+      setResultadoSalvo(null)
+    }
+  }, [isOpen, storageKey])
+
+  // Persist new result to localStorage
+  useEffect(() => {
+    if (!resultado) return
+    const entry = { resultado, timestamp: new Date().toISOString(), totalApp: totalFatura }
+    try { localStorage.setItem(storageKey, JSON.stringify(entry)) } catch { /* storage full */ }
+    setResultadoSalvo(entry)
+  }, [resultado, storageKey, totalFatura])
 
   const handleClose = useCallback(() => {
     if (!isLoading) {
       setArquivoSelecionado(null)
       setSenha('')
+      setMostrarNovaAnalise(false)
       limpar()
       onClose()
     }
   }, [isLoading, limpar, onClose])
+
+  const handleNovaAnalise = useCallback(() => {
+    setArquivoSelecionado(null)
+    setSenha('')
+    setMostrarNovaAnalise(true)
+    limpar()
+  }, [limpar])
 
   const handleArquivo = useCallback((file: File) => {
     const name = file.name.toLowerCase()
@@ -118,7 +158,7 @@ export function VerificarFaturaModal({
         <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 min-h-0 space-y-4">
 
           {/* Upload area */}
-          {!resultado && (
+          {!resultadoExibir && (
             <div className="space-y-3">
               <p className="text-sm text-gray-400">
                 Anexe a fatura do seu banco para verificar se os lançamentos no app conferem com os reais.
@@ -244,15 +284,38 @@ export function VerificarFaturaModal({
             </div>
           )}
 
+          {/* Saved result badge */}
+          {isResultadoSalvo && resultadoSalvo && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-dark-700/40 border border-dark-600 rounded-xl">
+              <Clock size={13} className="text-gray-500 shrink-0" />
+              <p className="text-xs text-gray-500 flex-1">
+                Resultado salvo em{' '}
+                {format(parseISO(resultadoSalvo.timestamp), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </p>
+              <button
+                onClick={handleNovaAnalise}
+                className="flex items-center gap-1 text-xs text-primary-400 hover:text-primary-300 transition-colors"
+              >
+                <RotateCcw size={11} />
+                Nova análise
+              </button>
+            </div>
+          )}
+
           {/* Results */}
-          {resultado && <ResultadoView resultado={resultado} totalApp={totalFatura} />}
+          {resultadoExibir && (
+            <ResultadoView
+              resultado={resultadoExibir}
+              totalApp={isResultadoSalvo && resultadoSalvo ? resultadoSalvo.totalApp : totalFatura}
+            />
+          )}
         </div>
 
         {/* Footer */}
         <div className="p-4 sm:p-6 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6 border-t border-dark-700 bg-dark-800/50 shrink-0">
-          {resultado ? (
+          {resultadoExibir ? (
             <div className="flex flex-col gap-2">
-              {(resultado.no_pdf_nao_no_app.length > 0 || resultado.no_app_nao_no_pdf.length > 0 || resultado.valores_divergentes.length > 0) && (
+              {(resultadoExibir.no_pdf_nao_no_app.length > 0 || resultadoExibir.no_app_nao_no_pdf.length > 0 || resultadoExibir.valores_divergentes.length > 0) && (
                 <Button
                   variant="primary"
                   size="md"
@@ -264,14 +327,26 @@ export function VerificarFaturaModal({
                 </Button>
               )}
               <div className="flex gap-3">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => { setArquivoSelecionado(null); setSenha(''); limpar() }}
-                  className="flex-1"
-                >
-                  Analisar outro arquivo
-                </Button>
+                {isResultadoSalvo ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleNovaAnalise}
+                    className="flex-1"
+                  >
+                    <RotateCcw size={14} className="mr-1" />
+                    Nova análise
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleNovaAnalise}
+                    className="flex-1"
+                  >
+                    Analisar outro arquivo
+                  </Button>
+                )}
                 <Button variant="ghost" size="sm" onClick={handleClose} className="flex-1">
                   Fechar
                 </Button>
@@ -297,13 +372,13 @@ export function VerificarFaturaModal({
         </div>
       </div>
 
-      {resultado && (
+      {resultadoExibir && (
         <DiscrepanciasSplitView
           isOpen={splitViewOpen}
           onClose={() => setSplitViewOpen(false)}
           cartaoNome={cartaoNome}
           cartaoCor={cartaoCor}
-          resultado={resultado}
+          resultado={resultadoExibir}
         />
       )}
     </div>
