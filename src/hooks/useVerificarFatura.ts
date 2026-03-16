@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import type { Lancamento } from '../types'
 
@@ -63,52 +62,21 @@ export type UseVerificarFaturaReturn = UseVerificarFaturaState & UseVerificarFat
 // HELPERS
 // ============================================================================
 
-function isExcelFile(file: File): boolean {
+export function isExcelFile(file: File): boolean {
   const name = file.name.toLowerCase()
   return name.endsWith('.xlsx') || name.endsWith('.xls')
 }
 
-/**
- * Converts an Excel file to a tab-separated text representation.
- * All rows are preserved so the AI can understand the full sheet structure
- * (header rows, totals, account info, etc.) regardless of where data starts.
- */
-function excelParaTexto(arrayBuffer: ArrayBuffer, senha?: string): string {
-  let workbook: XLSX.WorkBook
-  try {
-    workbook = XLSX.read(arrayBuffer, {
-      type: 'array',
-      password: senha || undefined,
-      cellDates: false, // keep dates as formatted strings
-      raw: false,       // use formatted cell values
-    })
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message.toLowerCase() : ''
-    if (msg.includes('password') || msg.includes('encrypted') || msg.includes('cfb')) {
-      throw new Error(senha
-        ? 'Senha incorreta. Verifique a senha do arquivo e tente novamente.'
-        : 'Este arquivo está protegido por senha. Informe a senha para continuar.')
-    }
-    throw new Error('Não foi possível abrir o arquivo Excel. Verifique se é um arquivo .xlsx ou .xls válido.')
+async function fileToBase64(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer()
+  const bytes = new Uint8Array(buffer)
+  // Use btoa in chunks to avoid call stack overflow on large files
+  let binary = ''
+  const CHUNK = 8192
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
   }
-
-  // Use the sheet with the most rows (likely the transactions sheet)
-  let sheetName = workbook.SheetNames[0]
-  let maxRows = 0
-  for (const name of workbook.SheetNames) {
-    const sheet = workbook.Sheets[name]
-    if (!sheet['!ref']) continue
-    const range = XLSX.utils.decode_range(sheet['!ref'])
-    const rows = range.e.r - range.s.r
-    if (rows > maxRows) { maxRows = rows; sheetName = name }
-  }
-
-  const sheet = workbook.Sheets[sheetName]
-  // Convert to CSV preserving all rows — AI will identify the structure
-  const csv = XLSX.utils.sheet_to_csv(sheet, { FS: '\t', blankrows: false })
-
-  // Limit to ~24k chars so we stay within token budget
-  return csv.length > 24000 ? csv.substring(0, 24000) + '\n[... planilha truncada ...]' : csv
+  return btoa(binary)
 }
 
 // ============================================================================
@@ -171,19 +139,35 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
       }))
 
       // ------------------------------------------------------------------
-      // Step 1: Extract text content from the file
+      // Step 1: Prepare file content
+      //   - Excel: encode as base64 (decryption handled server-side by Deno)
+      //   - PDF: extract text client-side with pdfjs
       // ------------------------------------------------------------------
       setIsExtraindo(true)
-      let textoExtraido: string
+      let body: Record<string, unknown>
       try {
         if (excel) {
-          const arrayBuffer = await arquivo.arrayBuffer()
-          textoExtraido = excelParaTexto(arrayBuffer, senha)
+          const base64 = await fileToBase64(arquivo)
+          body = {
+            excel_base64: base64,
+            excel_senha: senha || null,
+            transacoes: transacoesSimples,
+            total_app: totalFatura,
+            cartao_nome: cartaoNome,
+            periodo,
+          }
         } else {
-          textoExtraido = await extrairTextoPDF(arquivo)
-          if (!textoExtraido.trim()) {
+          const pdfTexto = await extrairTextoPDF(arquivo)
+          if (!pdfTexto.trim()) {
             setError('Não foi possível extrair texto do PDF. Verifique se o arquivo não é uma imagem escaneada.')
             return
+          }
+          body = {
+            pdf_texto: pdfTexto,
+            transacoes: transacoesSimples,
+            total_app: totalFatura,
+            cartao_nome: cartaoNome,
+            periodo,
           }
         }
       } catch (err: unknown) {
@@ -194,14 +178,10 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
       }
 
       // ------------------------------------------------------------------
-      // Step 2: Send to edge function (AI extraction + value-based matching)
+      // Step 2: Call edge function (AI extraction + value-based matching)
       // ------------------------------------------------------------------
       setIsAnalisando(true)
       try {
-        const body = excel
-          ? { excel_texto: textoExtraido, transacoes: transacoesSimples, total_app: totalFatura, cartao_nome: cartaoNome, periodo }
-          : { pdf_texto: textoExtraido, transacoes: transacoesSimples, total_app: totalFatura, cartao_nome: cartaoNome, periodo }
-
         const { data, error: fnError } = await supabase!.functions.invoke<{
           analise: ResultadoVerificacao
           error?: string
