@@ -351,9 +351,8 @@ serve(async (req) => {
         const msg = err instanceof Error ? err.message.toLowerCase() : ''
         if (msg.includes('password') || msg.includes('encrypted') || msg.includes('cfb')) {
           return jsonResponse({
-            error: excel_senha
-              ? 'Senha incorreta. Verifique a senha do arquivo e tente novamente.'
-              : 'Este arquivo está protegido por senha. Informe a senha para continuar.',
+            error: 'Arquivo protegido por senha não pôde ser aberto.',
+            code: 'EXCEL_PASSWORD_PROTECTED',
           }, 400)
         }
         console.error('Erro ao parsear Excel:', err)

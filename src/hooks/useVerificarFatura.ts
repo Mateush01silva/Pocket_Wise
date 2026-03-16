@@ -132,7 +132,7 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
       const transacoesSimples = transacoes.map((t: Lancamento) => ({
         data: t.data,
         descricao: t.observacao || getCategoryName(t.categoria_id),
-        valor: t.valor,
+        valor: Math.abs(t.valor), // normalize: app stores expenses as negative, invoice has positives
         ...(t.parcela_atual && t.parcela_total
           ? { parcela: `${t.parcela_atual}/${t.parcela_total}` }
           : {}),
@@ -200,6 +200,8 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
                   errMsg = 'Esta funcionalidade de IA não está disponível para sua conta.'
                 } else if (errBody?.code === 'MONTHLY_LIMIT_REACHED') {
                   errMsg = errBody.error
+                } else if (errBody?.code === 'EXCEL_PASSWORD_PROTECTED') {
+                  errMsg = 'EXCEL_PASSWORD_PROTECTED'
                 } else if (errBody?.error) {
                   errMsg = errBody.error
                 }
@@ -226,6 +228,8 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
             setError('Esta funcionalidade de IA não está disponível para sua conta.')
           } else if (data.code === 'MONTHLY_LIMIT_REACHED') {
             setError(data.error)
+          } else if (data.code === 'EXCEL_PASSWORD_PROTECTED') {
+            setError('EXCEL_PASSWORD_PROTECTED')
           } else {
             setError(data.error)
           }

@@ -490,7 +490,7 @@ export function CreditCards() {
                 <button
                   onClick={() => setVerificarFaturaFechadaCartaoId(cartao.id)}
                   className="p-2 hover:bg-dark-700 rounded transition-colors text-gray-400 hover:text-primary-400 border border-dark-600 hover:border-dark-500"
-                  title="Verificar fatura com PDF"
+                  title="Verificar fatura (PDF ou Excel)"
                 >
                   <FileSearch size={16} />
                 </button>
