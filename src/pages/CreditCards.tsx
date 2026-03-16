@@ -109,21 +109,17 @@ function getFaturaFechadaPendente(
 } | null {
   const hoje = new Date()
 
-  // Buscar todas as transações não pagas do cartão
-  const transacoesNaoPagas = lancamentos.filter(
-    (l) =>
-      l.cartao_id === cartaoId &&
-      l.forma_pagamento === 'credito' &&
-      l.status !== 'pago'
+  // Agrupar TODAS as transações do cartão por mês de fatura (sem filtrar por status)
+  // O total da fatura deve refletir o ciclo completo, igual ao extrato do banco
+  const todasTransacoes = lancamentos.filter(
+    (l) => l.cartao_id === cartaoId && l.forma_pagamento === 'credito'
   )
 
-  if (transacoesNaoPagas.length === 0) return null
+  if (todasTransacoes.length === 0) return null
 
-  // Agrupar por mês de fatura
   const faturasPorMes = new Map<number, Lancamento[]>()
 
-  transacoesNaoPagas.forEach((t) => {
-    // Para parcelas com data_vencimento_fatura, usar esse campo
+  todasTransacoes.forEach((t) => {
     const mesFatura = t.data_vencimento_fatura
       ? startOfMonth(parseISO(t.data_vencimento_fatura))
       : calcularMesFatura(t.data, diaFechamento)
@@ -134,8 +130,7 @@ function getFaturaFechadaPendente(
     faturasPorMes.get(key)!.push(t)
   })
 
-  // Encontrar faturas que já fecharam (mês da fatura <= mês atual E dia > fechamento)
-  // Ou faturas de meses anteriores (que com certeza já fecharam)
+  // Faturas fechadas pendentes: fechou E tem ao menos uma transação não paga
   const faturasFechadasPendentes: Array<{
     mesFatura: Date
     transacoes: Lancamento[]
@@ -148,13 +143,11 @@ function getFaturaFechadaPendente(
     const mesFaturaMonth = mesFatura.getMonth()
     const mesFaturaYear = mesFatura.getFullYear()
 
-    // A fatura fechou se a data de fechamento já passou
-    // Calcula a data de fechamento desta fatura
     const dataFechamento = new Date(mesFaturaYear, mesFaturaMonth, diaFechamento)
     const faturaFechou = hoje > dataFechamento
+    const temNaoPago = transacoes.some((t) => t.status !== 'pago')
 
-    if (faturaFechou) {
-      // Calcular data de vencimento desta fatura
+    if (faturaFechou && temNaoPago) {
       const dataVencimento = new Date(mesFaturaYear, mesFaturaMonth, diaVencimento)
 
       faturasFechadasPendentes.push({
