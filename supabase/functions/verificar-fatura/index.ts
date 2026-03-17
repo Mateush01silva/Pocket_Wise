@@ -66,19 +66,61 @@ function getRenovacaoDate(mesAtual: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Value-based matching (deterministic, no AI name confusion)
+// Date parsing — handles "10/03", "10/03/2026", "2026-03-10"
+// ---------------------------------------------------------------------------
+function parseInvoiceDate(dateStr: string, defaultYear: number): Date | null {
+  const s = dateStr.trim()
+  // "10/03"
+  const m1 = s.match(/^(\d{1,2})\/(\d{1,2})$/)
+  if (m1) return new Date(defaultYear, parseInt(m1[2]) - 1, parseInt(m1[1]))
+  // "10/03/2026"
+  const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (m2) return new Date(parseInt(m2[3]), parseInt(m2[2]) - 1, parseInt(m2[1]))
+  // "2026-03-10"
+  const m3 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (m3) return new Date(parseInt(m3[1]), parseInt(m3[2]) - 1, parseInt(m3[3]))
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// Value-based matching — 2-pass to avoid wrong greedy matches when the same
+// value appears multiple times (e.g. recurring installments of the same amount)
+//
+// Pass 1: value within R$0.10  AND  date within 5 days  →  strong match
+// Pass 2: value within R$0.10  (date-agnostic)          →  loose match
 // ---------------------------------------------------------------------------
 function matchTransacoes(
   appItems: TransacaoSimples[],
   extItems: PDFTransacao[],
+  anoFatura: number,
 ): {
   no_ext_nao_no_app: PDFTransacao[]
   no_app_nao_no_ext: TransacaoSimples[]
 } {
   const appPool = appItems.map((item) => ({ item, matched: false }))
   const extPool = extItems.map((item) => ({ item, matched: false }))
+  const MS_5_DAYS = 5 * 24 * 60 * 60 * 1000
 
+  // Pass 1: value + date proximity
   for (const extEntry of extPool) {
+    const extDate = parseInvoiceDate(extEntry.item.data, anoFatura)
+    if (!extDate) continue
+
+    const idx = appPool.findIndex((a) => {
+      if (a.matched) return false
+      if (Math.abs(a.item.valor - extEntry.item.valor) >= 0.10) return false
+      const appDate = new Date(a.item.data)
+      return Math.abs(appDate.getTime() - extDate.getTime()) <= MS_5_DAYS
+    })
+
+    if (idx !== -1) {
+      appPool[idx].matched = true
+      extEntry.matched = true
+    }
+  }
+
+  // Pass 2: value only (for entries whose date couldn't be parsed or didn't match)
+  for (const extEntry of extPool.filter((e) => !e.matched)) {
     const idx = appPool.findIndex(
       (a) => !a.matched && Math.abs(a.item.valor - extEntry.item.valor) < 0.10,
     )
@@ -169,11 +211,17 @@ function buildExcelPrompt(excelTexto: string): { system: string; user: string } 
 
 REGRAS DE EXTRAÇÃO:
 1. A planilha pode ter cabeçalhos, informações do titular e linhas em branco antes dos dados — identifique onde começam os lançamentos.
-2. Extraia SOMENTE transações de DÉBITO (compras, tarifas, juros, IOF, anuidade). Ignore pagamentos e créditos.
-3. Para estornos (estorno/cancelamento de uma compra): se o estorno e a compra original AMBOS aparecem na planilha, exclua os dois do resultado final (cancelam-se mutuamente). Se apenas o estorno aparece sem a compra original, ignore-o também.
-4. Cada linha de compra é uma transação SEPARADA — não agrupe por estabelecimento.
-5. "valor" deve ser número positivo.
-6. Identifique e retorne o total da fatura se houver linha de total/subtotal.
+2. Extraia SOMENTE transações de DÉBITO. Tipos que DEVEM ser incluídos:
+   - "Compra à vista" → compra normal, inclua
+   - "Parcela sem juros" → compra parcelada, INCLUA (não é pagamento nem crédito)
+   - "Parcela com juros" → compra parcelada, inclua
+   - Tarifas, IOF, anuidade, encargos → inclua
+3. Ignore APENAS: pagamentos de fatura (ex: "Pagamento recebido"), créditos/estornos que reduzem a fatura.
+4. Para estornos de compra: se o estorno E a compra original AMBOS aparecem, exclua os dois. Se só o estorno aparece, ignore-o.
+5. Formato BTG e outros bancos: o tipo da transação ("Compra à vista", "Parcela sem juros") pode aparecer numa coluna separada ou numa linha imediatamente abaixo da descrição — use essa informação apenas para classificar, mas extraia a transação da linha com data e valor.
+6. Cada linha com data + valor é uma transação SEPARADA — não agrupe por estabelecimento.
+7. "valor" deve ser número positivo (converta "R$ 77,08" → 77.08).
+8. Identifique e retorne o total da fatura se houver linha de total/subtotal.
 
 === PLANILHA (texto tabulado, colunas separadas por tab) ===
 ${excelTexto}
@@ -182,7 +230,7 @@ Retorne JSON com esta estrutura EXATA:
 {
   "total_pdf": <número com o total a pagar da fatura, ou null se não encontrado>,
   "transacoes": [
-    {"data": "<data como aparece>", "descricao": "<estabelecimento ou descrição>", "valor": <número positivo>}
+    {"data": "<data como aparece, ex: 10/03>", "descricao": "<estabelecimento ou descrição>", "valor": <número positivo>}
   ]
 }`
 
@@ -435,9 +483,13 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------------------
-    // 7. MATCHING POR VALOR (TypeScript, determinístico)
+    // 7. MATCHING POR VALOR + DATA (TypeScript, determinístico, 2 passes)
     // -------------------------------------------------------------------------
-    const { no_ext_nao_no_app, no_app_nao_no_ext } = matchTransacoes(transacoes, extracao.transacoes)
+    // Extrair o ano do período para parsear datas no formato "DD/MM" da fatura
+    const anoFaturaMatch = periodo.match(/\b(20\d{2})\b/)
+    const anoFatura = anoFaturaMatch ? parseInt(anoFaturaMatch[1]) : new Date().getFullYear()
+
+    const { no_ext_nao_no_app, no_app_nao_no_ext } = matchTransacoes(transacoes, extracao.transacoes, anoFatura)
 
     const totalPdf = extracao.total_pdf ?? null
     const diferencaTotal = totalPdf !== null ? totalPdf - total_app : null
