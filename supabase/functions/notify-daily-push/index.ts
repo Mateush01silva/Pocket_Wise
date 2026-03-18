@@ -339,6 +339,92 @@ async function checkTrial(
 }
 
 // ----------------------------------------------------------------------------
+// 7. Month-end planning reminder (3 days before end of month)
+// ----------------------------------------------------------------------------
+
+async function checkMonthEnd(
+  supabase   : SupabaseAdmin,
+  supabaseUrl: string,
+  serviceKey : string,
+  userId     : string,
+  prefs      : Record<string, boolean>
+): Promise<void> {
+  if (!prefs.month_end_reminder) return
+
+  const now      = new Date()
+  const lastDay  = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const daysLeft = lastDay - now.getDate()
+
+  if (daysLeft !== 3) return
+
+  const onCooldown = await hasCooldown(supabase, userId, 'month_end_reminder', null, 23)
+  if (onCooldown) return
+
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    .toLocaleDateString('pt-BR', { month: 'long' })
+
+  await sendPush(supabaseUrl, serviceKey, userId, {
+    title  : '📅 Faltam 3 dias para o fim do mês',
+    body   : `Hora de planejar o orçamento de ${nextMonth}. Quanto você vai guardar?`,
+    url    : '/app/orcamento',
+    tag    : 'month_end_reminder',
+    urgent : false,
+  }, 'month_end_reminder')
+}
+
+// ----------------------------------------------------------------------------
+// 8. Savings goal milestone (meta de caixinha atingida)
+// Fires when a caixinha reaches 50%, 75% or 100% of its meta — once per milestone.
+// ----------------------------------------------------------------------------
+
+async function checkSavingsGoals(
+  supabase   : SupabaseAdmin,
+  supabaseUrl: string,
+  serviceKey : string,
+  userId     : string,
+  familyId   : string,
+  prefs      : Record<string, boolean>
+): Promise<void> {
+  if (!prefs.savings_goals) return
+
+  const { data: caixinhas } = await supabase
+    .from('caixinhas')
+    .select('id, nome, meta_valor, saldo_atual')
+    .eq('family_id', familyId)
+    .not('meta_valor', 'is', null)
+
+  if (!caixinhas?.length) return
+
+  const MILESTONES = [100, 75, 50]
+
+  for (const cx of caixinhas) {
+    if (!cx.meta_valor || !cx.saldo_atual) continue
+
+    const percentual = Math.floor(((cx.saldo_atual as number) / (cx.meta_valor as number)) * 100)
+
+    for (const milestone of MILESTONES) {
+      if (percentual < milestone) continue
+
+      const refKey     = `${cx.id as string}_${milestone}`
+      const onCooldown = await hasCooldown(supabase, userId, 'savings_goal_milestone', refKey, 24 * 30) // 30 days — once per milestone
+      if (onCooldown) continue
+
+      const isComplete = milestone === 100
+      await sendPush(supabaseUrl, serviceKey, userId, {
+        title  : isComplete ? '🎉 Meta atingida!' : `🎯 ${milestone}% da meta alcançado`,
+        body   : isComplete
+          ? `Sua caixinha "${cx.nome as string}" chegou ao objetivo de ${formatBRL(cx.meta_valor as number)}!`
+          : `Sua caixinha "${cx.nome as string}" está em ${percentual}% da meta (${formatBRL(cx.saldo_atual as number)} de ${formatBRL(cx.meta_valor as number)})`,
+        url    : '/app/caixinhas',
+        tag    : `savings_goal_${cx.id as string}`,
+        urgent : false,
+      }, 'savings_goal_milestone', refKey)
+      break // one milestone notification per caixinha per run
+    }
+  }
+}
+
+// ----------------------------------------------------------------------------
 // Process a single user
 // ----------------------------------------------------------------------------
 
@@ -366,10 +452,12 @@ async function processUser(
     .maybeSingle()
 
   const prefs: Record<string, boolean> = {
-    envelope_burst    : prefsRow?.envelope_burst    ?? true,
-    expense_overdue   : prefsRow?.expense_overdue   ?? true,
-    credit_card_limit : prefsRow?.credit_card_limit ?? true,
-    trial_expiring    : prefsRow?.trial_expiring    ?? true,
+    envelope_burst    : prefsRow?.envelope_burst     ?? true,
+    expense_overdue   : prefsRow?.expense_overdue    ?? true,
+    credit_card_limit : prefsRow?.credit_card_limit  ?? true,
+    trial_expiring    : prefsRow?.trial_expiring     ?? true,
+    month_end_reminder: prefsRow?.month_end_reminder ?? true,
+    savings_goals     : prefsRow?.savings_goals      ?? true,
   }
 
   // Run all checks in parallel (independent — safe to do so)
@@ -378,6 +466,8 @@ async function processUser(
     checkExpensesOverdue(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
     checkCreditCards(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
     checkTrial(supabase, supabaseUrl, serviceKey, userId, prefs),
+    checkMonthEnd(supabase, supabaseUrl, serviceKey, userId, prefs),
+    checkSavingsGoals(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
   ])
 
   return { processed: true }

@@ -674,6 +674,7 @@ export function Settings() {
                       { key: 'credit_card_limit', label: 'Cartão no limite',           desc: 'Fatura do cartão atingir 90% ou mais do limite' },
                       { key: 'trial_expiring',    label: 'Trial expirando',            desc: 'Avisos 3 dias e 1 dia antes do fim do período gratuito' },
                       { key: 'month_end_reminder',label: 'Planejar o próximo mês',     desc: '3 dias antes do fim do mês: hora de criar o orçamento' },
+                      { key: 'savings_goals',     label: 'Metas de caixinha',          desc: 'Quando atingir 50%, 75% ou 100% de uma meta de reserva' },
                       { key: 'ai_proactive',      label: 'Mensagens do Assistente IA', desc: 'Notificação quando o PocketWise detectar algo importante' },
                     ] as Array<{ key: keyof typeof pushPrefs; label: string; desc: string }>
                   ).map(({ key, label, desc }) => (

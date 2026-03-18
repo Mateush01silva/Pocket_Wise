@@ -965,6 +965,57 @@ async function processUser(
     }),
   ])
 
+  // 11. Enviar push notification (best-effort — não bloqueia nem falha o fluxo)
+  try {
+    const { data: prefData } = await supabase
+      .from('push_notification_preferences')
+      .select('ai_proactive')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    const wantsPush = prefData?.ai_proactive !== false // default true
+
+    if (wantsPush) {
+      const { data: subscriptions } = await supabase
+        .from('push_subscriptions')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .limit(1)
+
+      if (subscriptions?.length) {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+        const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+
+        // Truncate message body to fit push notification (~100 chars)
+        const bodyPreview = conteudo.replace(/\n/g, ' ').substring(0, 100) + (conteudo.length > 100 ? '…' : '')
+
+        await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+          method  : 'POST',
+          headers : {
+            'Content-Type'  : 'application/json',
+            'Authorization' : `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({
+            userId,
+            payload: {
+              title : '💡 PocketWise tem um alerta para você',
+              body  : bodyPreview,
+              url   : '/app/assistente',
+              tag   : `ai_proactive_${escolhido.baseKey}`,
+              urgent: ALERT_TRIGGERS.has(escolhido.baseKey),
+            },
+            notificationType: 'ai_proactive',
+            refKey          : escolhido.baseKey,
+          }),
+        })
+      }
+    }
+  } catch (pushErr) {
+    // Push failure never breaks the main proactive flow
+    console.warn(`[ai-proativo] push opcional falhou user=${userId}:`, pushErr)
+  }
+
   return { triggered: escolhido.key, message_id: messageId }
 }
 

@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS push_notification_preferences (
   trial_expiring       boolean DEFAULT true,   -- Trial expirando / expirado
   month_end_reminder   boolean DEFAULT true,   -- 3 dias antes do fim do mês
   ai_proactive         boolean DEFAULT true,   -- Mensagens proativas da IA
+  savings_goals        boolean DEFAULT true,   -- Milestones de caixinha (50/75/100%)
   updated_at           timestamptz DEFAULT now()
 );
 
