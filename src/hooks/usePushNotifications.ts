@@ -13,6 +13,7 @@ export interface PushNotificationPreferences {
   credit_card_limit: boolean
   trial_expiring: boolean
   month_end_reminder: boolean
+  savings_goals: boolean
   ai_proactive: boolean
 }
 
@@ -22,6 +23,7 @@ const DEFAULT_PREFERENCES: PushNotificationPreferences = {
   credit_card_limit: true,
   trial_expiring: true,
   month_end_reminder: true,
+  savings_goals: true,
   ai_proactive: true,
 }
 
@@ -99,12 +101,13 @@ export function usePushNotifications() {
 
       if (data) {
         setPreferences({
-          envelope_burst    : data.envelope_burst    ?? true,
-          expense_overdue   : data.expense_overdue   ?? true,
-          credit_card_limit : data.credit_card_limit ?? true,
-          trial_expiring    : data.trial_expiring    ?? true,
+          envelope_burst    : data.envelope_burst     ?? true,
+          expense_overdue   : data.expense_overdue    ?? true,
+          credit_card_limit : data.credit_card_limit  ?? true,
+          trial_expiring    : data.trial_expiring     ?? true,
           month_end_reminder: data.month_end_reminder ?? true,
-          ai_proactive      : data.ai_proactive      ?? true,
+          savings_goals     : data.savings_goals      ?? true,
+          ai_proactive      : data.ai_proactive       ?? true,
         })
       }
     }
