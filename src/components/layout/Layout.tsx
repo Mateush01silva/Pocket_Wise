@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { NotificationBell } from '../NotificationBell'
 import { OnboardingModal } from '../OnboardingModal'
+import { PushPermissionBanner } from '../PushPermissionBanner'
 import { useAuth } from '../../contexts/AuthContext'
 import { useUserPreferencesStore } from '../../store/useUserPreferencesStore'
 import { AlertTriangle } from 'lucide-react'
@@ -128,6 +129,9 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Onboarding de primeiro acesso */}
       {!onboardingCompleted && <OnboardingModal />}
+
+      {/* Banner de permissão push — aparece após 3 visitas, de forma não intrusiva */}
+      <PushPermissionBanner />
     </div>
   )
 }
