@@ -674,8 +674,13 @@ export function Settings() {
                       { key: 'credit_card_limit', label: 'Cartão no limite',           desc: 'Fatura do cartão atingir 90% ou mais do limite' },
                       { key: 'trial_expiring',    label: 'Trial expirando',            desc: 'Avisos 3 dias e 1 dia antes do fim do período gratuito' },
                       { key: 'month_end_reminder',label: 'Planejar o próximo mês',     desc: '3 dias antes do fim do mês: hora de criar o orçamento' },
-                      { key: 'savings_goals',     label: 'Metas de caixinha',          desc: 'Quando atingir 50%, 75% ou 100% de uma meta de reserva' },
-                      { key: 'ai_proactive',      label: 'Mensagens do Assistente IA', desc: 'Notificação quando o PocketWise detectar algo importante' },
+                      { key: 'savings_goals',            label: 'Metas de caixinha',          desc: 'Quando atingir 50%, 75% ou 100% de uma meta de reserva' },
+                      { key: 'ai_proactive',             label: 'Mensagens do Assistente IA', desc: 'Notificação quando o PocketWise detectar algo importante' },
+                      { key: 'credit_card_due_date',     label: 'Fatura vencendo em 3 dias',  desc: 'Alerta com o total da fatura 3 dias antes do vencimento' },
+                      { key: 'unusual_spending',         label: 'Gasto fora do padrão',        desc: 'Transação maior que o dobro da média mensal da categoria' },
+                      { key: 'no_transactions_reminder', label: '7 dias sem lançamentos',      desc: 'Lembrete quando não houver registros nos últimos 7 dias' },
+                      { key: 'month_start_checkin',      label: 'Check-in do novo mês',        desc: 'Motivação para montar o orçamento no dia 1 (não-IA)' },
+                      { key: 'perfect_month',            label: 'Mês perfeito',                desc: 'Celebração quando todos os envelopes fecharem no verde' },
                     ] as Array<{ key: keyof typeof pushPrefs; label: string; desc: string }>
                   ).map(({ key, label, desc }) => (
                     <div key={key} className="flex items-center justify-between p-3 bg-dark-800/50 rounded-lg">

@@ -15,6 +15,11 @@ export interface PushNotificationPreferences {
   month_end_reminder: boolean
   savings_goals: boolean
   ai_proactive: boolean
+  credit_card_due_date: boolean
+  unusual_spending: boolean
+  no_transactions_reminder: boolean
+  month_start_checkin: boolean
+  perfect_month: boolean
 }
 
 const DEFAULT_PREFERENCES: PushNotificationPreferences = {
@@ -25,6 +30,11 @@ const DEFAULT_PREFERENCES: PushNotificationPreferences = {
   month_end_reminder: true,
   savings_goals: true,
   ai_proactive: true,
+  credit_card_due_date: true,
+  unusual_spending: true,
+  no_transactions_reminder: false,
+  month_start_checkin: true,
+  perfect_month: true,
 }
 
 // ============================================================================
@@ -101,13 +111,18 @@ export function usePushNotifications() {
 
       if (data) {
         setPreferences({
-          envelope_burst    : data.envelope_burst     ?? true,
-          expense_overdue   : data.expense_overdue    ?? true,
-          credit_card_limit : data.credit_card_limit  ?? true,
-          trial_expiring    : data.trial_expiring     ?? true,
-          month_end_reminder: data.month_end_reminder ?? true,
-          savings_goals     : data.savings_goals      ?? true,
-          ai_proactive      : data.ai_proactive       ?? true,
+          envelope_burst           : data.envelope_burst            ?? true,
+          expense_overdue          : data.expense_overdue           ?? true,
+          credit_card_limit        : data.credit_card_limit         ?? true,
+          trial_expiring           : data.trial_expiring            ?? true,
+          month_end_reminder       : data.month_end_reminder        ?? true,
+          savings_goals            : data.savings_goals             ?? true,
+          ai_proactive             : data.ai_proactive              ?? true,
+          credit_card_due_date     : data.credit_card_due_date      ?? true,
+          unusual_spending         : data.unusual_spending          ?? true,
+          no_transactions_reminder : data.no_transactions_reminder  ?? false,
+          month_start_checkin      : data.month_start_checkin       ?? true,
+          perfect_month            : data.perfect_month             ?? true,
         })
       }
     }

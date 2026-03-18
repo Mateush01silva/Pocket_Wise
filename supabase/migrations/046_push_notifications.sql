@@ -127,3 +127,14 @@ CREATE TRIGGER trigger_push_subscriptions_updated_at
   BEFORE UPDATE ON push_subscriptions
   FOR EACH ROW
   EXECUTE FUNCTION update_push_subscription_timestamp();
+
+-- ----------------------------------------------------------------------------
+-- Phase 3: additional preference columns
+-- ----------------------------------------------------------------------------
+
+ALTER TABLE push_notification_preferences
+  ADD COLUMN IF NOT EXISTS credit_card_due_date      boolean DEFAULT true,
+  ADD COLUMN IF NOT EXISTS unusual_spending          boolean DEFAULT true,
+  ADD COLUMN IF NOT EXISTS no_transactions_reminder  boolean DEFAULT false,  -- opt-in (more intrusive)
+  ADD COLUMN IF NOT EXISTS month_start_checkin       boolean DEFAULT true,
+  ADD COLUMN IF NOT EXISTS perfect_month             boolean DEFAULT true;
