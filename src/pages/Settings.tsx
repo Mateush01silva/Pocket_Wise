@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import {
   User,
   Bell,
+  BellOff,
+  Smartphone,
   Palette,
   Database,
   Info,
@@ -39,6 +41,7 @@ import { cn } from '../lib/cn'
 import { toast } from 'sonner'
 import { usePossoComprarIA, type PersonalityTone } from '../hooks/usePossoComprarIA'
 import { useAICredits, AI_TOTAL_LIMIT } from '../hooks/useAICredits'
+import { usePushNotifications } from '../hooks/usePushNotifications'
 
 export function Settings() {
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -92,6 +95,18 @@ export function Settings() {
     isSaving: isSavingCredits,
     saveCreditsConfig,
   } = useAICredits()
+
+  // Push notifications
+  const {
+    isSupported: isPushSupported,
+    isSubscribed,
+    isLoading: isPushLoading,
+    permission: pushPermission,
+    preferences: pushPrefs,
+    subscribe: subscribePush,
+    unsubscribe: unsubscribePush,
+    updatePreference: updatePushPref,
+  } = usePushNotifications()
 
   // Estado local do slider de proativas (sincroniza com o valor carregado)
   const [sliderProativas, setSliderProativas] = useState(10)
@@ -579,6 +594,120 @@ export function Settings() {
               </button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Notificações Push (celular) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Smartphone size={20} className="text-indigo-400" />
+            Notificações no Celular
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!isPushSupported ? (
+            <div className="flex items-start gap-3 p-3 bg-dark-800 rounded-lg">
+              <BellOff size={18} className="text-gray-500 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-gray-400">Não suportado neste dispositivo</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Notificações push requerem um browser moderno com suporte a Service Workers.
+                  No iOS, instale o app via "Adicionar à Tela de Início" (iOS 16.4+).
+                </p>
+              </div>
+            </div>
+          ) : pushPermission === 'denied' ? (
+            <div className="flex items-start gap-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <BellOff size={18} className="text-red-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-red-300">Permissão bloqueada pelo browser</p>
+                <p className="text-xs text-red-400/70 mt-1">
+                  Para reativar, vá nas configurações do browser e permita notificações para este site.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Toggle principal — ativar/desativar notificações push */}
+              <div className="flex items-center justify-between p-3 bg-dark-800 rounded-lg">
+                <div>
+                  <p className="font-medium text-gray-200">Receber no celular</p>
+                  <p className="text-sm text-gray-500">
+                    {isSubscribed
+                      ? 'Notificações ativas — você receberá alertas mesmo com o app fechado'
+                      : 'Ative para receber alertas no celular mesmo com o app fechado'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => void (isSubscribed ? unsubscribePush() : subscribePush())}
+                  disabled={isPushLoading}
+                  className={cn(
+                    'w-12 h-6 rounded-full transition-all duration-200 relative disabled:opacity-50',
+                    isSubscribed ? 'bg-indigo-600' : 'bg-dark-600'
+                  )}
+                >
+                  {isPushLoading ? (
+                    <Loader2 size={12} className="absolute top-1.5 left-3 animate-spin text-white" />
+                  ) : (
+                    <div
+                      className={cn(
+                        'absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all duration-200',
+                        isSubscribed ? 'left-7' : 'left-1'
+                      )}
+                    />
+                  )}
+                </button>
+              </div>
+
+              {/* Preferências individuais — só visíveis se subscrito */}
+              {isSubscribed && (
+                <div className="space-y-2.5">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">
+                    O que você quer receber
+                  </p>
+
+                  {(
+                    [
+                      { key: 'envelope_burst',    label: 'Envelope estourado',        desc: 'Quando uma categoria ultrapassar 100% do orçamento' },
+                      { key: 'expense_overdue',   label: 'Despesas vencidas',          desc: 'Contas pendentes com data no passado' },
+                      { key: 'credit_card_limit', label: 'Cartão no limite',           desc: 'Fatura do cartão atingir 90% ou mais do limite' },
+                      { key: 'trial_expiring',    label: 'Trial expirando',            desc: 'Avisos 3 dias e 1 dia antes do fim do período gratuito' },
+                      { key: 'month_end_reminder',label: 'Planejar o próximo mês',     desc: '3 dias antes do fim do mês: hora de criar o orçamento' },
+                      { key: 'ai_proactive',      label: 'Mensagens do Assistente IA', desc: 'Notificação quando o PocketWise detectar algo importante' },
+                    ] as Array<{ key: keyof typeof pushPrefs; label: string; desc: string }>
+                  ).map(({ key, label, desc }) => (
+                    <div key={key} className="flex items-center justify-between p-3 bg-dark-800/50 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium text-gray-300">{label}</p>
+                        <p className="text-xs text-gray-500">{desc}</p>
+                      </div>
+                      <button
+                        onClick={() => void updatePushPref(key, !pushPrefs[key])}
+                        className={cn(
+                          'w-10 h-5 rounded-full transition-all duration-200 relative shrink-0',
+                          pushPrefs[key] ? 'bg-indigo-600' : 'bg-dark-600'
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all duration-200',
+                            pushPrefs[key] ? 'left-5' : 'left-0.5'
+                          )}
+                        />
+                      </button>
+                    </div>
+                  ))}
+
+                  <p className="text-xs text-gray-600 px-1">
+                    <Bell size={10} className="inline mr-1" />
+                    Notificações funcionam mesmo com o app fechado, via PWA instalado.
+                    No iOS é necessário ter o app adicionado à tela de início.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
 
