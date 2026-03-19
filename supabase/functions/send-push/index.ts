@@ -92,12 +92,13 @@ async function createVapidJwt(
   return `${sigInput}.${uint8ArrayToBase64url(new Uint8Array(sig))}`
 }
 
-// Encrypt push message payload using ECDH + AES-GCM (RFC 8291)
+// Encrypt push message payload using RFC 8291 (aes128gcm — required by Apple Web Push)
+// Returns the full body: salt(16) || rs(4,BE) || idlen(1) || server_pub(65) || ciphertext
 async function encryptPayload(
   subscriptionPublicKey: string,   // p256dh — base64url
   subscriptionAuth: string,        // auth   — base64url
   plaintext: string
-): Promise<{ ciphertext: Uint8Array; salt: Uint8Array; localPublicKey: Uint8Array }> {
+): Promise<Uint8Array> {
   const salt        = crypto.getRandomValues(new Uint8Array(16))
   const authBuffer  = base64urlToUint8Array(subscriptionAuth)
   const receiverKey = base64urlToUint8Array(subscriptionPublicKey)
@@ -105,7 +106,7 @@ async function encryptPayload(
   // Generate ephemeral ECDH key pair
   const ephemeral = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits'])
 
-  // Export ephemeral public key (uncompressed)
+  // Export ephemeral public key (uncompressed, 65 bytes)
   const localPublicKeyBuffer = await crypto.subtle.exportKey('raw', ephemeral.publicKey)
   const localPublicKey       = new Uint8Array(localPublicKeyBuffer)
 
@@ -114,55 +115,62 @@ async function encryptPayload(
     'raw', receiverKey, { name: 'ECDH', namedCurve: 'P-256' }, false, []
   )
 
-  // Derive shared secret
+  // Derive ECDH shared secret (256 bits)
   const sharedBits = await crypto.subtle.deriveBits(
     { name: 'ECDH', public: receiverPublicKey }, ephemeral.privateKey, 256
   )
 
-  // HKDF to derive content encryption key + nonce (RFC 8291)
   const enc = new TextEncoder()
 
-  const prk = await crypto.subtle.importKey(
-    'raw', await crypto.subtle.digest('SHA-256',
-      new Uint8Array([...authBuffer, ...new Uint8Array(sharedBits)])
-    ), 'HKDF', false, ['deriveBits', 'deriveKey']
-  )
-
-  // CEK (16 bytes)
-  const cekInfo = new Uint8Array([
-    ...enc.encode('Content-Encoding: aesgcm\0'),
-    ...authBuffer,
+  // IKM: HKDF(IKM=ecdh_secret, salt=auth_secret, info="WebPush: info\0" || ua_pub || as_pub, L=32)
+  const webpushInfo = new Uint8Array([
+    ...enc.encode('WebPush: info\0'),
     ...receiverKey,
     ...localPublicKey,
   ])
+  const sharedKey = await crypto.subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveBits'])
+  const ikm = await crypto.subtle.deriveBits(
+    { name: 'HKDF', hash: 'SHA-256', salt: authBuffer, info: webpushInfo },
+    sharedKey,
+    256
+  )
+
+  // CEK: HKDF(IKM=ikm, salt=salt, info="Content-Encoding: aes128gcm\0", L=16)
+  const ikmKey1 = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits'])
   const cekBits = await crypto.subtle.deriveBits(
-    { name: 'HKDF', hash: 'SHA-256', salt, info: cekInfo },
-    await crypto.subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveBits']),
+    { name: 'HKDF', hash: 'SHA-256', salt, info: enc.encode('Content-Encoding: aes128gcm\0') },
+    ikmKey1,
     128
   )
   const cek = await crypto.subtle.importKey('raw', cekBits, 'AES-GCM', false, ['encrypt'])
 
-  // Nonce (12 bytes)
-  const nonceInfo = new Uint8Array([
-    ...enc.encode('Content-Encoding: nonce\0'),
-    ...authBuffer,
-    ...receiverKey,
-    ...localPublicKey,
-  ])
+  // Nonce: HKDF(IKM=ikm, salt=salt, info="Content-Encoding: nonce\0", L=12)
+  const ikmKey2 = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits'])
   const nonceBits = await crypto.subtle.deriveBits(
-    { name: 'HKDF', hash: 'SHA-256', salt, info: nonceInfo },
-    await crypto.subtle.importKey('raw', sharedBits, 'HKDF', false, ['deriveBits']),
+    { name: 'HKDF', hash: 'SHA-256', salt, info: enc.encode('Content-Encoding: nonce\0') },
+    ikmKey2,
     96
   )
   const nonce = new Uint8Array(nonceBits)
 
-  // Pad + encrypt
+  // Encrypt: plaintext + 0x02 record delimiter (RFC 8188)
   const plainBytes = enc.encode(plaintext)
-  const padded     = new Uint8Array(2 + plainBytes.length)
-  padded.set(plainBytes, 2) // 2-byte padding length prefix = 0
+  const padded     = new Uint8Array(plainBytes.length + 1)
+  padded.set(plainBytes, 0)
+  padded[plainBytes.length] = 0x02
 
   const cipherBuffer = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, cek, padded)
-  return { ciphertext: new Uint8Array(cipherBuffer), salt, localPublicKey }
+  const ciphertext   = new Uint8Array(cipherBuffer)
+
+  // Build body: salt(16) || rs(4, big-endian) || idlen(1) || server_pub(65) || ciphertext
+  const body = new Uint8Array(16 + 4 + 1 + localPublicKey.length + ciphertext.length)
+  let off = 0
+  body.set(salt, off);                                              off += 16
+  new DataView(body.buffer).setUint32(off, 4096, false);            off += 4
+  body[off++] = localPublicKey.length                               // 65
+  body.set(localPublicKey, off);                                    off += localPublicKey.length
+  body.set(ciphertext, off)
+  return body
 }
 
 // ----------------------------------------------------------------------------
@@ -184,28 +192,26 @@ async function sendToEndpoint(
 
     const jwt = await createVapidJwt(vapidPrivateKey, vapidPublicKey, audience, vapidSubject)
 
-    const { ciphertext, salt, localPublicKey } = await encryptPayload(
-      p256dh, auth, JSON.stringify(payload)
-    )
+    // RFC 8291 (aes128gcm) — required by Apple Web Push; also supported by Chrome/Firefox
+    const body = await encryptPayload(p256dh, auth, JSON.stringify(payload))
 
     const headers: Record<string, string> = {
-      'Authorization': `vapid t=${jwt},k=${vapidPublicKey}`,
-      'Content-Type' : 'application/octet-stream',
-      'Content-Encoding': 'aesgcm',
-      'Encryption'   : `salt=${uint8ArrayToBase64url(salt)}`,
-      'Crypto-Key'   : `dh=${uint8ArrayToBase64url(localPublicKey)}`,
-      'TTL'          : '86400', // 24h
+      'Authorization'   : `vapid t=${jwt},k=${vapidPublicKey}`,
+      'Content-Type'    : 'application/octet-stream',
+      'Content-Encoding': 'aes128gcm',
+      'TTL'             : '86400', // 24h
     }
 
-    const res = await fetch(endpoint, {
-      method : 'POST',
-      headers,
-      body   : ciphertext,
-    })
+    const res = await fetch(endpoint, { method: 'POST', headers, body })
 
     // 410 Gone / 404 Not Found = subscription expired
     if (res.status === 410 || res.status === 404) {
       return { success: false, expired: true }
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      console.error(`[send-push] push rejected — status=${res.status} body=${text}`)
     }
 
     return { success: res.ok }
