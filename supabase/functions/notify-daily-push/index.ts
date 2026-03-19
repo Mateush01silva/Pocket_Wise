@@ -73,7 +73,7 @@ async function sendPush(
   refKey?: string
 ): Promise<void> {
   try {
-    await fetch(`${supabaseUrl}/functions/v1/send-push`, {
+    const res = await fetch(`${supabaseUrl}/functions/v1/send-push`, {
       method  : 'POST',
       headers : {
         'Content-Type'  : 'application/json',
@@ -81,6 +81,10 @@ async function sendPush(
       },
       body: JSON.stringify({ userId, payload, notificationType, refKey }),
     })
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      console.error(`[notify-daily-push] sendPush HTTP ${res.status} user=${userId}: ${text}`)
+    }
   } catch (err) {
     console.error(`[notify-daily-push] sendPush error user=${userId}:`, err)
   }

@@ -221,10 +221,11 @@ async function sendToEndpoint(
 
 serve(async (req) => {
   // Only allow calls from within Supabase (service role / other edge functions)
-  const authHeader = req.headers.get('Authorization')
+  const authHeader = req.headers.get('Authorization') ?? ''
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
-  if (!authHeader || !authHeader.includes(serviceKey.slice(-20))) {
+  if (!authHeader || !serviceKey || authHeader.trim() !== `Bearer ${serviceKey.trim()}`) {
+    console.error(`[send-push] auth failed — header_len=${authHeader.length} key_len=${serviceKey.length}`)
     return new Response('Unauthorized', { status: 401 })
   }
 
