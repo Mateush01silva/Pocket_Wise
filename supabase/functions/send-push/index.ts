@@ -250,19 +250,30 @@ serve(async (req) => {
     })
   }
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  )
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  if (serviceKey.length < 100) {
+    console.error(`[send-push] SUPABASE_SERVICE_ROLE_KEY inválida — key_len=${serviceKey.length}. Remova o secret customizado no dashboard do Supabase.`)
+    return new Response(JSON.stringify({ error: 'misconfigured service key' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', serviceKey)
 
   // Fetch active subscriptions
-  const { data: subscriptions } = await supabase
+  const { data: subscriptions, error: subError } = await supabase
     .from('push_subscriptions')
     .select('id, endpoint, p256dh, auth')
     .eq('user_id', userId)
     .eq('is_active', true)
 
+  if (subError) {
+    console.error(`[send-push] erro ao buscar subscriptions user=${userId}:`, subError.message)
+  }
+
   if (!subscriptions?.length) {
+    console.warn(`[send-push] nenhuma subscription ativa para user=${userId}`)
     return new Response(JSON.stringify({ ok: true, sent: 0, reason: 'no active subscriptions' }), {
       headers: { 'Content-Type': 'application/json' },
     })
