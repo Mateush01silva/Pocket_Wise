@@ -73,11 +73,12 @@ async function sendPush(
   refKey?: string
 ): Promise<void> {
   try {
+    const internalSecret = Deno.env.get('CRON_SECRET') ?? ''
     const res = await fetch(`${supabaseUrl}/functions/v1/send-push`, {
       method  : 'POST',
       headers : {
-        'Content-Type'  : 'application/json',
-        'Authorization' : `Bearer ${serviceKey}`,
+        'Content-Type'     : 'application/json',
+        'x-internal-secret': internalSecret,
       },
       body: JSON.stringify({ userId, payload, notificationType, refKey }),
     })
