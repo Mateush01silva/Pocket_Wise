@@ -220,12 +220,12 @@ async function sendToEndpoint(
 // ----------------------------------------------------------------------------
 
 serve(async (req) => {
-  // Only allow calls from within Supabase (service role / other edge functions)
-  const authHeader = req.headers.get('Authorization') ?? ''
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  // Only allow internal calls from other edge functions (uses CRON_SECRET as shared secret)
+  const internalSecret = req.headers.get('x-internal-secret') ?? ''
+  const cronSecret     = Deno.env.get('CRON_SECRET') ?? ''
 
-  if (!authHeader || !serviceKey || authHeader.trim() !== `Bearer ${serviceKey.trim()}`) {
-    console.error(`[send-push] auth failed — header_len=${authHeader.length} key_len=${serviceKey.length}`)
+  if (!internalSecret || !cronSecret || internalSecret !== cronSecret) {
+    console.error(`[send-push] auth failed — secret_len=${internalSecret.length}`)
     return new Response('Unauthorized', { status: 401 })
   }
 
