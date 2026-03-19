@@ -147,15 +147,16 @@ async function checkEnvelopes(
 
   const estourados: Array<{ nome: string; catId: string; percentual: number; deficit: number }> = []
   for (const b of budgets) {
-    const gasto = gastos[b.categoria_id] ?? 0
-    if (gasto <= b.valor_orcado) continue
+    const gasto   = gastos[b.categoria_id] ?? 0
+    const deficit = Math.round((gasto - b.valor_orcado) * 100) / 100
+    if (deficit <= 0) continue   // ignora empate exato e artefatos de float
     const cat = categorias.find((c) => c.id === b.categoria_id)
     if (!cat) continue
     estourados.push({
       nome      : cat.nome,
       catId     : b.categoria_id as string,
       percentual: Math.round((gasto / b.valor_orcado) * 100),
-      deficit   : Math.round((gasto - b.valor_orcado) * 100) / 100,
+      deficit,
     })
   }
 
