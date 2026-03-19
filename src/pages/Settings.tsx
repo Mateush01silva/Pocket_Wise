@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import * as XLSX from 'xlsx'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -195,26 +196,53 @@ export function Settings() {
   const handleExportData = async () => {
     setIsExporting(true)
     try {
-      const exportData = {
-        version: '1.0',
-        exportedAt: new Date().toISOString(),
-        data: {
-          lancamentos,
-          categorias,
-          contas,
-          cartoes,
+      const categoriasMap = new Map(categorias.map((c) => [c.id, c.nome]))
+      const cartoesMap = new Map(cartoes.map((c) => [c.id, c.nome]))
+      const contasMap = new Map(contas.map((c) => [c.id, c.nome]))
+
+      const formatarFormaPagamento = (forma: string) => {
+        const labels: Record<string, string> = {
+          dinheiro: 'Dinheiro',
+          debito: 'Débito',
+          credito: 'Crédito',
+          pix: 'Pix',
+          transferencia: 'Transferência',
+          boleto: 'Boleto',
         }
+        return labels[forma] ?? forma
       }
 
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `pocketwise-backup-${format(new Date(), 'yyyy-MM-dd')}.json`
-      a.click()
-      URL.revokeObjectURL(url)
+      const formatarStatus = (status: string) => {
+        const labels: Record<string, string> = {
+          pago: 'Pago',
+          pendente: 'Pendente',
+          projetado: 'Projetado',
+        }
+        return labels[status] ?? status
+      }
+
+      const linhas = lancamentos.map((l) => ({
+        'Data': format(new Date(l.data + 'T00:00:00'), 'dd/MM/yyyy'),
+        'Tipo': l.tipo === 'receita' ? 'Receita' : 'Despesa',
+        'Valor (R$)': l.valor,
+        'Categoria': l.categoria_id ? (categoriasMap.get(l.categoria_id) ?? '—') : '—',
+        'Subcategoria': l.subcategoria_id ? (categoriasMap.get(l.subcategoria_id) ?? '—') : '—',
+        'Forma de Pagamento': formatarFormaPagamento(l.forma_pagamento),
+        'Cartão': l.cartao_id ? (cartoesMap.get(l.cartao_id) ?? '—') : '—',
+        'Conta': l.conta_id ? (contasMap.get(l.conta_id) ?? '—') : '—',
+        'Status': formatarStatus(l.status),
+        'Parcela': l.parcela_atual && l.parcela_total ? `${l.parcela_atual}/${l.parcela_total}` : '—',
+        'Observação': l.observacao ?? '—',
+        'Responsável': l.criado_por === user?.id ? (userProfile?.full_name ?? l.criado_por ?? '—') : (l.criado_por ?? '—'),
+      }))
+
+      const ws = XLSX.utils.json_to_sheet(linhas)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Transações')
+      XLSX.writeFile(wb, `pocketwise-transacoes-${format(new Date(), 'yyyy-MM-dd')}.xlsx`)
 
       registrarBackup()
+      toast.success('Transações exportadas com sucesso!')
     } finally {
       setIsExporting(false)
     }
@@ -939,7 +967,7 @@ export function Settings() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-gray-400">
-            Exporte seus dados para backup.
+            Exporte suas transações para Excel para análise e backup.
           </p>
 
           {ultimoBackup && (
