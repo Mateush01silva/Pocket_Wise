@@ -257,8 +257,8 @@ serve(async (req) => {
   }
 
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-  if (serviceKey.length < 100) {
-    console.error(`[send-push] SUPABASE_SERVICE_ROLE_KEY inválida — key_len=${serviceKey.length}. Remova o secret customizado no dashboard do Supabase.`)
+  if (!serviceKey) {
+    console.error('[send-push] SUPABASE_SERVICE_ROLE_KEY não encontrada')
     return new Response(JSON.stringify({ error: 'misconfigured service key' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
