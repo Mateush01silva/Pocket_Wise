@@ -709,6 +709,9 @@ export function Settings() {
                       { key: 'no_transactions_reminder', label: '7 dias sem lançamentos',      desc: 'Lembrete quando não houver registros nos últimos 7 dias' },
                       { key: 'month_start_checkin',      label: 'Check-in do novo mês',        desc: 'Motivação para montar o orçamento no dia 1 (não-IA)' },
                       { key: 'perfect_month',            label: 'Mês perfeito',                desc: 'Celebração quando todos os envelopes fecharem no verde' },
+                      { key: 'pocks_score_update',       label: 'Score Pocks do mês',          desc: 'Aviso quando a pontuação mensal estiver disponível para consulta' },
+                      { key: 'pocks_streak_at_risk',     label: 'Streak em risco',             desc: 'Alerta no final do mês se você estiver prestes a perder sua sequência' },
+                      { key: 'pocks_level_up',           label: 'Subiu de nível nos Pocks',    desc: 'Celebração quando sua pontuação cruzar uma nova faixa (ex.: Bom → Excelente)' },
                     ] as Array<{ key: keyof typeof pushPrefs; label: string; desc: string }>
                   ).map(({ key, label, desc }) => (
                     <div key={key} className="flex items-center justify-between p-3 bg-dark-800/50 rounded-lg">
