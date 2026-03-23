@@ -27,6 +27,7 @@ import {
   Family,
   Settings,
   Assistente,
+  Pocks,
 } from './pages'
 import { Caixinhas } from './pages/Caixinhas'
 import { AcceptInvite } from './pages/AcceptInvite'
@@ -388,6 +389,16 @@ function AppRoutes() {
               <PrivateRoute>
                 <Layout>
                   <Assistente />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/pocks"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Pocks />
                 </Layout>
               </PrivateRoute>
             }
