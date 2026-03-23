@@ -32,7 +32,6 @@ import {
   carregarDadosPocks,
   getScoreColor,
   getScoreLabel,
-  getScoreBgColor,
   getBarColor,
   getMesLabel,
   getMesLabelLong,
