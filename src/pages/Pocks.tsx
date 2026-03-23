@@ -294,10 +294,10 @@ export function Pocks() {
   if (!hasAccess) return <AccessDeniedState />
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-6xl mx-auto px-4 py-6">
 
       {/* HEADER */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-secondary-500/30 to-primary-500/30 border border-secondary-500/20 flex items-center justify-center">
             <Trophy className="w-5 h-5 text-secondary-400" />
@@ -337,240 +337,250 @@ export function Pocks() {
       )}
 
       {dados && (
-        <>
-          {/* SCORE CARDS */}
-          <div className="grid grid-cols-2 gap-4">
+        <div className="lg:grid lg:grid-cols-5 lg:gap-8 space-y-6 lg:space-y-0">
 
-            {/* Score Mensal */}
-            <div className="col-span-2 sm:col-span-1 rounded-2xl bg-gradient-to-br from-secondary-500/20 to-primary-500/20 border border-secondary-500/20 p-5 relative overflow-hidden">
-              <div className="absolute inset-0 bg-dark-900/40 rounded-2xl" />
-              <div className="relative z-10">
+          {/* ── COLUNA ESQUERDA (critérios + score + streak + seletor) ── */}
+          <div className="lg:col-span-3 space-y-6">
+
+            {/* SCORE CARDS */}
+            <div className="grid grid-cols-2 gap-4">
+
+              {/* Score Mensal */}
+              <div className="col-span-2 sm:col-span-1 rounded-2xl bg-gradient-to-br from-secondary-500/20 to-primary-500/20 border border-secondary-500/20 p-5 relative overflow-hidden">
+                <div className="absolute inset-0 bg-dark-900/40 rounded-2xl" />
+                <div className="relative z-10">
+                  <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">
+                    {getMesLabelLong(dados.mesAtual.mes_referencia)}
+                  </p>
+                  <div className="flex items-end gap-2 mb-2">
+                    <span className={`text-6xl font-black leading-none ${getScoreColor(dados.mesAtual.total_score)}`}>
+                      {dados.mesAtual.total_score}
+                    </span>
+                    <span className="text-lg text-gray-400 mb-1">Pocks</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-sm font-semibold ${getScoreColor(dados.mesAtual.total_score)}`}>
+                      {getScoreLabel(dados.mesAtual.total_score)}
+                    </span>
+                    <ScoreBadge score={dados.mesAtual.total_score} prevScore={prevMonthScore} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Score Geral */}
+              <div className="col-span-2 sm:col-span-1 rounded-2xl bg-dark-800/50 border border-dark-700/50 p-5">
                 <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">
-                  {getMesLabelLong(dados.mesAtual.mes_referencia)}
+                  Geral · {allMonths.filter((m) => m.had_orcamento).length} meses
                 </p>
                 <div className="flex items-end gap-2 mb-2">
-                  <span className={`text-6xl font-black leading-none ${getScoreColor(dados.mesAtual.total_score)}`}>
-                    {dados.mesAtual.total_score}
+                  <span className={`text-5xl font-black leading-none ${getScoreColor(dados.scoreGeral)}`}>
+                    {dados.scoreGeral}
                   </span>
-                  <span className="text-lg text-gray-400 mb-1">Pocks</span>
+                  <span className="text-base text-gray-400 mb-1">Pocks</span>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-sm font-semibold ${getScoreColor(dados.mesAtual.total_score)}`}>
-                    {getScoreLabel(dados.mesAtual.total_score)}
-                  </span>
-                  <ScoreBadge score={dados.mesAtual.total_score} prevScore={prevMonthScore} />
+                <div className="flex items-center gap-2">
+                  {dados.tendencia === 'alta' && (
+                    <span className="flex items-center gap-1 text-green-400 text-sm font-medium">
+                      <TrendingUp className="w-4 h-4" /> Tendência de alta
+                    </span>
+                  )}
+                  {dados.tendencia === 'queda' && (
+                    <span className="flex items-center gap-1 text-red-400 text-sm font-medium">
+                      <TrendingDown className="w-4 h-4" /> Tendência de queda
+                    </span>
+                  )}
+                  {dados.tendencia === 'estavel' && (
+                    <span className="flex items-center gap-1 text-gray-400 text-sm">
+                      <Minus className="w-4 h-4" /> Estável
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Score Geral */}
-            <div className="col-span-2 sm:col-span-1 rounded-2xl bg-dark-800/50 border border-dark-700/50 p-5">
-              <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">
-                Geral · {allMonths.filter((m) => m.had_orcamento).length} meses
-              </p>
-              <div className="flex items-end gap-2 mb-2">
-                <span className={`text-5xl font-black leading-none ${getScoreColor(dados.scoreGeral)}`}>
-                  {dados.scoreGeral}
-                </span>
-                <span className="text-base text-gray-400 mb-1">Pocks</span>
+            {/* STREAK BANNER */}
+            {dados.streakAtual >= 2 && (
+              <div className="rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
+                  <Flame className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-amber-300">
+                    {dados.streakAtual} meses consecutivos dentro do orçamento!
+                  </p>
+                  <p className="text-xs text-amber-500/80 mt-0.5">
+                    Streak ativa —{' '}
+                    {dados.mesAtual.bonuses.find((b) => b.type === 'streak')
+                      ? `bônus de +${dados.mesAtual.bonuses.find((b) => b.type === 'streak')!.value} Pocks aplicado`
+                      : 'continue assim!'
+                    }
+                    {dados.melhorStreak > dados.streakAtual && (
+                      <> · Recorde: {dados.melhorStreak} meses</>
+                    )}
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {dados.tendencia === 'alta' && (
-                  <span className="flex items-center gap-1 text-green-400 text-sm font-medium">
-                    <TrendingUp className="w-4 h-4" /> Tendência de alta
+            )}
+            {dados.streakAtual <= 1 && (
+              <div className="rounded-xl bg-dark-800/50 border border-dark-700/50 p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-dark-700 flex items-center justify-center shrink-0">
+                  <Flame className="w-5 h-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-400">Sem streak ativa</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Fique dentro do orçamento este mês para iniciar uma sequência e ganhar bônus!
+                    {dados.melhorStreak > 1 && ` Seu recorde foi de ${dados.melhorStreak} meses.`}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* SELETOR DE MÊS PARA O BREAKDOWN */}
+            {allMonths.length > 1 && (
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Ver breakdown do mês</p>
+                <div className="flex gap-2 flex-wrap">
+                  {allMonths.map((m, i) => {
+                    const isCurrent = i === allMonths.length - 1
+                    const isSelected = selectedIdx === null ? isCurrent : selectedIdx === i
+                    return (
+                      <button
+                        key={m.mes_referencia}
+                        onClick={() => setSelectedIdx(isCurrent ? null : i)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          isSelected
+                            ? 'bg-primary-500/20 text-primary-400 border border-primary-500/50'
+                            : 'bg-dark-800 text-gray-400 border border-dark-700 hover:border-dark-600'
+                        }`}
+                      >
+                        {getMesLabel(m.mes_referencia)}
+                        {isCurrent && (
+                          <span className="ml-1 text-[9px] text-gray-500">atual</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* BREAKDOWN DOS CRITÉRIOS */}
+            {displayedMonth && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+                    Critérios
+                  </h2>
+                  <span className="text-xs text-gray-500">
+                    {getMesLabelLong(displayedMonth.mes_referencia)}
                   </span>
-                )}
-                {dados.tendencia === 'queda' && (
-                  <span className="flex items-center gap-1 text-red-400 text-sm font-medium">
-                    <TrendingDown className="w-4 h-4" /> Tendência de queda
-                  </span>
-                )}
-                {dados.tendencia === 'estavel' && (
-                  <span className="flex items-center gap-1 text-gray-400 text-sm">
-                    <Minus className="w-4 h-4" /> Estável
-                  </span>
+                </div>
+
+                {displayedMonth.had_orcamento ? (
+                  <>
+                    {CRITERIOS_CONFIG.map((config) => (
+                      <CriterioCard
+                        key={config.key}
+                        config={config}
+                        criterio={displayedMonth.criteria_breakdown[config.key]}
+                      />
+                    ))}
+                  </>
+                ) : (
+                  <div className="rounded-xl bg-dark-800/50 border border-dark-700/50 p-6 text-center">
+                    <p className="text-gray-500 text-sm">Nenhum orçamento definido para este mês.</p>
+                  </div>
                 )}
               </div>
-            </div>
+            )}
           </div>
 
-          {/* STREAK BANNER */}
-          {dados.streakAtual >= 2 && (
-            <div className="rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-                <Flame className="w-5 h-5 text-amber-400" />
-              </div>
-              <div>
-                <p className="font-semibold text-amber-300">
-                  {dados.streakAtual} meses consecutivos dentro do orçamento!
-                </p>
-                <p className="text-xs text-amber-500/80 mt-0.5">
-                  Streak ativa —{' '}
-                  {dados.mesAtual.bonuses.find((b) => b.type === 'streak')
-                    ? `bônus de +${dados.mesAtual.bonuses.find((b) => b.type === 'streak')!.value} Pocks aplicado`
-                    : 'continue assim!'
-                  }
-                  {dados.melhorStreak > dados.streakAtual && (
-                    <> · Recorde: {dados.melhorStreak} meses</>
-                  )}
-                </p>
-              </div>
-            </div>
-          )}
-          {dados.streakAtual <= 1 && (
-            <div className="rounded-xl bg-dark-800/50 border border-dark-700/50 p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-dark-700 flex items-center justify-center shrink-0">
-                <Flame className="w-5 h-5 text-gray-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-400">Sem streak ativa</p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Fique dentro do orçamento este mês para iniciar uma sequência e ganhar bônus!
-                  {dados.melhorStreak > 1 && ` Seu recorde foi de ${dados.melhorStreak} meses.`}
-                </p>
-              </div>
-            </div>
-          )}
+          {/* ── COLUNA DIREITA (gráfico + bônus + faixas) ── */}
+          <div className="lg:col-span-2 space-y-6">
 
-          {/* SELETOR DE MÊS PARA O BREAKDOWN */}
-          {allMonths.length > 1 && (
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Ver breakdown do mês</p>
-              <div className="flex gap-2 flex-wrap">
-                {allMonths.map((m, i) => {
-                  const isCurrent = i === allMonths.length - 1
-                  const isSelected = selectedIdx === null ? isCurrent : selectedIdx === i
-                  return (
-                    <button
-                      key={m.mes_referencia}
-                      onClick={() => setSelectedIdx(isCurrent ? null : i)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                        isSelected
-                          ? 'bg-primary-500/20 text-primary-400 border border-primary-500/50'
-                          : 'bg-dark-800 text-gray-400 border border-dark-700 hover:border-dark-600'
-                      }`}
-                    >
-                      {getMesLabel(m.mes_referencia)}
-                      {isCurrent && (
-                        <span className="ml-1 text-[9px] text-gray-500">atual</span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* BREAKDOWN DOS CRITÉRIOS */}
-          {displayedMonth && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
-                  Critérios
+            {/* HISTÓRICO — GRÁFICO */}
+            {chartData.length > 1 && (
+              <div className="rounded-xl bg-dark-800/50 border border-dark-700/50 p-4">
+                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">
+                  Evolução Mensal
                 </h2>
-                <span className="text-xs text-gray-500">
-                  {getMesLabelLong(displayedMonth.mes_referencia)}
-                </span>
-              </div>
-
-              {displayedMonth.had_orcamento ? (
-                <>
-                  {CRITERIOS_CONFIG.map((config) => (
-                    <CriterioCard
-                      key={config.key}
-                      config={config}
-                      criterio={displayedMonth.criteria_breakdown[config.key]}
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={chartData} barCategoryGap="30%">
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fill: '#6b7280', fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
                     />
-                  ))}
-                </>
-              ) : (
-                <div className="rounded-xl bg-dark-800/50 border border-dark-700/50 p-6 text-center">
-                  <p className="text-gray-500 text-sm">Nenhum orçamento definido para este mês.</p>
-                </div>
-              )}
-            </div>
-          )}
+                    <YAxis
+                      domain={[0, 115]}
+                      tick={{ fill: '#6b7280', fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={28}
+                    />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                    <Bar dataKey="score" radius={[4, 4, 0, 0]}>
+                      {chartData.map((entry, i) => (
+                        <Cell
+                          key={i}
+                          fill={getBarColor(entry.score)}
+                          opacity={entry.isCurrent ? 1 : 0.55}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
 
-          {/* BÔNUS E AJUSTES */}
-          {displayedMonth && displayedMonth.bonuses.length > 0 && (
+            {/* BÔNUS E AJUSTES */}
+            {displayedMonth && displayedMonth.bonuses.length > 0 && (
+              <div className="rounded-xl bg-dark-800/50 border border-dark-700/50 p-4">
+                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">
+                  Bônus Aplicados
+                </h2>
+                <div className="space-y-2">
+                  {displayedMonth.bonuses.map((bonus, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {bonus.type === 'streak' ? (
+                          <Flame className="w-4 h-4 text-amber-400 shrink-0" />
+                        ) : (
+                          <Star className="w-4 h-4 text-green-400 shrink-0" />
+                        )}
+                        <span className="text-sm text-gray-300">{bonus.description}</span>
+                      </div>
+                      <span className="text-sm font-bold text-green-400">+{bonus.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* LEGENDA DE FAIXAS */}
             <div className="rounded-xl bg-dark-800/50 border border-dark-700/50 p-4">
               <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">
-                Bônus Aplicados
+                Faixas de Score
               </h2>
-              <div className="space-y-2">
-                {displayedMonth.bonuses.map((bonus, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {bonus.type === 'streak' ? (
-                        <Flame className="w-4 h-4 text-amber-400 shrink-0" />
-                      ) : (
-                        <Star className="w-4 h-4 text-green-400 shrink-0" />
-                      )}
-                      <span className="text-sm text-gray-300">{bonus.description}</span>
-                    </div>
-                    <span className="text-sm font-bold text-green-400">+{bonus.value}</span>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Crítico',   range: '0–40',    color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+                  { label: 'Atenção',   range: '41–60',   color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
+                  { label: 'Bom',       range: '61–80',   color: 'bg-primary-500/20 text-primary-400 border-primary-500/30' },
+                  { label: 'Excelente', range: '81–100+', color: 'bg-secondary-500/20 text-secondary-400 border-secondary-500/30' },
+                ].map(({ label, range, color }) => (
+                  <div key={label} className={`rounded-lg border px-3 py-2 text-center ${color}`}>
+                    <p className="text-xs font-bold">{label}</p>
+                    <p className="text-xs opacity-70">{range}</p>
                   </div>
                 ))}
               </div>
             </div>
-          )}
-
-          {/* HISTÓRICO — GRÁFICO */}
-          {chartData.length > 1 && (
-            <div className="rounded-xl bg-dark-800/50 border border-dark-700/50 p-4">
-              <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">
-                Evolução Mensal
-              </h2>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={chartData} barCategoryGap="30%">
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fill: '#6b7280', fontSize: 11 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    domain={[0, 115]}
-                    tick={{ fill: '#6b7280', fontSize: 11 }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={28}
-                  />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-                  <Bar dataKey="score" radius={[4, 4, 0, 0]}>
-                    {chartData.map((entry, i) => (
-                      <Cell
-                        key={i}
-                        fill={getBarColor(entry.score)}
-                        opacity={entry.isCurrent ? 1 : 0.55}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-
-          {/* LEGENDA DE FAIXAS */}
-          <div className="rounded-xl bg-dark-800/50 border border-dark-700/50 p-4">
-            <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">
-              Faixas de Score
-            </h2>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {[
-                { label: 'Crítico',   range: '0–40',   color: 'bg-red-500/20 text-red-400 border-red-500/30' },
-                { label: 'Atenção',   range: '41–60',  color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
-                { label: 'Bom',       range: '61–80',  color: 'bg-primary-500/20 text-primary-400 border-primary-500/30' },
-                { label: 'Excelente', range: '81–100+', color: 'bg-secondary-500/20 text-secondary-400 border-secondary-500/30' },
-              ].map(({ label, range, color }) => (
-                <div key={label} className={`rounded-lg border px-3 py-2 text-center ${color}`}>
-                  <p className="text-xs font-bold">{label}</p>
-                  <p className="text-xs opacity-70">{range}</p>
-                </div>
-              ))}
-            </div>
           </div>
-        </>
+
+        </div>
       )}
     </div>
   )

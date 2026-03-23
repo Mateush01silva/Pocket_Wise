@@ -20,6 +20,9 @@ export interface PushNotificationPreferences {
   no_transactions_reminder: boolean
   month_start_checkin: boolean
   perfect_month: boolean
+  pocks_score_update: boolean
+  pocks_streak_at_risk: boolean
+  pocks_level_up: boolean
 }
 
 const DEFAULT_PREFERENCES: PushNotificationPreferences = {
@@ -35,6 +38,9 @@ const DEFAULT_PREFERENCES: PushNotificationPreferences = {
   no_transactions_reminder: false,
   month_start_checkin: true,
   perfect_month: true,
+  pocks_score_update: true,
+  pocks_streak_at_risk: true,
+  pocks_level_up: true,
 }
 
 // ============================================================================
@@ -123,6 +129,9 @@ export function usePushNotifications() {
           no_transactions_reminder : data.no_transactions_reminder  ?? false,
           month_start_checkin      : data.month_start_checkin       ?? true,
           perfect_month            : data.perfect_month             ?? true,
+          pocks_score_update       : data.pocks_score_update        ?? true,
+          pocks_streak_at_risk     : data.pocks_streak_at_risk      ?? true,
+          pocks_level_up           : data.pocks_level_up            ?? true,
         })
       }
     }
