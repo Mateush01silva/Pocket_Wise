@@ -15,6 +15,7 @@ import {
   GraduationCap,
   LogOut,
   Bot,
+  Trophy,
 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { useLearningModeStore } from '../../store/useLearningModeStore'
@@ -24,6 +25,7 @@ import { LearningTooltipMenu } from '../ui/LearningTooltip'
 import { learningContent } from '../../lib/learningContent'
 import { FamilySwitcher } from '../ui/FamilySwitcher'
 import { useAssistenteIA } from '../../hooks/useAssistenteIA'
+import { usePocksAccess } from '../../hooks/usePocksAccess'
 
 interface NavItem {
   name: string
@@ -60,6 +62,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const toggleLearningMode = useLearningModeStore((state) => state.toggleLearningMode)
   const prefsName = useUserPreferencesStore((state) => state.nome)
   const { hasAccess: hasAssistenteAccess, mensagensProativasNaoLidas } = useAssistenteIA()
+  const { hasAccess: hasPocksAccess } = usePocksAccess()
 
   const userName = userProfile?.full_name || prefsName
   const userAvatar = userProfile?.avatar_url || null
@@ -136,6 +139,28 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               </li>
             )
           })}
+
+          {/* Item Pocks — visível apenas para usuários com acesso */}
+          {hasPocksAccess && (
+            <li>
+              <Link
+                to="/app/pocks"
+                onClick={onClose}
+                className={cn(
+                  'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200',
+                  location.pathname === '/app/pocks'
+                    ? 'bg-secondary-500/10 text-secondary-400 shadow-lg shadow-secondary-500/20'
+                    : 'text-gray-400 hover:bg-dark-800 hover:text-gray-200'
+                )}
+              >
+                <Trophy className="w-5 h-5" />
+                <span className="font-medium">Pocks</span>
+                <span className="ml-auto text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-secondary-500/20 text-secondary-400">
+                  Beta
+                </span>
+              </Link>
+            </li>
+          )}
 
           {/* Item do Assistente Financeiro — visível apenas para usuários com acesso */}
           {hasAssistenteAccess && (
