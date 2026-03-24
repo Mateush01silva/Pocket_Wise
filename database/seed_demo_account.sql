@@ -19,8 +19,8 @@ DECLARE
   v_dst_user_id   UUID;
   v_dst_family_id UUID;
 
-  -- Fator de redução: 1 - 0,63% = 0,9937
-  FACTOR CONSTANT DECIMAL := 0.9937;
+  -- Fator: 63% do valor original (redução de 37%)
+  FACTOR CONSTANT DECIMAL := 0.63;
 
 BEGIN
   RAISE NOTICE '';
@@ -515,7 +515,7 @@ BEGIN
   RAISE NOTICE '================================================';
   RAISE NOTICE ' CONCLUÍDO COM SUCESSO!';
   RAISE NOTICE '  Conta demo: %', v_dst_email;
-  RAISE NOTICE '  Fator aplicado: % (-0,63%%)', FACTOR;
+  RAISE NOTICE '  Fator aplicado: % (63%% do valor original)', FACTOR;
   RAISE NOTICE '================================================';
   RAISE NOTICE '';
 
