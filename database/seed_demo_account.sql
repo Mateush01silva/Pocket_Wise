@@ -2,7 +2,8 @@
 -- SCRIPT: Clonar dados para conta de demonstração
 -- ============================================================================
 -- Copia todos os dados financeiros de silva.mateush01@gmail.com para
--- tufo.henrique@hotmail.com, reduzindo todos os valores monetários em 0,63%.
+-- tufo.henrique@hotmail.com, reduzindo todos os valores monetários para
+-- 63% do valor original (redução de 37%).
 --
 -- O script é IDEMPOTENTE: limpa os dados anteriores da conta destino antes
 -- de reinserir. Pode ser executado múltiplas vezes sem duplicar dados.
@@ -90,12 +91,11 @@ BEGIN
 
   RAISE NOTICE 'Copiando categorias...';
 
-  -- Tabela temporária de mapeamento: old_id → new_id
-  CREATE TEMP TABLE IF NOT EXISTS tmp_cat_map (
+  DROP TABLE IF EXISTS tmp_cat_map;
+  CREATE TEMP TABLE tmp_cat_map (
     old_id UUID PRIMARY KEY,
     new_id UUID NOT NULL
-  ) ON COMMIT DELETE ROWS;
-  TRUNCATE tmp_cat_map;
+  );
 
   -- Passada 1: categorias raiz (sem pai)
   INSERT INTO categorias (id, family_id, nome, icone, tipo, categoria_pai_id, cor, despesa_fixa, created_at, updated_at)
@@ -105,7 +105,7 @@ BEGIN
     c.nome,
     c.icone,
     c.tipo,
-    NULL,  -- pai ainda não mapeado
+    NULL,
     c.cor,
     c.despesa_fixa,
     NOW(),
@@ -114,7 +114,7 @@ BEGIN
   WHERE c.family_id = v_src_family_id
     AND c.categoria_pai_id IS NULL;
 
-  -- Popula mapeamento para categorias raiz (por nome+tipo, garantindo unicidade)
+  -- Mapeamento para categorias raiz (por nome+tipo)
   INSERT INTO tmp_cat_map (old_id, new_id)
   SELECT s.id, d.id
   FROM categorias s
@@ -135,7 +135,7 @@ BEGIN
     c.nome,
     c.icone,
     c.tipo,
-    m.new_id,   -- pai mapeado
+    m.new_id,
     c.cor,
     c.despesa_fixa,
     NOW(),
@@ -145,7 +145,7 @@ BEGIN
   WHERE c.family_id = v_src_family_id
     AND c.categoria_pai_id IS NOT NULL;
 
-  -- Popula mapeamento para subcategorias
+  -- Mapeamento para subcategorias
   INSERT INTO tmp_cat_map (old_id, new_id)
   SELECT s.id, d.id
   FROM categorias s
@@ -167,13 +167,12 @@ BEGIN
 
   RAISE NOTICE 'Copiando cartões...';
 
-  CREATE TEMP TABLE IF NOT EXISTS tmp_cartao_map (
+  DROP TABLE IF EXISTS tmp_cartao_map;
+  CREATE TEMP TABLE tmp_cartao_map (
     old_id UUID PRIMARY KEY,
     new_id UUID NOT NULL
-  ) ON COMMIT DELETE ROWS;
-  TRUNCATE tmp_cartao_map;
+  );
 
-  -- Insere novos cartões e guarda mapeamento
   WITH inserted AS (
     INSERT INTO cartoes (id, family_id, nome, dia_fechamento, dia_vencimento, limite, cor, ativo, created_at, updated_at)
     SELECT
@@ -206,11 +205,11 @@ BEGIN
 
   RAISE NOTICE 'Copiando contas bancárias...';
 
-  CREATE TEMP TABLE IF NOT EXISTS tmp_conta_map (
+  DROP TABLE IF EXISTS tmp_conta_map;
+  CREATE TEMP TABLE tmp_conta_map (
     old_id UUID PRIMARY KEY,
     new_id UUID NOT NULL
-  ) ON COMMIT DELETE ROWS;
-  TRUNCATE tmp_conta_map;
+  );
 
   WITH inserted AS (
     INSERT INTO contas_bancarias (id, family_id, nome, tipo, saldo_inicial, saldo_atual, cor, icone, ativo, instituicao, agencia, numero_conta, created_at, updated_at)
@@ -248,12 +247,12 @@ BEGIN
 
   RAISE NOTICE 'Copiando lançamentos...';
 
-  -- Mapa para grupos de parcelas
-  CREATE TEMP TABLE IF NOT EXISTS tmp_parcela_map (
+  -- Mapa para grupos de parcelas (subquery garante DISTINCT antes de gerar UUID)
+  DROP TABLE IF EXISTS tmp_parcela_map;
+  CREATE TEMP TABLE tmp_parcela_map (
     old_grupo UUID PRIMARY KEY,
     new_grupo UUID NOT NULL
-  ) ON COMMIT DELETE ROWS;
-  TRUNCATE tmp_parcela_map;
+  );
 
   INSERT INTO tmp_parcela_map (old_grupo, new_grupo)
   SELECT grupo_parcelas_id, gen_random_uuid()
@@ -278,25 +277,25 @@ BEGIN
     l.tipo,
     l.data,
     ROUND(l.valor * FACTOR, 2),
-    cm.new_id,                              -- categoria mapeada
-    scm.new_id,                             -- subcategoria mapeada (pode ser NULL)
+    cm.new_id,
+    scm.new_id,
     l.observacao,
     l.forma_pagamento,
-    ctm.new_id,                             -- cartão mapeado (pode ser NULL)
+    ctm.new_id,
     l.parcela_atual,
     l.parcela_total,
-    pm.new_grupo,                           -- grupo parcelas mapeado (pode ser NULL)
+    pm.new_grupo,
     l.status,
     l.data_vencimento_fatura,
-    cotm.new_id,                            -- conta mapeada (pode ser NULL)
+    cotm.new_id,
     NOW(),
     NOW()
   FROM lancamentos l
-  LEFT JOIN tmp_cat_map    cm  ON cm.old_id  = l.categoria_id
-  LEFT JOIN tmp_cat_map    scm ON scm.old_id = l.subcategoria_id
-  LEFT JOIN tmp_cartao_map ctm ON ctm.old_id = l.cartao_id
+  LEFT JOIN tmp_cat_map    cm   ON cm.old_id   = l.categoria_id
+  LEFT JOIN tmp_cat_map    scm  ON scm.old_id  = l.subcategoria_id
+  LEFT JOIN tmp_cartao_map ctm  ON ctm.old_id  = l.cartao_id
   LEFT JOIN tmp_conta_map  cotm ON cotm.old_id = l.conta_id
-  LEFT JOIN tmp_parcela_map pm ON pm.old_grupo = l.grupo_parcelas_id
+  LEFT JOIN tmp_parcela_map pm  ON pm.old_grupo = l.grupo_parcelas_id
   WHERE l.family_id = v_src_family_id;
 
   RAISE NOTICE '  Lançamentos copiados: %',
@@ -308,11 +307,11 @@ BEGIN
 
   RAISE NOTICE 'Copiando caixinhas...';
 
-  CREATE TEMP TABLE IF NOT EXISTS tmp_caixinha_map (
+  DROP TABLE IF EXISTS tmp_caixinha_map;
+  CREATE TEMP TABLE tmp_caixinha_map (
     old_id UUID PRIMARY KEY,
     new_id UUID NOT NULL
-  ) ON COMMIT DELETE ROWS;
-  TRUNCATE tmp_caixinha_map;
+  );
 
   WITH inserted AS (
     INSERT INTO caixinhas (
@@ -349,7 +348,6 @@ BEGIN
   WHERE s.family_id = v_src_family_id
   ON CONFLICT DO NOTHING;
 
-  -- Transações das caixinhas
   INSERT INTO transacoes_caixinhas (id, caixinha_id, realizado_por, valor, tipo, descricao, origem_mes_referencia, created_at)
   SELECT
     gen_random_uuid(),
@@ -407,11 +405,11 @@ BEGIN
 
   RAISE NOTICE 'Copiando orçamentos mensais...';
 
-  CREATE TEMP TABLE IF NOT EXISTS tmp_orcamento_map (
+  DROP TABLE IF EXISTS tmp_orcamento_map;
+  CREATE TEMP TABLE tmp_orcamento_map (
     old_id UUID PRIMARY KEY,
     new_id UUID NOT NULL
-  ) ON COMMIT DELETE ROWS;
-  TRUNCATE tmp_orcamento_map;
+  );
 
   WITH inserted AS (
     INSERT INTO orcamentos_mensais (
@@ -443,7 +441,6 @@ BEGIN
   WHERE s.family_id = v_src_family_id
   ON CONFLICT DO NOTHING;
 
-  -- Envelopes de categorias dos orçamentos
   INSERT INTO categorias_budget (id, orcamento_id, categoria_id, valor_orcado, prioridade, created_at, updated_at)
   SELECT
     gen_random_uuid(),
