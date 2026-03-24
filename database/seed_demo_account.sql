@@ -317,7 +317,7 @@ BEGIN
     INSERT INTO caixinhas (
       id, family_id, criado_por, nome, tipo, meta_valor, prazo_data,
       icone, saldo_atual, ativa, cor, descricao,
-      investimento_categoria, mes_referencia,
+      valor_mercado, data_valor_mercado, subtipo_investimento, conta_investimento_id,
       created_at, updated_at
     )
     SELECT
@@ -333,11 +333,14 @@ BEGIN
       cx.ativa,
       cx.cor,
       cx.descricao,
-      cx.investimento_categoria,
-      cx.mes_referencia,
+      CASE WHEN cx.valor_mercado IS NOT NULL THEN ROUND(cx.valor_mercado * FACTOR, 2) END,
+      cx.data_valor_mercado,
+      cx.subtipo_investimento,
+      cotm.new_id,  -- conta de investimento mapeada (pode ser NULL)
       NOW(),
       NOW()
     FROM caixinhas cx
+    LEFT JOIN tmp_conta_map cotm ON cotm.old_id = cx.conta_investimento_id
     WHERE cx.family_id = v_src_family_id
     RETURNING id, nome
   )
@@ -348,7 +351,7 @@ BEGIN
   WHERE s.family_id = v_src_family_id
   ON CONFLICT DO NOTHING;
 
-  INSERT INTO transacoes_caixinhas (id, caixinha_id, realizado_por, valor, tipo, descricao, origem_mes_referencia, created_at)
+  INSERT INTO transacoes_caixinhas (id, caixinha_id, realizado_por, valor, tipo, descricao, origem_mes_referencia, destino_mes_referencia, created_at)
   SELECT
     gen_random_uuid(),
     m.new_id,
@@ -357,6 +360,7 @@ BEGIN
     tc.tipo,
     tc.descricao,
     tc.origem_mes_referencia,
+    tc.destino_mes_referencia,
     tc.created_at
   FROM transacoes_caixinhas tc
   JOIN tmp_caixinha_map m ON m.old_id = tc.caixinha_id;
