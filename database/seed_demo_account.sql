@@ -256,10 +256,13 @@ BEGIN
   TRUNCATE tmp_parcela_map;
 
   INSERT INTO tmp_parcela_map (old_grupo, new_grupo)
-  SELECT DISTINCT grupo_parcelas_id, gen_random_uuid()
-  FROM lancamentos
-  WHERE family_id = v_src_family_id
-    AND grupo_parcelas_id IS NOT NULL;
+  SELECT grupo_parcelas_id, gen_random_uuid()
+  FROM (
+    SELECT DISTINCT grupo_parcelas_id
+    FROM lancamentos
+    WHERE family_id = v_src_family_id
+      AND grupo_parcelas_id IS NOT NULL
+  ) sub;
 
   INSERT INTO lancamentos (
     id, family_id, criado_por, tipo, data, valor,
