@@ -7,11 +7,14 @@
 --
 -- O script é IDEMPOTENTE: limpa os dados anteriores da conta destino antes
 -- de reinserir. Pode ser executado múltiplas vezes sem duplicar dados.
+--
+-- Nota: triggers de atualização de saldo são desabilitados temporariamente
+-- durante a cópia dos lançamentos e transações de caixinhas para evitar
+-- que os saldos sejam recalculados em cima dos valores já copiados.
 -- ============================================================================
 
 DO $$
 DECLARE
-  -- Usuários
   v_src_email  TEXT := 'silva.mateush01@gmail.com';
   v_dst_email  TEXT := 'tufo.henrique@hotmail.com';
 
@@ -31,11 +34,13 @@ BEGIN
   RAISE NOTICE '';
 
   -- ============================================================================
-  -- 1. RESOLVER IDs DE ORIGEM E DESTINO
+  -- 1. RESOLVER IDs (via auth.users para garantir compatibilidade)
   -- ============================================================================
 
-  SELECT id, family_id INTO v_src_user_id, v_src_family_id
-  FROM users WHERE email = v_src_email;
+  SELECT u.id, u.family_id INTO v_src_user_id, v_src_family_id
+  FROM users u
+  JOIN auth.users au ON au.id = u.id
+  WHERE au.email = v_src_email;
 
   IF v_src_user_id IS NULL THEN
     RAISE EXCEPTION 'Usuário origem não encontrado: %', v_src_email;
@@ -44,8 +49,10 @@ BEGIN
     RAISE EXCEPTION 'Usuário origem sem family_id: %', v_src_email;
   END IF;
 
-  SELECT id, family_id INTO v_dst_user_id, v_dst_family_id
-  FROM users WHERE email = v_dst_email;
+  SELECT u.id, u.family_id INTO v_dst_user_id, v_dst_family_id
+  FROM users u
+  JOIN auth.users au ON au.id = u.id
+  WHERE au.email = v_dst_email;
 
   IF v_dst_user_id IS NULL THEN
     RAISE EXCEPTION 'Usuário destino não encontrado: %', v_dst_email;
@@ -59,7 +66,7 @@ BEGIN
   RAISE NOTICE '';
 
   -- ============================================================================
-  -- 2. LIMPAR DADOS ANTERIORES DA CONTA DESTINO (ordem inversa de dependência)
+  -- 2. LIMPAR DADOS ANTERIORES (ordem inversa de dependência)
   -- ============================================================================
 
   RAISE NOTICE 'Limpando dados anteriores da conta destino...';
@@ -86,77 +93,40 @@ BEGIN
   RAISE NOTICE '';
 
   -- ============================================================================
-  -- 3. CATEGORIAS (com mapeamento de IDs, duas passadas para suportar subcats)
+  -- 3. CATEGORIAS (duas passadas: raiz → subcategorias)
   -- ============================================================================
 
   RAISE NOTICE 'Copiando categorias...';
 
   DROP TABLE IF EXISTS tmp_cat_map;
-  CREATE TEMP TABLE tmp_cat_map (
-    old_id UUID PRIMARY KEY,
-    new_id UUID NOT NULL
-  );
+  CREATE TEMP TABLE tmp_cat_map (old_id UUID PRIMARY KEY, new_id UUID NOT NULL);
 
-  -- Passada 1: categorias raiz (sem pai)
+  -- Passada 1: categorias raiz
   INSERT INTO categorias (id, family_id, nome, icone, tipo, categoria_pai_id, cor, despesa_fixa, created_at, updated_at)
-  SELECT
-    gen_random_uuid(),
-    v_dst_family_id,
-    c.nome,
-    c.icone,
-    c.tipo,
-    NULL,
-    c.cor,
-    c.despesa_fixa,
-    NOW(),
-    NOW()
+  SELECT gen_random_uuid(), v_dst_family_id, c.nome, c.icone, c.tipo, NULL, c.cor, c.despesa_fixa, NOW(), NOW()
   FROM categorias c
-  WHERE c.family_id = v_src_family_id
-    AND c.categoria_pai_id IS NULL;
+  WHERE c.family_id = v_src_family_id AND c.categoria_pai_id IS NULL;
 
-  -- Mapeamento para categorias raiz (por nome+tipo)
   INSERT INTO tmp_cat_map (old_id, new_id)
   SELECT s.id, d.id
   FROM categorias s
-  JOIN categorias d
-    ON d.family_id = v_dst_family_id
-   AND d.nome = s.nome
-   AND d.tipo = s.tipo
-   AND d.categoria_pai_id IS NULL
-  WHERE s.family_id = v_src_family_id
-    AND s.categoria_pai_id IS NULL
+  JOIN categorias d ON d.family_id = v_dst_family_id AND d.nome = s.nome AND d.tipo = s.tipo AND d.categoria_pai_id IS NULL
+  WHERE s.family_id = v_src_family_id AND s.categoria_pai_id IS NULL
   ON CONFLICT DO NOTHING;
 
-  -- Passada 2: subcategorias (com pai mapeado)
+  -- Passada 2: subcategorias
   INSERT INTO categorias (id, family_id, nome, icone, tipo, categoria_pai_id, cor, despesa_fixa, created_at, updated_at)
-  SELECT
-    gen_random_uuid(),
-    v_dst_family_id,
-    c.nome,
-    c.icone,
-    c.tipo,
-    m.new_id,
-    c.cor,
-    c.despesa_fixa,
-    NOW(),
-    NOW()
+  SELECT gen_random_uuid(), v_dst_family_id, c.nome, c.icone, c.tipo, m.new_id, c.cor, c.despesa_fixa, NOW(), NOW()
   FROM categorias c
   JOIN tmp_cat_map m ON m.old_id = c.categoria_pai_id
-  WHERE c.family_id = v_src_family_id
-    AND c.categoria_pai_id IS NOT NULL;
+  WHERE c.family_id = v_src_family_id AND c.categoria_pai_id IS NOT NULL;
 
-  -- Mapeamento para subcategorias
   INSERT INTO tmp_cat_map (old_id, new_id)
   SELECT s.id, d.id
   FROM categorias s
   JOIN tmp_cat_map pm ON pm.old_id = s.categoria_pai_id
-  JOIN categorias d
-    ON d.family_id = v_dst_family_id
-   AND d.nome = s.nome
-   AND d.tipo = s.tipo
-   AND d.categoria_pai_id = pm.new_id
-  WHERE s.family_id = v_src_family_id
-    AND s.categoria_pai_id IS NOT NULL
+  JOIN categorias d ON d.family_id = v_dst_family_id AND d.nome = s.nome AND d.tipo = s.tipo AND d.categoria_pai_id = pm.new_id
+  WHERE s.family_id = v_src_family_id AND s.categoria_pai_id IS NOT NULL
   ON CONFLICT DO NOTHING;
 
   RAISE NOTICE '  Categorias copiadas: %', (SELECT COUNT(*) FROM tmp_cat_map);
@@ -168,99 +138,69 @@ BEGIN
   RAISE NOTICE 'Copiando cartões...';
 
   DROP TABLE IF EXISTS tmp_cartao_map;
-  CREATE TEMP TABLE tmp_cartao_map (
-    old_id UUID PRIMARY KEY,
-    new_id UUID NOT NULL
-  );
+  CREATE TEMP TABLE tmp_cartao_map (old_id UUID PRIMARY KEY, new_id UUID NOT NULL);
 
-  WITH inserted AS (
+  WITH ins AS (
     INSERT INTO cartoes (id, family_id, nome, dia_fechamento, dia_vencimento, limite, cor, ativo, created_at, updated_at)
-    SELECT
-      gen_random_uuid(),
-      v_dst_family_id,
-      c.nome,
-      c.dia_fechamento,
-      c.dia_vencimento,
-      ROUND(c.limite * FACTOR, 2),
-      c.cor,
-      c.ativo,
-      NOW(),
-      NOW()
-    FROM cartoes c
-    WHERE c.family_id = v_src_family_id
+    SELECT gen_random_uuid(), v_dst_family_id, c.nome, c.dia_fechamento, c.dia_vencimento,
+           ROUND(c.limite * FACTOR, 2), c.cor, c.ativo, NOW(), NOW()
+    FROM cartoes c WHERE c.family_id = v_src_family_id
     RETURNING id, nome
   )
   INSERT INTO tmp_cartao_map (old_id, new_id)
-  SELECT s.id, i.id
-  FROM cartoes s
-  JOIN inserted i ON i.nome = s.nome
-  WHERE s.family_id = v_src_family_id
-  ON CONFLICT DO NOTHING;
+  SELECT s.id, i.id FROM cartoes s JOIN ins i ON i.nome = s.nome
+  WHERE s.family_id = v_src_family_id ON CONFLICT DO NOTHING;
 
   RAISE NOTICE '  Cartões copiados: %', (SELECT COUNT(*) FROM tmp_cartao_map);
 
   -- ============================================================================
   -- 5. CONTAS BANCÁRIAS
+  -- Nota: saldo_atual copiado diretamente (triggers de lancamentos desabilitados
+  -- no passo 6 para evitar duplo cômputo).
   -- ============================================================================
 
   RAISE NOTICE 'Copiando contas bancárias...';
 
   DROP TABLE IF EXISTS tmp_conta_map;
-  CREATE TEMP TABLE tmp_conta_map (
-    old_id UUID PRIMARY KEY,
-    new_id UUID NOT NULL
-  );
+  CREATE TEMP TABLE tmp_conta_map (old_id UUID PRIMARY KEY, new_id UUID NOT NULL);
 
-  WITH inserted AS (
+  WITH ins AS (
     INSERT INTO contas_bancarias (id, family_id, nome, tipo, saldo_inicial, saldo_atual, cor, icone, ativo, instituicao, agencia, numero_conta, created_at, updated_at)
-    SELECT
-      gen_random_uuid(),
-      v_dst_family_id,
-      cb.nome,
-      cb.tipo,
-      ROUND(cb.saldo_inicial * FACTOR, 2),
-      ROUND(cb.saldo_atual   * FACTOR, 2),
-      cb.cor,
-      cb.icone,
-      cb.ativo,
-      cb.instituicao,
-      cb.agencia,
-      cb.numero_conta,
-      NOW(),
-      NOW()
-    FROM contas_bancarias cb
-    WHERE cb.family_id = v_src_family_id
+    SELECT gen_random_uuid(), v_dst_family_id, cb.nome, cb.tipo,
+           ROUND(cb.saldo_inicial * FACTOR, 2),
+           ROUND(cb.saldo_atual   * FACTOR, 2),
+           cb.cor, cb.icone, cb.ativo, cb.instituicao, cb.agencia, cb.numero_conta, NOW(), NOW()
+    FROM contas_bancarias cb WHERE cb.family_id = v_src_family_id
     RETURNING id, nome
   )
   INSERT INTO tmp_conta_map (old_id, new_id)
-  SELECT s.id, i.id
-  FROM contas_bancarias s
-  JOIN inserted i ON i.nome = s.nome
-  WHERE s.family_id = v_src_family_id
-  ON CONFLICT DO NOTHING;
+  SELECT s.id, i.id FROM contas_bancarias s JOIN ins i ON i.nome = s.nome
+  WHERE s.family_id = v_src_family_id ON CONFLICT DO NOTHING;
 
   RAISE NOTICE '  Contas bancárias copiadas: %', (SELECT COUNT(*) FROM tmp_conta_map);
 
   -- ============================================================================
   -- 6. LANÇAMENTOS
+  -- Desabilitamos os triggers que atualizam saldo_atual das contas bancárias
+  -- para não sobrescrever os valores que já copiamos com o fator aplicado.
   -- ============================================================================
 
   RAISE NOTICE 'Copiando lançamentos...';
 
-  -- Mapa para grupos de parcelas (subquery garante DISTINCT antes de gerar UUID)
-  DROP TABLE IF EXISTS tmp_parcela_map;
-  CREATE TEMP TABLE tmp_parcela_map (
-    old_grupo UUID PRIMARY KEY,
-    new_grupo UUID NOT NULL
-  );
+  ALTER TABLE lancamentos DISABLE TRIGGER trigger_atualizar_saldo_conta_insert;
+  ALTER TABLE lancamentos DISABLE TRIGGER trigger_atualizar_saldo_conta_update;
+  ALTER TABLE lancamentos DISABLE TRIGGER trigger_atualizar_saldo_conta_delete;
 
+  DROP TABLE IF EXISTS tmp_parcela_map;
+  CREATE TEMP TABLE tmp_parcela_map (old_grupo UUID PRIMARY KEY, new_grupo UUID NOT NULL);
+
+  -- DISTINCT em subquery antes de gerar UUID (evita PK duplicada)
   INSERT INTO tmp_parcela_map (old_grupo, new_grupo)
   SELECT grupo_parcelas_id, gen_random_uuid()
   FROM (
     SELECT DISTINCT grupo_parcelas_id
     FROM lancamentos
-    WHERE family_id = v_src_family_id
-      AND grupo_parcelas_id IS NOT NULL
+    WHERE family_id = v_src_family_id AND grupo_parcelas_id IS NOT NULL
   ) sub;
 
   INSERT INTO lancamentos (
@@ -288,8 +228,8 @@ BEGIN
     l.status,
     l.data_vencimento_fatura,
     cotm.new_id,
-    NOW(),
-    NOW()
+    l.created_at,
+    l.updated_at
   FROM lancamentos l
   LEFT JOIN tmp_cat_map    cm   ON cm.old_id   = l.categoria_id
   LEFT JOIN tmp_cat_map    scm  ON scm.old_id  = l.subcategoria_id
@@ -298,22 +238,24 @@ BEGIN
   LEFT JOIN tmp_parcela_map pm  ON pm.old_grupo = l.grupo_parcelas_id
   WHERE l.family_id = v_src_family_id;
 
+  ALTER TABLE lancamentos ENABLE TRIGGER trigger_atualizar_saldo_conta_insert;
+  ALTER TABLE lancamentos ENABLE TRIGGER trigger_atualizar_saldo_conta_update;
+  ALTER TABLE lancamentos ENABLE TRIGGER trigger_atualizar_saldo_conta_delete;
+
   RAISE NOTICE '  Lançamentos copiados: %',
     (SELECT COUNT(*) FROM lancamentos WHERE family_id = v_dst_family_id);
 
   -- ============================================================================
-  -- 7. CAIXINHAS + TRANSAÇÕES DE CAIXINHAS
+  -- 7. CAIXINHAS + TRANSAÇÕES
+  -- Mesmo esquema: desabilitamos o trigger de saldo antes de inserir transações.
   -- ============================================================================
 
   RAISE NOTICE 'Copiando caixinhas...';
 
   DROP TABLE IF EXISTS tmp_caixinha_map;
-  CREATE TEMP TABLE tmp_caixinha_map (
-    old_id UUID PRIMARY KEY,
-    new_id UUID NOT NULL
-  );
+  CREATE TEMP TABLE tmp_caixinha_map (old_id UUID PRIMARY KEY, new_id UUID NOT NULL);
 
-  WITH inserted AS (
+  WITH ins AS (
     INSERT INTO caixinhas (
       id, family_id, criado_por, nome, tipo, meta_valor, prazo_data,
       icone, saldo_atual, ativa, cor, descricao,
@@ -321,51 +263,43 @@ BEGIN
       created_at, updated_at
     )
     SELECT
-      gen_random_uuid(),
-      v_dst_family_id,
-      v_dst_user_id,
-      cx.nome,
-      cx.tipo,
-      CASE WHEN cx.meta_valor IS NOT NULL THEN ROUND(cx.meta_valor * FACTOR, 2) END,
-      cx.prazo_data,
-      cx.icone,
+      gen_random_uuid(), v_dst_family_id, v_dst_user_id,
+      cx.nome, cx.tipo,
+      CASE WHEN cx.meta_valor   IS NOT NULL THEN ROUND(cx.meta_valor   * FACTOR, 2) END,
+      cx.prazo_data, cx.icone,
       ROUND(cx.saldo_atual * FACTOR, 2),
-      cx.ativa,
-      cx.cor,
-      cx.descricao,
+      cx.ativa, cx.cor, cx.descricao,
       CASE WHEN cx.valor_mercado IS NOT NULL THEN ROUND(cx.valor_mercado * FACTOR, 2) END,
-      cx.data_valor_mercado,
-      cx.subtipo_investimento,
-      cotm.new_id,  -- conta de investimento mapeada (pode ser NULL)
-      NOW(),
-      NOW()
+      cx.data_valor_mercado, cx.subtipo_investimento,
+      cotm.new_id,
+      NOW(), NOW()
     FROM caixinhas cx
     LEFT JOIN tmp_conta_map cotm ON cotm.old_id = cx.conta_investimento_id
     WHERE cx.family_id = v_src_family_id
     RETURNING id, nome
   )
   INSERT INTO tmp_caixinha_map (old_id, new_id)
-  SELECT s.id, i.id
-  FROM caixinhas s
-  JOIN inserted i ON i.nome = s.nome
-  WHERE s.family_id = v_src_family_id
-  ON CONFLICT DO NOTHING;
+  SELECT s.id, i.id FROM caixinhas s JOIN ins i ON i.nome = s.nome
+  WHERE s.family_id = v_src_family_id ON CONFLICT DO NOTHING;
+
+  RAISE NOTICE '  Caixinhas copiadas: %', (SELECT COUNT(*) FROM tmp_caixinha_map);
+
+  -- Transações das caixinhas (trigger desabilitado para não sobrescrever saldo_atual)
+  ALTER TABLE transacoes_caixinhas DISABLE TRIGGER trigger_atualizar_saldo_caixinha;
 
   INSERT INTO transacoes_caixinhas (id, caixinha_id, realizado_por, valor, tipo, descricao, origem_mes_referencia, destino_mes_referencia, created_at)
   SELECT
-    gen_random_uuid(),
-    m.new_id,
-    v_dst_user_id,
+    gen_random_uuid(), m.new_id, v_dst_user_id,
     ROUND(tc.valor * FACTOR, 2),
-    tc.tipo,
-    tc.descricao,
-    tc.origem_mes_referencia,
-    tc.destino_mes_referencia,
-    tc.created_at
+    tc.tipo, tc.descricao, tc.origem_mes_referencia, tc.destino_mes_referencia, tc.created_at
   FROM transacoes_caixinhas tc
   JOIN tmp_caixinha_map m ON m.old_id = tc.caixinha_id;
 
-  RAISE NOTICE '  Caixinhas copiadas: %', (SELECT COUNT(*) FROM tmp_caixinha_map);
+  ALTER TABLE transacoes_caixinhas ENABLE TRIGGER trigger_atualizar_saldo_caixinha;
+
+  RAISE NOTICE '  Transações de caixinhas copiadas: %',
+    (SELECT COUNT(*) FROM transacoes_caixinhas
+     WHERE caixinha_id IN (SELECT new_id FROM tmp_caixinha_map));
 
   -- ============================================================================
   -- 8. ASSINATURAS
@@ -373,27 +307,14 @@ BEGIN
 
   RAISE NOTICE 'Copiando assinaturas...';
 
-  INSERT INTO assinaturas (
-    id, user_id, nome, logo_url, valor, frequencia, dia_cobranca,
-    categoria_id, subcategoria_id, primeira_cobranca, ultima_cobranca,
-    ativa, cartao_id, created_at, updated_at
-  )
+  INSERT INTO assinaturas (id, user_id, nome, logo_url, valor, frequencia, dia_cobranca,
+    categoria_id, subcategoria_id, primeira_cobranca, ultima_cobranca, ativa, cartao_id,
+    created_at, updated_at)
   SELECT
-    gen_random_uuid(),
-    v_dst_user_id,
-    a.nome,
-    a.logo_url,
-    ROUND(a.valor * FACTOR, 2),
-    a.frequencia,
-    a.dia_cobranca,
-    cm.new_id,
-    scm.new_id,
-    a.primeira_cobranca,
-    a.ultima_cobranca,
-    a.ativa,
-    ctm.new_id,
-    NOW(),
-    NOW()
+    gen_random_uuid(), v_dst_user_id,
+    a.nome, a.logo_url, ROUND(a.valor * FACTOR, 2), a.frequencia, a.dia_cobranca,
+    cm.new_id, scm.new_id, a.primeira_cobranca, a.ultima_cobranca, a.ativa, ctm.new_id,
+    NOW(), NOW()
   FROM assinaturas a
   LEFT JOIN tmp_cat_map    cm  ON cm.old_id  = a.categoria_id
   LEFT JOIN tmp_cat_map    scm ON scm.old_id = a.subcategoria_id
@@ -404,56 +325,33 @@ BEGIN
     (SELECT COUNT(*) FROM assinaturas WHERE user_id = v_dst_user_id);
 
   -- ============================================================================
-  -- 9. ORÇAMENTOS MENSAIS + CATEGORIAS BUDGET
+  -- 9. ORÇAMENTOS MENSAIS + ENVELOPES
   -- ============================================================================
 
   RAISE NOTICE 'Copiando orçamentos mensais...';
 
   DROP TABLE IF EXISTS tmp_orcamento_map;
-  CREATE TEMP TABLE tmp_orcamento_map (
-    old_id UUID PRIMARY KEY,
-    new_id UUID NOT NULL
-  );
+  CREATE TEMP TABLE tmp_orcamento_map (old_id UUID PRIMARY KEY, new_id UUID NOT NULL);
 
-  WITH inserted AS (
-    INSERT INTO orcamentos_mensais (
-      id, family_id, criado_por, mes_referencia,
-      meta_poupanca, meta_poupanca_percentual,
-      dia_inicio_ciclo, metodo_calculo, status,
-      created_at, updated_at
-    )
+  WITH ins AS (
+    INSERT INTO orcamentos_mensais (id, family_id, criado_por, mes_referencia,
+      meta_poupanca, meta_poupanca_percentual, dia_inicio_ciclo, metodo_calculo, status,
+      created_at, updated_at)
     SELECT
-      gen_random_uuid(),
-      v_dst_family_id,
-      v_dst_user_id,
-      om.mes_referencia,
-      CASE WHEN om.meta_poupanca IS NOT NULL THEN ROUND(om.meta_poupanca * FACTOR, 2) END,
-      om.meta_poupanca_percentual,
-      om.dia_inicio_ciclo,
-      om.metodo_calculo,
-      om.status,
-      NOW(),
-      NOW()
-    FROM orcamentos_mensais om
-    WHERE om.family_id = v_src_family_id
+      gen_random_uuid(), v_dst_family_id, v_dst_user_id, om.mes_referencia,
+      ROUND(COALESCE(om.meta_poupanca, 0) * FACTOR, 2),
+      om.meta_poupanca_percentual, om.dia_inicio_ciclo, om.metodo_calculo, om.status,
+      NOW(), NOW()
+    FROM orcamentos_mensais om WHERE om.family_id = v_src_family_id
     RETURNING id, mes_referencia
   )
   INSERT INTO tmp_orcamento_map (old_id, new_id)
   SELECT s.id, i.id
-  FROM orcamentos_mensais s
-  JOIN inserted i ON i.mes_referencia = s.mes_referencia
-  WHERE s.family_id = v_src_family_id
-  ON CONFLICT DO NOTHING;
+  FROM orcamentos_mensais s JOIN ins i ON i.mes_referencia = s.mes_referencia
+  WHERE s.family_id = v_src_family_id ON CONFLICT DO NOTHING;
 
   INSERT INTO categorias_budget (id, orcamento_id, categoria_id, valor_orcado, prioridade, created_at, updated_at)
-  SELECT
-    gen_random_uuid(),
-    om.new_id,
-    cm.new_id,
-    ROUND(cb.valor_orcado * FACTOR, 2),
-    cb.prioridade,
-    NOW(),
-    NOW()
+  SELECT gen_random_uuid(), om.new_id, cm.new_id, ROUND(cb.valor_orcado * FACTOR, 2), cb.prioridade, NOW(), NOW()
   FROM categorias_budget cb
   JOIN tmp_orcamento_map om ON om.old_id = cb.orcamento_id
   JOIN tmp_cat_map       cm ON cm.old_id = cb.categoria_id;
@@ -467,18 +365,8 @@ BEGIN
   RAISE NOTICE 'Copiando planejamentos...';
 
   INSERT INTO planejamentos (id, family_id, criado_por, nome, valor, data_prevista, categoria_id, observacoes, status, created_at, updated_at)
-  SELECT
-    gen_random_uuid(),
-    v_dst_family_id,
-    v_dst_user_id,
-    p.nome,
-    ROUND(p.valor * FACTOR, 2),
-    p.data_prevista,
-    cm.new_id,
-    p.observacoes,
-    p.status,
-    NOW(),
-    NOW()
+  SELECT gen_random_uuid(), v_dst_family_id, v_dst_user_id,
+    p.nome, ROUND(p.valor * FACTOR, 2), p.data_prevista, cm.new_id, p.observacoes, p.status, NOW(), NOW()
   FROM planejamentos p
   LEFT JOIN tmp_cat_map cm ON cm.old_id = p.categoria_id
   WHERE p.family_id = v_src_family_id;
@@ -493,17 +381,8 @@ BEGIN
   RAISE NOTICE 'Copiando receitas projetadas...';
 
   INSERT INTO receitas_projetadas (id, family_id, criado_por, descricao, valor, data_prevista, categoria_id, recorrente, created_at, updated_at)
-  SELECT
-    gen_random_uuid(),
-    v_dst_family_id,
-    v_dst_user_id,
-    rp.descricao,
-    ROUND(rp.valor * FACTOR, 2),
-    rp.data_prevista,
-    cm.new_id,
-    rp.recorrente,
-    NOW(),
-    NOW()
+  SELECT gen_random_uuid(), v_dst_family_id, v_dst_user_id,
+    rp.descricao, ROUND(rp.valor * FACTOR, 2), rp.data_prevista, cm.new_id, rp.recorrente, NOW(), NOW()
   FROM receitas_projetadas rp
   LEFT JOIN tmp_cat_map cm ON cm.old_id = rp.categoria_id
   WHERE rp.family_id = v_src_family_id;
