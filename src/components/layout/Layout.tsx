@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { cn } from '../../lib/cn'
 import { Sidebar } from './Sidebar'
 import { NotificationBell } from '../NotificationBell'
 import { OnboardingModal } from '../OnboardingModal'
@@ -14,6 +15,17 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    () => localStorage.getItem('pw-sidebar-collapsed') === '1'
+  )
+
+  const handleToggleCollapse = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem('pw-sidebar-collapsed', next ? '1' : '0')
+      return next
+    })
+  }
   const { user, subscription, daysUntilExpiration, userProfile } = useAuth()
   const onboardingCompletedInStore = useUserPreferencesStore((s) => s.onboardingCompleted)
 
@@ -37,7 +49,12 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="flex min-h-screen bg-dark-900">
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={handleToggleCollapse}
+      />
 
       {/* Overlay para mobile quando sidebar está aberta */}
       {isSidebarOpen && (
@@ -47,7 +64,7 @@ export function Layout({ children }: LayoutProps) {
         />
       )}
 
-      <main className="flex-1 lg:ml-64 p-4 sm:p-6 lg:p-8">
+      <main className={cn("flex-1 p-4 sm:p-6 lg:p-8 transition-all duration-300", isSidebarCollapsed ? "lg:ml-16" : "lg:ml-64")}>
         {/* Header fixo com botão hambúrguer e notificações */}
         <div className="fixed top-4 left-4 right-4 z-30 flex items-center justify-between lg:left-auto lg:right-8">
           {/* Botão hambúrguer para mobile */}
