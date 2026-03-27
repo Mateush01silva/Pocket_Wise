@@ -138,7 +138,11 @@ export function RebalanceamentoModal({
       if (newMap.has(cat.id)) {
         newMap.delete(cat.id)
       } else {
-        newMap.set(cat.id, { valor: cat.valor_disponivel!, categoria: cat })
+        const restante = Math.max(0, (analise?.valor_estouro ?? 0) - totalSelecionado)
+        const valorSugerido = restante > 0
+          ? Math.min(cat.valor_disponivel!, restante)
+          : cat.valor_disponivel!
+        newMap.set(cat.id, { valor: valorSugerido, categoria: cat })
       }
       return newMap
     })
