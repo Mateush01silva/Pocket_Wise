@@ -52,6 +52,7 @@ export function Dashboard() {
   // Use selectors for each value/function to keep identities stable
   const orcamentoAtual = useOrcamentosStore((state) => state.orcamentoAtual)
   const getCategoriasBudgetComDados = useOrcamentosStore((state) => state.getCategoriasBudgetComDados)
+  const fetchCategoriasBudget = useOrcamentosStore((state) => state.fetchCategoriasBudget)
   const initializeOrcamentos = useOrcamentosStore((state) => state.initialize)
   const orcamentosInitialized = useOrcamentosStore((state) => state.initialized)
   const getOrcamentoDoMes = useOrcamentosStore((state) => state.getOrcamentoDoMes)
@@ -651,8 +652,7 @@ export function Dashboard() {
             categoriasBudget={getCategoriasBudgetComDados(orcamentoAtual.id)}
             orcamentoId={orcamentoAtual.id}
             onRebalanceado={async () => {
-              // Recarregar dados após rebalanceamento
-              await initializeOrcamentos()
+              await fetchCategoriasBudget(orcamentoAtual.id)
             }}
           />
         </LearningTooltip>
