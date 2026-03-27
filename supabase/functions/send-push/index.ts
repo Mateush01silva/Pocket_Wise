@@ -24,7 +24,8 @@ interface PushPayload {
 }
 
 interface SendPushRequest {
-  userId: string
+  userId?: string
+  familyId?: string           // send to all family members with active subscriptions
   payload: PushPayload
   notificationType?: string   // for logging
   refKey?: string             // for dedup (e.g. categoria_id)
@@ -236,10 +237,17 @@ serve(async (req) => {
   }
 
   const body: SendPushRequest = await req.json()
-  const { userId, payload, notificationType, refKey } = body
+  const { userId, familyId, payload, notificationType, refKey } = body
 
-  if (!userId || !payload?.title || !payload?.body) {
-    return new Response(JSON.stringify({ error: 'userId, payload.title, payload.body required' }), {
+  if (!userId && !familyId) {
+    return new Response(JSON.stringify({ error: 'userId or familyId required' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  if (!payload?.title || !payload?.body) {
+    return new Response(JSON.stringify({ error: 'payload.title and payload.body required' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     })
@@ -267,19 +275,45 @@ serve(async (req) => {
 
   const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', serviceKey)
 
-  // Fetch active subscriptions
+  // Resolve target user IDs: single user or entire family
+  let targetUserIds: string[]
+
+  if (familyId) {
+    const { data: familyMembers, error: membersError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('family_id', familyId)
+
+    if (membersError) {
+      console.error(`[send-push] erro ao buscar membros da família ${familyId}:`, membersError.message)
+    }
+
+    targetUserIds = (familyMembers ?? []).map((m) => m.id as string)
+    console.log(`[send-push] família ${familyId} → ${targetUserIds.length} membro(s)`)
+  } else {
+    targetUserIds = [userId!]
+  }
+
+  if (targetUserIds.length === 0) {
+    return new Response(JSON.stringify({ ok: true, sent: 0, reason: 'no family members found' }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  // Fetch active subscriptions for all target users
   const { data: subscriptions, error: subError } = await supabase
     .from('push_subscriptions')
-    .select('id, endpoint, p256dh, auth')
-    .eq('user_id', userId)
+    .select('id, endpoint, p256dh, auth, user_id')
+    .in('user_id', targetUserIds)
     .eq('is_active', true)
 
   if (subError) {
-    console.error(`[send-push] erro ao buscar subscriptions user=${userId}:`, subError.message)
+    console.error(`[send-push] erro ao buscar subscriptions:`, subError.message)
   }
 
   if (!subscriptions?.length) {
-    console.warn(`[send-push] nenhuma subscription ativa para user=${userId}`)
+    const target = familyId ? `família=${familyId}` : `user=${userId}`
+    console.warn(`[send-push] nenhuma subscription ativa para ${target}`)
     return new Response(JSON.stringify({ ok: true, sent: 0, reason: 'no active subscriptions' }), {
       headers: { 'Content-Type': 'application/json' },
     })
@@ -287,6 +321,7 @@ serve(async (req) => {
 
   let sent = 0
   const expiredIds: string[] = []
+  const loggedUserIds = new Set<string>()
 
   for (const sub of subscriptions) {
     const result = await sendToEndpoint(
@@ -301,6 +336,7 @@ serve(async (req) => {
 
     if (result.success) {
       sent++
+      loggedUserIds.add(sub.user_id as string)
     } else if (result.expired) {
       expiredIds.push(sub.id as string)
     }
@@ -314,17 +350,19 @@ serve(async (req) => {
       .in('id', expiredIds)
   }
 
-  // Log the notification for cooldown tracking
-  if (sent > 0 && notificationType) {
-    await supabase.from('push_notification_log').insert({
-      user_id           : userId,
-      notification_type : notificationType,
-      ref_key           : refKey ?? null,
-    })
+  // Log the notification for cooldown tracking (one entry per user)
+  if (notificationType && loggedUserIds.size > 0) {
+    await supabase.from('push_notification_log').insert(
+      [...loggedUserIds].map((uid) => ({
+        user_id           : uid,
+        notification_type : notificationType,
+        ref_key           : refKey ?? null,
+      }))
+    )
   }
 
   return new Response(
-    JSON.stringify({ ok: true, sent, expired: expiredIds.length }),
+    JSON.stringify({ ok: true, sent, expired: expiredIds.length, users: loggedUserIds.size }),
     { headers: { 'Content-Type': 'application/json' } }
   )
 })
