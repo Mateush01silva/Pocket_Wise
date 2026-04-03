@@ -18,6 +18,141 @@ const corsHeaders = {
 const TOTAL_LIMIT = 30        // pool total mensal (compartilhado entre features)
 const OPENAI_MODEL = 'gpt-4o-mini'
 const HISTORY_WINDOW = 10     // últimas N mensagens usadas como contexto
+const MAX_TOOL_ROUNDS = 2     // max rodadas de tool calling antes de forçar resposta de texto
+
+// ============================================================================
+// TOOL CALLING — consultar_transacoes
+// ============================================================================
+
+const TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'consultar_transacoes',
+      description:
+        'Consulta lançamentos financeiros com filtros específicos. Use quando o usuário pedir detalhes de transações individuais: maiores gastos, filtrar por categoria/forma de pagamento, histórico de um período, busca por descrição, ranking de despesas, etc. Não use para perguntas que já estão respondidas pelo resumo financeiro do contexto (saldo, total do mês, envelopes).',
+      parameters: {
+        type: 'object',
+        properties: {
+          tipo: {
+            type: 'string',
+            enum: ['despesa', 'receita'],
+            description: 'Tipo de lançamento',
+          },
+          categoria_nome: {
+            type: 'string',
+            description: 'Nome (ou parte do nome) da categoria — busca parcial, case-insensitive',
+          },
+          data_inicio: {
+            type: 'string',
+            description: 'Data inicial no formato YYYY-MM-DD',
+          },
+          data_fim: {
+            type: 'string',
+            description: 'Data final no formato YYYY-MM-DD',
+          },
+          valor_min: {
+            type: 'number',
+            description: 'Valor mínimo em reais (inclusive)',
+          },
+          valor_max: {
+            type: 'number',
+            description: 'Valor máximo em reais (inclusive)',
+          },
+          forma_pagamento: {
+            type: 'string',
+            enum: ['dinheiro', 'debito', 'credito', 'pix', 'transferencia', 'boleto'],
+            description: 'Forma de pagamento',
+          },
+          status: {
+            type: 'string',
+            enum: ['pago', 'pendente', 'projetado'],
+            description: 'Status do lançamento',
+          },
+          observacao_contem: {
+            type: 'string',
+            description: 'Texto contido na observação/descrição do lançamento (busca parcial)',
+          },
+          ordenar_por: {
+            type: 'string',
+            enum: ['data_desc', 'data_asc', 'valor_desc', 'valor_asc'],
+            description: 'Ordenação dos resultados (padrão: data_desc)',
+          },
+          limite: {
+            type: 'integer',
+            description: 'Número máximo de resultados a retornar (padrão 20, máximo 50)',
+          },
+        },
+        required: [],
+      },
+    },
+  },
+]
+
+async function executeConsultarTransacoes(
+  args: Record<string, unknown>,
+  familyId: string,
+  supabaseAdmin: ReturnType<typeof createClient>,
+  categorias: Array<{ id: string; nome: string; tipo: string }>
+): Promise<string> {
+  let query = supabaseAdmin
+    .from('lancamentos')
+    .select('data, valor, tipo, observacao, forma_pagamento, status, categoria_id')
+    .eq('family_id', familyId)
+
+  if (args.tipo)              query = query.eq('tipo', args.tipo)
+  if (args.data_inicio)       query = query.gte('data', args.data_inicio)
+  if (args.data_fim)          query = query.lte('data', args.data_fim)
+  if (args.valor_min != null) query = query.gte('valor', args.valor_min)
+  if (args.valor_max != null) query = query.lte('valor', args.valor_max)
+  if (args.forma_pagamento)   query = query.eq('forma_pagamento', args.forma_pagamento)
+  if (args.status)            query = query.eq('status', args.status)
+  if (args.observacao_contem) {
+    query = query.ilike('observacao', `%${args.observacao_contem}%`)
+  }
+
+  // Resolve categoria_nome → categoria_id (busca parcial, case-insensitive)
+  if (args.categoria_nome) {
+    const nomeBusca = String(args.categoria_nome).toLowerCase()
+    const cat = categorias.find((c) => c.nome.toLowerCase().includes(nomeBusca))
+    if (cat) query = query.eq('categoria_id', cat.id)
+  }
+
+  // Ordenação
+  const ordem = String(args.ordenar_por ?? 'data_desc')
+  const [campoOrdem, dirOrdem] = ordem.split('_')
+  query = query.order(
+    campoOrdem === 'valor' ? 'valor' : 'data',
+    { ascending: dirOrdem === 'asc' }
+  )
+
+  const limite = Math.min(Number(args.limite ?? 20), 50)
+  query = query.limit(limite)
+
+  const { data: rows, error } = await query
+  if (error || !rows?.length) {
+    return JSON.stringify({ total_encontradas: 0, transacoes: [] })
+  }
+
+  const catMap = Object.fromEntries(categorias.map((c) => [c.id, c.nome]))
+  const totalValor = (rows as any[]).reduce((s, r) => s + (r.valor ?? 0), 0)
+
+  return JSON.stringify({
+    total_encontradas: rows.length,
+    total_valor: Math.round(totalValor * 100) / 100,
+    total_valor_formatado: formatBRL(totalValor),
+    transacoes: (rows as any[]).map((r) => ({
+      data: r.data,
+      valor: r.valor,
+      valor_formatado: formatBRL(r.valor),
+      tipo: r.tipo,
+      categoria: catMap[r.categoria_id] ?? 'Sem categoria',
+      descricao: r.observacao ?? '',
+      forma_pagamento: r.forma_pagamento,
+      status: r.status,
+    })),
+  })
+}
 
 // ============================================================================
 // PERSONALITY PROMPTS
@@ -433,6 +568,14 @@ serve(async (req) => {
     linhas.push(`  ${mesM1}: Receitas ${formatBRL(receitaM1)} | Despesas ${formatBRL(despesaM1)} | Resultado ${formatBRL(receitaM1 - despesaM1)}`)
     linhas.push(`  ${mesM2}: Receitas ${formatBRL(receitaM2)} | Despesas ${formatBRL(despesaM2)} | Resultado ${formatBRL(receitaM2 - despesaM2)}`)
 
+    // Lista categorias disponíveis para orientar o tool calling
+    linhas.push('')
+    linhas.push('--- CATEGORIAS DISPONÍVEIS ---')
+    const catsDespesa = categorias.filter((c) => c.tipo === 'despesa').map((c) => c.nome).join(', ')
+    const catsReceita = categorias.filter((c) => c.tipo === 'receita').map((c) => c.nome).join(', ')
+    linhas.push(`  Despesas: ${catsDespesa || 'nenhuma'}`)
+    linhas.push(`  Receitas: ${catsReceita || 'nenhuma'}`)
+
     const contextoFinanceiro = linhas.join('\n')
 
     // -------------------------------------------------------------------------
@@ -459,7 +602,7 @@ serve(async (req) => {
     ]
 
     // -------------------------------------------------------------------------
-    // 9. CHAMAR OPENAI
+    // 9. CHAMAR OPENAI (com tool calling para consultas de transações)
     // -------------------------------------------------------------------------
     const openaiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiKey) {
@@ -467,22 +610,65 @@ serve(async (req) => {
       return jsonResponse({ error: 'Configuração de IA incompleta no servidor' }, 500)
     }
 
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
-      body: JSON.stringify({ model: OPENAI_MODEL, messages, max_tokens: 500, temperature: 0.7 }),
-    })
+    let currentMessages: unknown[] = [...messages]
+    let finalResposta = ''
 
-    if (!openaiRes.ok) {
-      const errText = await openaiRes.text()
-      console.error('OpenAI error:', errText)
-      return jsonResponse({ error: 'Erro ao consultar a IA. Tente novamente.' }, 502)
+    for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+      // Na última rodada remove tools para forçar resposta de texto (evita loop infinito)
+      const isLastRound = round === MAX_TOOL_ROUNDS
+
+      const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
+        body: JSON.stringify({
+          model: OPENAI_MODEL,
+          messages: currentMessages,
+          tools: isLastRound ? undefined : TOOLS,
+          tool_choice: isLastRound ? undefined : 'auto',
+          max_tokens: 800,
+          temperature: 0.7,
+        }),
+      })
+
+      if (!openaiRes.ok) {
+        const errText = await openaiRes.text()
+        console.error('OpenAI error:', errText)
+        return jsonResponse({ error: 'Erro ao consultar a IA. Tente novamente.' }, 502)
+      }
+
+      const openaiData = await openaiRes.json()
+      const choice = openaiData.choices?.[0]
+
+      // A IA quer executar uma tool call
+      if (!isLastRound && choice?.finish_reason === 'tool_calls' && choice.message?.tool_calls?.length) {
+        currentMessages.push(choice.message)
+
+        for (const toolCall of choice.message.tool_calls) {
+          let toolResult = ''
+          if (toolCall.function?.name === 'consultar_transacoes') {
+            try {
+              const args = JSON.parse(toolCall.function.arguments ?? '{}')
+              toolResult = await executeConsultarTransacoes(args, familyId, supabaseAdmin, categorias)
+            } catch (e) {
+              toolResult = JSON.stringify({ erro: 'Falha ao executar consulta', detalhe: String(e) })
+            }
+          }
+          currentMessages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: toolResult,
+          })
+        }
+        // Próxima rodada com os resultados da tool injetados
+        continue
+      }
+
+      // Resposta final de texto
+      finalResposta = choice?.message?.content ?? ''
+      break
     }
 
-    const openaiData = await openaiRes.json()
-    const resposta = openaiData.choices?.[0]?.message?.content ?? ''
-
-    if (!resposta) {
+    if (!finalResposta) {
       return jsonResponse({ error: 'A IA não retornou uma resposta válida.' }, 502)
     }
 
@@ -493,7 +679,7 @@ serve(async (req) => {
       await Promise.all([
         supabaseAdmin.from('assistente_mensagens').insert([
           { family_id: familyId, user_id: user.id, role: 'user',      conteudo: mensagem.trim(), tone: null },
-          { family_id: familyId, user_id: user.id, role: 'assistant', conteudo: resposta, tone },
+          { family_id: familyId, user_id: user.id, role: 'assistant', conteudo: finalResposta, tone },
         ]),
         supabaseAdmin.from('ai_usage_log').insert({
           user_id: user.id,
@@ -509,7 +695,7 @@ serve(async (req) => {
     // 11. RETORNAR
     // -------------------------------------------------------------------------
     return jsonResponse({
-      resposta,
+      resposta: finalResposta,
       tone,
       creditos_restantes: limiteManual - usadoManual - 1,
       limite_manual: limiteManual,
