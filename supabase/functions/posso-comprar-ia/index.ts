@@ -79,6 +79,12 @@ function getRenovacaoDate(mesAtual: string): string {
   return dataRenovacao.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })
 }
 
+function getLastDayOfMonth(mesRef: string): string {
+  const [ano, mes] = mesRef.split('-').map(Number)
+  const lastDay = new Date(ano, mes, 0).getDate() // dia 0 do mês seguinte = último dia do mês atual
+  return `${mesRef}-${String(lastDay).padStart(2, '0')}`
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -261,7 +267,7 @@ serve(async (req) => {
         .eq('tipo', 'despesa')
 
       const mesStart = `${mesRef}-01`
-      const mesEnd = `${mesRef}-31`
+      const mesEnd = getLastDayOfMonth(mesRef)
 
       const { data: lancamentos } = await supabaseAdmin
         .from('lancamentos')
