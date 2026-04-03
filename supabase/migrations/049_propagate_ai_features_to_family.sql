@@ -11,66 +11,30 @@
 --   3. Backfill retroativo:
 --      → usuários já habilitados propagam para membros da sua família pessoal
 --
+-- ARQUITETURA (3 funções para evitar recursão infinita):
+--   _enable_ai_for_single_user(email)     → configura registros sem propagar
+--   propagate_ai_to_family_members(uuid)  → itera membros, chama o helper acima
+--   enable_ai_features(email)             → chama helper + propagação (ponto de entrada)
+--
 -- NOTAS:
---   - Propagação é somente para a família pessoal (personal_family_id), não para
---     famílias onde o usuário foi convidado
+--   - Propagação é somente para a família pessoal (personal_family_id)
 --   - Idempotente: pode ser rodada várias vezes sem efeito colateral
---   - Frontend hooks (usePocksAccess, useAssistenteIA, usePossoComprarIA) não
---     precisam de alteração — já consultam ai_feature_access por usuário
+--   - Frontend hooks não precisam de alteração — já consultam ai_feature_access por usuário
 -- =============================================================================
 
 -- =============================================================================
--- 1. Função helper: propaga AI features para membros da família pessoal
+-- 1. Helper privado: habilita AI para um único usuário SEM propagar
+--    Chamado tanto pelo enable_ai_features (para o alvo) quanto pelo
+--    propagate_ai_to_family_members (para cada membro) — sem risco de recursão.
 -- =============================================================================
-CREATE OR REPLACE FUNCTION enable_ai_features_for_family_members(p_user_id UUID)
-RETURNS INTEGER
+CREATE OR REPLACE FUNCTION _enable_ai_for_single_user(p_email TEXT)
+RETURNS UUID
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  v_family_id UUID;
-  v_member    RECORD;
-  v_count     INTEGER := 0;
-BEGIN
-  -- Busca a família pessoal do usuário (a que ele próprio criou no signup)
-  SELECT personal_family_id INTO v_family_id
-    FROM users WHERE id = p_user_id;
-
-  IF v_family_id IS NULL THEN
-    RETURN 0;
-  END IF;
-
-  -- Habilita AI features para cada membro da família (exceto o próprio usuário)
-  FOR v_member IN
-    SELECT u.email
-      FROM family_members fm
-      JOIN users u ON u.id = fm.user_id
-     WHERE fm.family_id = v_family_id
-       AND fm.user_id  != p_user_id
-       AND u.email IS NOT NULL
-       AND u.email != ''
-  LOOP
-    PERFORM enable_ai_features(v_member.email);
-    v_count := v_count + 1;
-  END LOOP;
-
-  RETURN v_count;
-END;
-$$;
-
--- =============================================================================
--- 2. Atualizar enable_ai_features para propagar para membros da família pessoal
---    (mantém toda a lógica atual de 044_*.sql e adiciona a propagação no final)
--- =============================================================================
-CREATE OR REPLACE FUNCTION enable_ai_features(p_email TEXT)
-RETURNS TEXT
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  v_access_id  UUID;
-  v_user_id    UUID;
-  v_propagated INTEGER := 0;
+  v_access_id UUID;
+  v_user_id   UUID;
 BEGIN
   -- Tenta encontrar o user_id pelo email em auth.users
   SELECT id INTO v_user_id
@@ -78,7 +42,7 @@ BEGIN
    WHERE email = p_email
    LIMIT 1;
 
-  -- 1. Garante registro master e recupera o id
+  -- Garante registro master (idempotente)
   INSERT INTO ai_feature_access (email, enabled, user_id)
   VALUES (p_email, true, v_user_id)
   ON CONFLICT (email) DO UPDATE
@@ -97,7 +61,7 @@ BEGIN
     RAISE EXCEPTION 'Falha ao obter access_id para email: %', p_email;
   END IF;
 
-  -- 2. Habilita cada funcionalidade (idempotente via ON CONFLICT)
+  -- Habilita funcionalidades (idempotente via ON CONFLICT)
   INSERT INTO ai_feature_permissions (access_id, feature_key, enabled)
   VALUES
     (v_access_id, 'posso_comprar', true),
@@ -105,9 +69,74 @@ BEGIN
   ON CONFLICT (access_id, feature_key)
     DO UPDATE SET enabled = true;
 
-  -- 3. Propaga para membros da família pessoal do usuário (se user_id conhecido)
-  IF v_user_id IS NOT NULL THEN
-    v_propagated := enable_ai_features_for_family_members(v_user_id);
+  RETURN v_access_id;
+END;
+$$;
+
+-- =============================================================================
+-- 2. Propaga AI para todos os membros de uma família
+--    Usa _enable_ai_for_single_user (sem propagação) → sem risco de recursão
+-- =============================================================================
+CREATE OR REPLACE FUNCTION propagate_ai_to_family_members(p_family_id UUID)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_member       RECORD;
+  v_member_email TEXT;
+  v_count        INTEGER := 0;
+BEGIN
+  FOR v_member IN
+    SELECT fm.user_id
+      FROM family_members fm
+     WHERE fm.family_id = p_family_id
+  LOOP
+    -- Busca o email atual do membro em auth.users
+    SELECT email INTO v_member_email
+      FROM auth.users
+     WHERE id = v_member.user_id
+     LIMIT 1;
+
+    IF v_member_email IS NOT NULL AND v_member_email != '' THEN
+      PERFORM _enable_ai_for_single_user(v_member_email);
+      v_count := v_count + 1;
+    END IF;
+  END LOOP;
+
+  RETURN v_count;
+END;
+$$;
+
+-- =============================================================================
+-- 3. Ponto de entrada público: habilita AI + propaga para família pessoal
+--    (substitui a versão de 044_*.sql — mantém toda a lógica existente)
+-- =============================================================================
+CREATE OR REPLACE FUNCTION enable_ai_features(p_email TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_access_id       UUID;
+  v_user_id         UUID;
+  v_personal_fam_id UUID;
+  v_propagated      INTEGER := 0;
+BEGIN
+  -- Resolve user_id e personal_family_id em uma única query
+  SELECT au.id, pu.personal_family_id
+    INTO v_user_id, v_personal_fam_id
+    FROM auth.users au
+    LEFT JOIN public.users pu ON pu.id = au.id
+   WHERE au.email = p_email
+   LIMIT 1;
+
+  -- 1. Habilita para o usuário alvo (sem propagação)
+  v_access_id := _enable_ai_for_single_user(p_email);
+
+  -- 2. Propaga para membros da família pessoal (se o usuário já tem perfil)
+  IF v_personal_fam_id IS NOT NULL THEN
+    v_propagated := propagate_ai_to_family_members(v_personal_fam_id);
   END IF;
 
   RETURN format(
@@ -118,9 +147,9 @@ END;
 $$;
 
 -- =============================================================================
--- 3. Atualizar accept_family_invite para habilitar AI para novos membros
+-- 4. Atualizar accept_family_invite para habilitar AI para novos membros
 --    quando a família já possui algum membro com AI habilitada
---    (mantém toda a lógica atual de 023_*.sql e adiciona a checagem após o INSERT)
+--    (mantém toda a lógica atual de 023_*.sql — adiciona apenas a checagem de AI)
 -- =============================================================================
 CREATE OR REPLACE FUNCTION accept_family_invite(invite_token TEXT)
 RETURNS JSON AS $$
@@ -131,7 +160,7 @@ DECLARE
   user_rec        RECORD;
   new_member_id   UUID;
   personal_fam_id UUID;
-  v_family_has_ai BOOLEAN;
+  v_family_has_ai BOOLEAN := false;
 BEGIN
   -- Validar autenticação
   user_uuid := auth.uid();
@@ -215,22 +244,24 @@ BEGIN
   RETURNING id INTO new_member_id;
 
   -- -------------------------------------------------------------------------
-  -- NOVO: verificar se algum membro da família já tem AI features habilitadas.
-  -- Se sim, habilitar automaticamente para o novo membro.
+  -- NOVO: verificar se algum membro atual da família tem AI habilitada.
+  -- Usa JOIN auth.users para cobrir tanto o match por user_id quanto por email
+  -- (registros seed podem ter user_id = NULL em ai_feature_access).
+  -- Se sim, habilita para o novo membro via helper sem propagação (sem recursão).
   -- -------------------------------------------------------------------------
   SELECT EXISTS(
     SELECT 1
       FROM family_members fm
-      JOIN users u ON u.id = fm.user_id
+      JOIN auth.users au ON au.id = fm.user_id
       JOIN ai_feature_access afa
-        ON (afa.user_id = u.id OR afa.email = u.email)
+        ON (afa.user_id = fm.user_id OR afa.email = au.email)
      WHERE fm.family_id = invite_rec.family_id
        AND fm.user_id  != user_uuid   -- exclui o próprio novo membro
        AND afa.enabled  = true
   ) INTO v_family_has_ai;
 
   IF v_family_has_ai THEN
-    PERFORM enable_ai_features(user_email);
+    PERFORM _enable_ai_for_single_user(user_email);
   END IF;
   -- -------------------------------------------------------------------------
 
@@ -256,12 +287,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION accept_family_invite(TEXT) TO authenticated;
 
 -- =============================================================================
--- 4. Backfill retroativo
+-- 5. Backfill retroativo
 --    Para cada usuário já habilitado, propaga para membros da sua família pessoal
 -- =============================================================================
 DO $$
 DECLARE
-  v_rec RECORD;
+  v_rec          RECORD;
+  v_personal_fam UUID;
+  v_total        INTEGER := 0;
+  v_batch        INTEGER;
 BEGIN
   FOR v_rec IN
     SELECT afa.user_id
@@ -269,7 +303,17 @@ BEGIN
      WHERE afa.enabled  = true
        AND afa.user_id IS NOT NULL
   LOOP
-    PERFORM enable_ai_features_for_family_members(v_rec.user_id);
+    SELECT personal_family_id
+      INTO v_personal_fam
+      FROM public.users
+     WHERE id = v_rec.user_id;
+
+    IF v_personal_fam IS NOT NULL THEN
+      v_batch := propagate_ai_to_family_members(v_personal_fam);
+      v_total := v_total + v_batch;
+    END IF;
   END LOOP;
+
+  RAISE NOTICE 'Backfill concluído: % registro(s) de membros habilitados', v_total;
 END;
 $$;
