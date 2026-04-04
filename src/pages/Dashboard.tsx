@@ -738,7 +738,7 @@ export function Dashboard() {
       {lancamentos.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
           {/* Gastos por Categoria */}
-          <LearningTooltip content={learningContent.graficoGastosPorCategoria} position="bottom" className="block">
+          <LearningTooltip content={learningContent.graficoGastosPorCategoria} position="bottom" className="block overflow-hidden">
           <Card className="overflow-hidden">
             <CardContent>
               <div className="flex items-center justify-between mb-4">
@@ -837,7 +837,7 @@ export function Dashboard() {
           </LearningTooltip>
 
           {/* Receitas x Despesas */}
-          <LearningTooltip content={learningContent.graficoReceitasDespesas} position="bottom" className="block">
+          <LearningTooltip content={learningContent.graficoReceitasDespesas} position="bottom" className="block overflow-hidden">
           <Card className="overflow-hidden">
             <CardContent>
               <h2 className="text-lg font-semibold text-gray-100 mb-4">
