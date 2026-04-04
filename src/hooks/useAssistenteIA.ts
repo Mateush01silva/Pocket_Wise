@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { usePlan } from './usePlan'
 import type { PersonalityTone } from './usePossoComprarIA'
 
 // ============================================================================
@@ -54,8 +55,12 @@ export type UseAssistenteIAReturn = UseAssistenteIAState & UseAssistenteIAAction
 
 export function useAssistenteIA(): UseAssistenteIAReturn {
   const { user, activeFamilyId } = useAuth()
+  const { tier } = usePlan()
+  // Mestre tier always has access regardless of whitelist
+  const hasTierAccess = tier === 'mestre'
 
-  const [hasAccess,    setHasAccess]    = useState(false)
+  const [hasAccessWhitelist, setHasAccessWhitelist] = useState(false)
+  const hasAccess = hasTierAccess || hasAccessWhitelist
   const [isCheckingAccess, setIsCheckingAccess] = useState(true)
   const [mensagens,    setMensagens]    = useState<AssistenteMensagem[]>([])
   const [isFetchingHistory, setIsFetchingHistory] = useState(false)
@@ -69,7 +74,13 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (!user) {
-      setHasAccess(false)
+      setHasAccessWhitelist(false)
+      setIsCheckingAccess(false)
+      return
+    }
+
+    // Mestre tier: skip whitelist check entirely
+    if (hasTierAccess) {
       setIsCheckingAccess(false)
       return
     }
@@ -80,7 +91,7 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
       setIsCheckingAccess(true)
 
       if (!supabase) {
-        setHasAccess(false)
+        setHasAccessWhitelist(false)
         setIsCheckingAccess(false)
         return
       }
@@ -110,7 +121,7 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
         if (cancelled) return
 
         if (!accessData?.enabled) {
-          if (!cancelled) setHasAccess(false)
+          if (!cancelled) setHasAccessWhitelist(false)
           return
         }
 
@@ -126,11 +137,11 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
 
         // Se permData for null (sem linha), assume habilitado quando master flag = true
         if (permData !== null && !permData?.enabled) {
-          if (!cancelled) setHasAccess(false)
+          if (!cancelled) setHasAccessWhitelist(false)
           return
         }
 
-        if (!cancelled) setHasAccess(true)
+        if (!cancelled) setHasAccessWhitelist(true)
 
         // 3. Tom de personalidade
         const { data: prefData } = await (supabase as any)
@@ -143,7 +154,7 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
           setToneState(prefData.personality_tone as PersonalityTone)
         }
       } catch {
-        if (!cancelled) setHasAccess(false)
+        if (!cancelled) setHasAccessWhitelist(false)
       } finally {
         if (!cancelled) setIsCheckingAccess(false)
       }
@@ -255,7 +266,7 @@ export function useAssistenteIA(): UseAssistenteIAReturn {
           'Erro ao consultar o assistente'
         const code = (fnError as unknown as { context?: { code?: string } }).context?.code
         if (code === 'FEATURE_NOT_ENABLED') {
-          setHasAccess(false)
+          setHasAccessWhitelist(false)
         } else {
           setError(msg)
         }
