@@ -42,7 +42,6 @@ export function Assistente() {
 
   const {
     hasAccess,
-    isCheckingAccess,
     mensagens,
     isFetchingHistory,
     isLoading,

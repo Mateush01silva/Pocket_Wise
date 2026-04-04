@@ -3,10 +3,6 @@ import { Trophy, Bot, ShoppingCart, Check } from 'lucide-react'
 
 type CTAFeature = 'pocks' | 'ai_assistant' | 'posso_comprar_ai'
 
-interface FeatureCTAProps {
-  feature: CTAFeature
-}
-
 interface FeatureConfig {
   icon: React.ComponentType<{ className?: string }>
   name: string
@@ -43,7 +39,7 @@ const FEATURE_CONFIGS: Record<CTAFeature, FeatureConfig> = {
   },
 }
 
-export function FeatureCTA({ feature }: FeaturePreviewProps) {
+export function FeatureCTA({ feature }: { feature: CTAFeature }) {
   const navigate = useNavigate()
   const config = FEATURE_CONFIGS[feature]
   const Icon = config.icon
@@ -107,7 +103,3 @@ export function FeatureCTA({ feature }: FeaturePreviewProps) {
   )
 }
 
-// Tipo auxiliar para prop do componente
-interface FeaturePreviewProps {
-  feature: CTAFeature
-}

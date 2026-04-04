@@ -29,7 +29,7 @@ export function Layout({ children }: LayoutProps) {
     })
   }
   const { user, subscription, daysUntilExpiration, userProfile } = useAuth()
-  const { tier, trialDaysLeft, isTrialExpired } = usePlan()
+  const { trialDaysLeft, isTrialExpired } = usePlan()
   const onboardingCompletedInStore = useUserPreferencesStore((s) => s.onboardingCompleted)
 
   // Onboarding é persistido por usuário em uma chave separada que não é apagada no logout.

@@ -14,7 +14,6 @@ import {
   Mail,
   Calendar,
   DollarSign,
-  CreditCard,
   AlertTriangle,
   CheckCircle,
   Clock,

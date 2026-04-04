@@ -15,7 +15,6 @@ import {
   Star,
   Flame,
   RefreshCw,
-  Lock,
 } from 'lucide-react'
 import {
   BarChart,
@@ -124,22 +123,6 @@ function LoadingState() {
     <div className="flex flex-col items-center justify-center py-24 gap-4">
       <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
       <p className="text-gray-400">Calculando seus Pocks...</p>
-    </div>
-  )
-}
-
-function AccessDeniedState() {
-  return (
-    <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
-      <div className="w-16 h-16 rounded-full bg-dark-800 border border-dark-600 flex items-center justify-center">
-        <Lock className="w-8 h-8 text-gray-500" />
-      </div>
-      <div>
-        <h3 className="text-lg font-semibold text-gray-300 mb-1">Funcionalidade em Beta</h3>
-        <p className="text-gray-500 text-sm max-w-xs">
-          O sistema Pocks ainda não está disponível para sua conta. Em breve chegaremos até você!
-        </p>
-      </div>
     </div>
   )
 }
