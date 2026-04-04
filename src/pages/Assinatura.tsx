@@ -167,15 +167,7 @@ export function Assinatura() {
     }
   }
 
-  // Prorate: Planejador → Mestre
-  const prorateMestre = (() => {
-    if (tier !== 'planejador' || !subscription?.current_period_end) return null
-    const diasRestantes = Math.max(0, Math.ceil(
-      (new Date(subscription.current_period_end).getTime() - Date.now()) / 86400000
-    ))
-    const valorHoje = Math.round((18.90 - 12.90) / 30 * diasRestantes * 100) / 100
-    return { diasRestantes, valorHoje }
-  })()
+  // Upgrade: ao migrar para Mestre, a assinatura atual é cancelada e nova cobrança iniciada
 
   // Trial progress
   const trialProgress = Math.max(0, Math.min(100, ((14 - trialDaysLeft) / 14) * 100))
@@ -384,12 +376,9 @@ export function Assinatura() {
             </div>
           ) : (
             <>
-              {tier === 'planejador' && prorateMestre && (
-                <div className="mb-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-xs text-emerald-300">
-                  Upgrade por <strong>apenas +R$6/mês</strong>.<br />
-                  Você paga <strong>R${prorateMestre.valorHoje.toFixed(2).replace('.', ',')}</strong> hoje
-                  ({prorateMestre.diasRestantes} dias restantes).<br />
-                  A partir do próximo ciclo: R$18,90/mês.
+              {tier === 'planejador' && (
+                <div className="mb-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-300">
+                  Ao assinar o Mestre, sua assinatura atual do Planejador será cancelada e você começará a ser cobrado <strong>R$18,90/mês</strong> a partir de hoje.
                 </div>
               )}
               <button
