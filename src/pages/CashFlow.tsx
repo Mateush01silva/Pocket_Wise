@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { FeaturePreview } from '../components/FeaturePreview'
 import { Card, CardContent, Button } from '../components/ui'
-import { AlertTriangle, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
+import { AlertTriangle, ArrowLeftRight, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { parseLocalDate } from '../utils/date'
 import { useTransacoesStore, useContasBancariasStore, useCategoriasStore } from '../store'
@@ -31,6 +31,7 @@ interface DailyBalance {
 export function CashFlow() {
   const [viewPeriod, setViewPeriod] = useState<ViewPeriod>('30d')
   const [expandedDay, setExpandedDay] = useState<string | null>(null)
+  const [mobileCol, setMobileCol] = useState<'saldo' | 'disponivel'>('disponivel')
 
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const getSaldoTotal = useContasBancariasStore((state) => state.getSaldoTotal)
@@ -462,7 +463,16 @@ export function CashFlow() {
       <Card className="overflow-hidden">
         <CardContent>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-100">Detalhamento Diário</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-100">Detalhamento Diário</h2>
+              <button
+                onClick={() => setMobileCol(c => c === 'saldo' ? 'disponivel' : 'saldo')}
+                className="sm:hidden flex items-center gap-1 px-2 py-1 rounded-lg bg-dark-700 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+              >
+                <ArrowLeftRight size={12} />
+                {mobileCol === 'saldo' ? 'Saldo' : 'Disponível'}
+              </button>
+            </div>
             <p className="text-xs text-gray-500 hidden sm:block">Clique em uma linha para ver os lançamentos</p>
           </div>
           <div className="overflow-x-auto">
@@ -472,8 +482,8 @@ export function CashFlow() {
                   <th className="text-left py-2 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-400">Data</th>
                   <th className="text-right py-2 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-400">Receitas</th>
                   <th className="text-right py-2 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-400">Despesas</th>
-                  <th className="text-right py-2 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-400">Saldo</th>
-                  <th className="text-right py-2 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-emerald-500/80 hidden sm:table-cell">
+                  <th className={`text-right py-2 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-400 ${mobileCol === 'saldo' ? '' : 'hidden'} sm:table-cell`}>Saldo</th>
+                  <th className={`text-right py-2 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-emerald-500/80 ${mobileCol === 'disponivel' ? '' : 'hidden'} sm:table-cell`}>
                     <LearningTooltip content={learningContent.fluxoColunaSaldoDisponivel} position="bottom-end">
                       <span className="cursor-help">Disponível</span>
                     </LearningTooltip>
@@ -539,12 +549,12 @@ export function CashFlow() {
                             <span className="text-gray-600">-</span>
                           )}
                         </td>
-                        <td className="py-2 px-2 sm:px-4 text-xs sm:text-sm text-right">
+                        <td className={`py-2 px-2 sm:px-4 text-xs sm:text-sm text-right ${mobileCol === 'saldo' ? '' : 'hidden'} sm:table-cell`}>
                           <span className={`font-semibold whitespace-nowrap ${day.saldo >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
                             {formatCurrency(day.saldo)}
                           </span>
                         </td>
-                        <td className="py-2 px-2 sm:px-4 text-xs sm:text-sm text-right hidden sm:table-cell">
+                        <td className={`py-2 px-2 sm:px-4 text-xs sm:text-sm text-right ${mobileCol === 'disponivel' ? '' : 'hidden'} sm:table-cell`}>
                           <span className={`font-semibold whitespace-nowrap ${day.saldoDisponivel >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                             {formatCurrency(day.saldoDisponivel)}
                           </span>
