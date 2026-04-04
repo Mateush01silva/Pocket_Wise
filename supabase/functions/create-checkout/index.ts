@@ -181,7 +181,28 @@ serve(async (req) => {
     const userEmail = profile?.email || user.email || ''
     console.log('Usuário:', userEmail, '| Plano:', plan)
 
-    // 4. Buscar ou criar cliente na Asaas
+    // 4. Verificar e cancelar assinatura ativa anterior (evitar cobrança dupla no upgrade)
+    const { data: currentPlan } = await supabaseAdmin
+      .from('plano_usuario')
+      .select('asaas_subscription_id, status, plan_id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (currentPlan?.asaas_subscription_id && currentPlan.status === 'active') {
+      console.log('Cancelando assinatura anterior:', currentPlan.asaas_subscription_id)
+      try {
+        const cancelRes = await fetch(
+          `${ASAAS_API_URL}/subscriptions/${currentPlan.asaas_subscription_id}`,
+          { method: 'DELETE', headers: asaasHeaders() }
+        )
+        console.log('Cancelamento da assinatura anterior:', cancelRes.status)
+      } catch (err) {
+        console.error('Erro ao cancelar assinatura anterior (não bloqueante):', err)
+        // Não bloqueia o fluxo — a nova assinatura será criada de qualquer forma
+      }
+    }
+
+    // 5. Buscar ou criar cliente na Asaas
     console.log('Buscando cliente na Asaas...')
     let customer = await findCustomerByEmail(userEmail)
     if (!customer) {
@@ -194,7 +215,7 @@ serve(async (req) => {
     }
     console.log('Cliente Asaas:', customer.id)
 
-    // 5. Criar assinatura na Asaas
+    // 6. Criar assinatura na Asaas
     console.log('Criando assinatura na Asaas...')
     const subscription = await createAsaasSubscription(
       customer.id,
@@ -205,7 +226,7 @@ serve(async (req) => {
 
     console.log('Assinatura criada:', subscription.id)
 
-    // 6. Buscar a primeira cobrança gerada pela assinatura para obter o invoiceUrl
+    // 7. Buscar a primeira cobrança gerada pela assinatura para obter o invoiceUrl
     console.log('Buscando cobrança da assinatura...')
     let paymentLink: string | null = null
     try {
@@ -221,7 +242,7 @@ serve(async (req) => {
       console.error('Erro ao buscar cobrança:', paymentError)
     }
 
-    // 7. Salvar IDs no Supabase
+    // 8. Salvar IDs no Supabase
     // IMPORTANTE: não setar tier aqui — tier só é atualizado pelo webhook
     // PAYMENT_CONFIRMED após pagamento confirmado. plan_id é salvo para que
     // o webhook possa derivar o tier correto.
@@ -237,7 +258,7 @@ serve(async (req) => {
       })
       .eq('user_id', user.id)
 
-    // 8. Retornar resultado
+    // 9. Retornar resultado
     return new Response(
       JSON.stringify({
         success: true,
