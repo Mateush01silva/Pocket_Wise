@@ -459,7 +459,7 @@ export function CashFlow() {
       </Card>
 
       {/* Daily Details Table */}
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-100">Detalhamento Diário</h2>
@@ -469,11 +469,11 @@ export function CashFlow() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-dark-700">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-400">Data</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Receitas</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Despesas</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-400">Saldo do Dia</th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-emerald-500/80">
+                  <th className="text-left py-2 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-400">Data</th>
+                  <th className="text-right py-2 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-400">Receitas</th>
+                  <th className="text-right py-2 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-400">Despesas</th>
+                  <th className="text-right py-2 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-gray-400">Saldo</th>
+                  <th className="text-right py-2 px-2 sm:px-4 text-xs sm:text-sm font-semibold text-emerald-500/80 hidden sm:table-cell">
                     <LearningTooltip content={learningContent.fluxoColunaSaldoDisponivel} position="bottom-end">
                       <span className="cursor-help">Disponível</span>
                     </LearningTooltip>
@@ -497,40 +497,40 @@ export function CashFlow() {
                           hasTransactions ? 'cursor-pointer hover:bg-dark-800/40' : ''
                         } ${isToday ? 'bg-blue-500/5' : ''} ${isNegative && !isExpanded ? 'bg-red-500/5' : ''} ${isExpanded ? 'bg-dark-800/50' : ''}`}
                       >
-                        <td className="py-3 px-4 text-sm text-gray-300">
-                          <div className="flex items-center gap-2">
+                        <td className="py-2 px-2 sm:px-4 text-xs sm:text-sm text-gray-300">
+                          <div className="flex items-center gap-1 sm:gap-2">
                             {hasTransactions ? (
                               isExpanded
-                                ? <ChevronUp className="w-4 h-4 text-gray-500 shrink-0" />
-                                : <ChevronDown className="w-4 h-4 text-gray-500 shrink-0" />
+                                ? <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 shrink-0" />
+                                : <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 shrink-0" />
                             ) : (
-                              <span className="w-4 shrink-0" />
+                              <span className="w-3 sm:w-4 shrink-0" />
                             )}
-                            {format(day.date, "dd 'de' MMM", { locale: ptBR })}
+                            <span className="whitespace-nowrap">{format(day.date, "dd/MM", { locale: ptBR })}<span className="hidden sm:inline"> de {format(day.date, "MMM", { locale: ptBR })}</span></span>
                             {isToday && (
-                              <span className="px-2 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded text-xs text-blue-300">
+                              <span className="px-1.5 py-0.5 bg-blue-500/20 border border-blue-500/30 rounded text-xs text-blue-300 hidden sm:inline">
                                 Hoje
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-sm text-right">
+                        <td className="py-2 px-2 sm:px-4 text-xs sm:text-sm text-right">
                           {day.receitas > 0 ? (
-                            <span className="text-green-400 font-medium">
+                            <span className="text-green-400 font-medium whitespace-nowrap">
                               +{formatCurrency(day.receitas)}
                             </span>
                           ) : (
                             <span className="text-gray-600">-</span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-sm text-right">
+                        <td className="py-2 px-2 sm:px-4 text-xs sm:text-sm text-right">
                           {day.despesas > 0 ? (
                             <div>
-                              <span className="text-red-400 font-medium">
+                              <span className="text-red-400 font-medium whitespace-nowrap">
                                 -{formatCurrency(day.despesas)}
                               </span>
                               {day.despesasProjetadas > 0 && (
-                                <div className="text-xs text-orange-400/70 mt-0.5">
+                                <div className="text-xs text-orange-400/70 mt-0.5 hidden sm:block">
                                   ~{formatCurrency(day.despesasProjetadas)} proj.
                                 </div>
                               )}
@@ -539,13 +539,13 @@ export function CashFlow() {
                             <span className="text-gray-600">-</span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-sm text-right">
-                          <span className={`font-semibold ${day.saldo >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
+                        <td className="py-2 px-2 sm:px-4 text-xs sm:text-sm text-right">
+                          <span className={`font-semibold whitespace-nowrap ${day.saldo >= 0 ? 'text-blue-400' : 'text-red-400'}`}>
                             {formatCurrency(day.saldo)}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-sm text-right">
-                          <span className={`font-semibold ${day.saldoDisponivel >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        <td className="py-2 px-2 sm:px-4 text-xs sm:text-sm text-right hidden sm:table-cell">
+                          <span className={`font-semibold whitespace-nowrap ${day.saldoDisponivel >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                             {formatCurrency(day.saldoDisponivel)}
                           </span>
                         </td>
@@ -554,7 +554,7 @@ export function CashFlow() {
                       {/* Painel de detalhes expandido */}
                       {isExpanded && (
                         <tr className="border-b border-dark-800/50 bg-dark-900/40">
-                          <td colSpan={5} className="px-4 py-3">
+                          <td colSpan={5} className="px-2 sm:px-4 py-3">
                             <div className="space-y-1.5 pl-4 border-l-2 border-dark-700">
                               {[...day.lancamentosDoDia]
                                 .sort((a, b) => b.valor - a.valor)

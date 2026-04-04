@@ -453,7 +453,7 @@ export function Transactions() {
       {canEdit && (
         <button
           onClick={handleOpenModal}
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-full shadow-lg shadow-primary-500/30 transition-all hover:scale-105"
+          className="fixed bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2 px-4 sm:px-5 py-3 bg-primary-500 hover:bg-primary-600 text-white font-medium rounded-full shadow-lg shadow-primary-500/30 transition-all hover:scale-105 whitespace-nowrap"
         >
           <Plus className="w-5 h-5" />
           Nova Transação

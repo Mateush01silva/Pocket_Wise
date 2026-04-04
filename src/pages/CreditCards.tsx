@@ -403,9 +403,9 @@ export function CreditCards() {
 
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard size={20} style={{ color: cartao.cor || '#6b7280' }} />
-              {cartao.nome}
+            <CardTitle className="flex items-center gap-2 min-w-0 overflow-hidden">
+              <CreditCard size={20} style={{ color: cartao.cor || '#6b7280' }} className="shrink-0" />
+              <span className="truncate">{cartao.nome}</span>
             </CardTitle>
             {canEdit && (
               <div className="flex gap-1">
@@ -588,21 +588,21 @@ export function CreditCards() {
 
       {/* Resumo Geral */}
       {cartoesAtivos.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           <LearningTooltip content={learningContent.cartaoLimiteTotal} position="bottom">
             <Card>
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">Limite Total</p>
-                    <p className="text-2xl font-bold text-gray-100">
+                  <div className="min-w-0 overflow-hidden flex-1">
+                    <p className="text-xs md:text-sm text-gray-400 mb-1">Limite Total</p>
+                    <p className="text-lg md:text-2xl font-bold text-gray-100 truncate">
                       {formatCurrency(
                         cartoesAtivos.reduce((sum, c) => sum + (c.limite ?? 0), 0)
                       )}
                     </p>
                   </div>
-                  <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center">
-                    <CreditCard className="text-primary-500" size={24} />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-primary-500/10 rounded-full flex items-center justify-center shrink-0">
+                    <CreditCard className="text-primary-500" size={20} />
                   </div>
                 </div>
               </CardContent>
@@ -613,16 +613,16 @@ export function CreditCards() {
             <Card>
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">Total a Pagar</p>
-                    <p className="text-2xl font-bold text-red-400">
+                  <div className="min-w-0 overflow-hidden flex-1">
+                    <p className="text-xs md:text-sm text-gray-400 mb-1">Total a Pagar</p>
+                    <p className="text-lg md:text-2xl font-bold text-red-400 truncate">
                       {formatCurrency(
                         cartoesAtivos.reduce((sum, c) => sum + c.totalUsandoLimite, 0)
                       )}
                     </p>
                   </div>
-                  <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center">
-                    <DollarSign className="text-red-500" size={24} />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-red-500/10 rounded-full flex items-center justify-center shrink-0">
+                    <DollarSign className="text-red-500" size={20} />
                   </div>
                 </div>
               </CardContent>
@@ -633,16 +633,16 @@ export function CreditCards() {
             <Card>
               <CardContent className="py-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">Limite Disponível</p>
-                    <p className="text-2xl font-bold text-green-400">
+                  <div className="min-w-0 overflow-hidden flex-1">
+                    <p className="text-xs md:text-sm text-gray-400 mb-1">Disponível</p>
+                    <p className="text-lg md:text-2xl font-bold text-green-400 truncate">
                       {formatCurrency(
                         cartoesAtivos.reduce((sum, c) => sum + c.limiteDisponivel, 0)
                       )}
                     </p>
                   </div>
-                  <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
-                    <TrendingUp className="text-green-500" size={24} />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-green-500/10 rounded-full flex items-center justify-center shrink-0">
+                    <TrendingUp className="text-green-500" size={20} />
                   </div>
                 </div>
               </CardContent>

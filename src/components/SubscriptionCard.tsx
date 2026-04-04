@@ -35,7 +35,7 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
     >
       <div className="flex items-start justify-between">
         {/* Logo e Info */}
-        <div className="flex items-start gap-4 flex-1">
+        <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">
           {/* Logo */}
           <div
             className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl shrink-0"
@@ -97,9 +97,9 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
         </div>
 
         {/* Valores e Ações */}
-        <div className="text-right ml-4">
+        <div className="text-right ml-3 md:ml-4 shrink-0">
           <div className="mb-3">
-            <p className="text-2xl font-bold text-gray-100">
+            <p className="text-xl md:text-2xl font-bold text-gray-100">
               {formatCurrency(valorMensal)}
             </p>
             <p className="text-xs text-gray-500">por mês</p>
