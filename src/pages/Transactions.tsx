@@ -832,7 +832,7 @@ export function Transactions() {
       )}
 
       {/* Transactions Table */}
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">

@@ -21,7 +21,7 @@ export function SubscriptionStats({ summary }: SubscriptionStatsProps) {
             </div>
             <div className="min-w-0">
               <p className="text-sm text-gray-400">Assinaturas Ativas</p>
-              <p className="text-lg md:text-2xl font-bold text-gray-100 truncate">
+              <p className="text-sm md:text-xl font-bold text-gray-100">
                 {summary.total_assinaturas_ativas}
               </p>
             </div>
@@ -38,7 +38,7 @@ export function SubscriptionStats({ summary }: SubscriptionStatsProps) {
             </div>
             <div className="min-w-0">
               <p className="text-sm text-gray-400">Custo Mensal</p>
-              <p className="text-lg md:text-2xl font-bold text-gray-100 truncate">
+              <p className="text-sm md:text-xl font-bold text-gray-100">
                 {formatCurrency(summary.total_mensal)}
               </p>
             </div>
@@ -55,7 +55,7 @@ export function SubscriptionStats({ summary }: SubscriptionStatsProps) {
             </div>
             <div className="min-w-0">
               <p className="text-sm text-gray-400">Custo Anual</p>
-              <p className="text-lg md:text-2xl font-bold text-gray-100 truncate">
+              <p className="text-sm md:text-xl font-bold text-gray-100">
                 {formatCurrency(summary.total_anual)}
               </p>
             </div>
