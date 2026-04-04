@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
+import { usePlan } from '../hooks/usePlan'
 import { Filter, TrendingDown, AlertCircle, Plus, Copy, Calendar, Edit2, Trash2, Wallet } from 'lucide-react'
 import { format, startOfMonth, parseISO, isBefore } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -29,6 +30,7 @@ type OrdenacaoCategoria = 'nome' | 'percentual_desc' | 'percentual_asc' | 'valor
 
 export function Envelopes() {
   const { canEdit } = usePermissions()
+  const { getLimit } = usePlan()
   const mesRealAtual = format(startOfMonth(new Date()), 'yyyy-MM-dd')
   const [mesAtual, setMesAtual] = useState(mesRealAtual)
   const [filtro, setFiltro] = useState<FiltroCategoria>('todas')
@@ -631,6 +633,7 @@ export function Envelopes() {
           onClose={() => setIsPlanningModalOpen(false)}
           orcamento={orcamentoAtual}
           mesReferencia={mesAtual}
+          envelopeLimit={getLimit('envelopes')}
         />
       )}
     </div>

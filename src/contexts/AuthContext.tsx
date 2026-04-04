@@ -10,6 +10,8 @@ interface Subscription {
   user_id: string
   status: 'trial' | 'active' | 'expired' | 'canceled'
   plan: 'monthly' | 'annual' | null
+  tier: 'explorador' | 'planejador' | 'mestre'
+  plan_id: string | null
   trial_ends_at: string | null
   current_period_end: string | null
   cancel_at_period_end: boolean

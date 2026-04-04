@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
+import { usePlan } from '../hooks/usePlan'
 import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
 import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw, Clock, Pause, Eye, User } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
@@ -17,6 +19,8 @@ type SortOrder = 'asc' | 'desc'
 
 export function Transactions() {
   const { canEdit } = usePermissions()
+  const navigate = useNavigate()
+  const { getLimit } = usePlan()
   const [searchParams] = useSearchParams()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingLancamento, setEditingLancamento] = useState<Lancamento | undefined>(undefined)
@@ -124,9 +128,16 @@ export function Transactions() {
 
   // Stable callbacks
   const handleOpenModal = useCallback(() => {
+    const limit = getLimit('transactions')
+    if (lancamentos.length >= limit) {
+      toast.error(`Você atingiu o limite do Explorador (${limit} transações). Assine o Planejador para criar mais.`, {
+        action: { label: 'Assinar Planejador', onClick: () => navigate('/app/assinatura') },
+      })
+      return
+    }
     setEditingLancamento(undefined)
     setIsModalOpen(true)
-  }, [])
+  }, [getLimit, lancamentos.length, navigate])
 
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false)

@@ -14,7 +14,6 @@ import {
   Mail,
   Calendar,
   DollarSign,
-  CreditCard,
   AlertTriangle,
   CheckCircle,
   Clock,
@@ -22,7 +21,11 @@ import {
   XCircle,
   BookOpen,
   Sparkles,
+  Wallet,
+  ArrowUpRight,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { usePlan } from '../hooks/usePlan'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import * as XLSX from 'xlsx'
@@ -53,6 +56,7 @@ export function Settings() {
 
   // Auth context - dados reais do banco
   const { user, userProfile, refreshProfile, subscription, refreshSubscription } = useAuth()
+  const { tier, trialDaysLeft, isTrialExpired } = usePlan()
 
   // User preferences (local store)
   const moeda = useUserPreferencesStore((state) => state.moeda)
@@ -354,13 +358,13 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      {/* Assinatura */}
+      {/* Plano e Assinatura */}
       {subscription && userProfile?.role !== 'admin' && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CreditCard size={20} className="text-emerald-400" />
-              Assinatura
+              <Wallet size={20} className="text-emerald-400" />
+              Plano e Assinatura
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -381,28 +385,33 @@ export function Settings() {
                 )}
                 <div>
                   <p className="font-medium text-gray-200">
-                    {subscription.status === 'trial' && 'Teste gratuito'}
+                    {subscription.status === 'trial' && `Explorador${isTrialExpired ? ' (expirado)' : ' (Trial)'}`}
                     {subscription.status === 'active' && !subscription.cancel_at_period_end && (
-                      `Plano ${subscription.plan === 'annual' ? 'Anual' : 'Mensal'}`
+                      tier === 'mestre' ? 'Mestre' : `Planejador ${subscription.plan === 'annual' ? 'Anual' : 'Mensal'}`
                     )}
                     {subscription.status === 'active' && subscription.cancel_at_period_end && (
-                      `Plano ${subscription.plan === 'annual' ? 'Anual' : 'Mensal'} (cancelado)`
+                      `${tier === 'mestre' ? 'Mestre' : 'Planejador'} (cancelado)`
                     )}
-                    {subscription.status === 'expired' && 'Assinatura expirada'}
-                    {subscription.status === 'canceled' && 'Assinatura cancelada'}
+                    {subscription.status === 'expired' && 'Explorador (expirado)'}
+                    {subscription.status === 'canceled' && 'Plano cancelado'}
                   </p>
                   <p className="text-sm text-gray-500">
+                    {subscription.status === 'trial' && !isTrialExpired && (
+                      `${trialDaysLeft} ${trialDaysLeft === 1 ? 'dia restante' : 'dias restantes'} de Explorador`
+                    )}
                     {subscription.status === 'trial' && subscription.trial_ends_at && (
-                      `Termina em ${format(new Date(subscription.trial_ends_at), "dd 'de' MMMM", { locale: ptBR })}`
+                      ` — termina em ${format(new Date(subscription.trial_ends_at), "dd 'de' MMMM", { locale: ptBR })}`
                     )}
                     {subscription.status === 'active' && subscription.cancel_at_period_end && subscription.current_period_end && (
                       `Acesso até ${format(new Date(subscription.current_period_end), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}`
                     )}
                     {subscription.status === 'active' && !subscription.cancel_at_period_end && subscription.current_period_end && (
-                      `Renova em ${format(new Date(subscription.current_period_end), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}`
+                      `Próxima cobrança: ${format(new Date(subscription.current_period_end), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}`
                     )}
                     {subscription.status === 'active' && !subscription.cancel_at_period_end && subscription.plan && (
-                      ` - ${subscription.plan === 'annual' ? 'R$ 119,90/ano' : 'R$ 12,90/mês'}`
+                      tier === 'mestre'
+                        ? ` — ${subscription.plan === 'annual' ? 'R$ 175,90/ano' : 'R$ 18,90/mês'}`
+                        : ` — ${subscription.plan === 'annual' ? 'R$ 119,90/ano' : 'R$ 12,90/mês'}`
                     )}
                   </p>
                 </div>
@@ -418,13 +427,22 @@ export function Settings() {
                     Cancela no fim do ciclo
                   </span>
                 )}
-                {subscription.status === 'trial' && (
+                {subscription.status === 'trial' && !isTrialExpired && (
                   <span className="px-3 py-1 bg-blue-500/10 text-blue-400 text-xs font-medium rounded-full">
-                    Trial
+                    Explorador
                   </span>
                 )}
               </div>
             </div>
+
+            {/* Botão gerenciar assinatura */}
+            <Link
+              to="/app/assinatura"
+              className="flex items-center justify-between w-full p-3 bg-primary-500/10 hover:bg-primary-500/20 border border-primary-500/20 rounded-lg transition-colors"
+            >
+              <span className="text-sm font-medium text-primary-400">Gerenciar assinatura</span>
+              <ArrowUpRight size={16} className="text-primary-400" />
+            </Link>
 
             {/* Aviso de cancelamento pendente */}
             {subscription.status === 'active' && subscription.cancel_at_period_end && (

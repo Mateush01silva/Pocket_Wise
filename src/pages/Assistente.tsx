@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { usePlan } from '../hooks/usePlan'
+import { FeatureCTA } from '../components/FeatureCTA'
 import {
   Bot,
   Send,
@@ -35,9 +37,11 @@ const TONES: Array<{
 // ============================================================================
 
 export function Assistente() {
+  const { featureAccess } = usePlan()
+  const aiAccess = featureAccess('ai_assistant')
+
   const {
     hasAccess,
-    isCheckingAccess,
     mensagens,
     isFetchingHistory,
     isLoading,
@@ -58,11 +62,11 @@ export function Assistente() {
 
   // Carrega histórico uma vez ao montar (apenas se tiver acesso)
   useEffect(() => {
-    if (hasAccess && !hasLoadedHistory.current) {
+    if ((hasAccess || aiAccess === 'full') && !hasLoadedHistory.current) {
       hasLoadedHistory.current = true
       loadHistorico()
     }
-  }, [hasAccess, loadHistorico])
+  }, [hasAccess, aiAccess, loadHistorico])
 
   // Auto-scroll ao chegar nova mensagem
   useEffect(() => {
@@ -90,35 +94,9 @@ export function Assistente() {
   // --------------------------------------------------------------------------
   // Loading de verificação de acesso
   // --------------------------------------------------------------------------
-  if (isCheckingAccess) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center space-y-3">
-          <Loader2 className="w-8 h-8 text-secondary-400 animate-spin mx-auto" />
-          <p className="text-sm text-gray-500">Verificando acesso...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // --------------------------------------------------------------------------
-  // Sem acesso
-  // --------------------------------------------------------------------------
-  if (!hasAccess) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center space-y-4 max-w-sm">
-          <div className="w-16 h-16 rounded-full bg-secondary-500/10 flex items-center justify-center mx-auto">
-            <Bot className="w-8 h-8 text-secondary-400" />
-          </div>
-          <h2 className="text-lg font-semibold text-gray-200">Assistente em breve</h2>
-          <p className="text-sm text-gray-500 leading-relaxed">
-            O Assistente Financeiro está disponível em acesso antecipado.
-            Entre em contato para solicitar acesso.
-          </p>
-        </div>
-      </div>
-    )
+  // Tier-based access control
+  if (aiAccess === 'locked') {
+    return <FeatureCTA feature="ai_assistant" />
   }
 
   // --------------------------------------------------------------------------

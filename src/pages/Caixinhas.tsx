@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { usePlan } from '../hooks/usePlan'
 import {
   PiggyBank, Plus, Target, TrendingUp, TrendingDown, Wallet,
   Edit2, Trash2, ArrowUpCircle, ArrowDownCircle, History,
@@ -32,6 +34,8 @@ const SUBTIPO_LABELS: Record<string, string> = {
 
 export function Caixinhas() {
   const { canEdit } = usePermissions()
+  const navigate = useNavigate()
+  const { getLimit } = usePlan()
   const {
     caixinhas,
     summary,
@@ -91,6 +95,18 @@ export function Caixinhas() {
       console.error('Erro ao buscar transações da família:', err)
     })
   }, [fetchAllTransacoesFamily])
+
+  const handleOpenNewCaixinha = () => {
+    const limit = getLimit('caixinhas')
+    if (caixinhas.length >= limit) {
+      toast.error(`Você atingiu o limite do Explorador (${limit} caixinhas). Assine o Planejador para criar mais.`, {
+        action: { label: 'Assinar Planejador', onClick: () => navigate('/app/assinatura') },
+      })
+      return
+    }
+    setEditingCaixinha(undefined)
+    setIsModalOpen(true)
+  }
 
   const handleEdit = (caixinha: Caixinha) => {
     setEditingCaixinha(caixinha)
@@ -233,7 +249,7 @@ export function Caixinhas() {
             <p className="text-gray-400">Gerencie seus objetivos financeiros e investimentos</p>
           </div>
           {canEdit && (
-            <Button onClick={() => setIsModalOpen(true)}>
+            <Button onClick={handleOpenNewCaixinha}>
               <Plus size={16} className="mr-2" />
               Nova Caixinha
             </Button>
@@ -780,7 +796,7 @@ export function Caixinhas() {
                   Crie sua primeira caixinha para começar a guardar dinheiro para seus objetivos
                 </p>
                 {canEdit && (
-                  <Button onClick={() => setIsModalOpen(true)}>
+                  <Button onClick={handleOpenNewCaixinha}>
                     <Plus size={16} className="mr-2" />
                     Criar Primeira Caixinha
                   </Button>

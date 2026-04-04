@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { FeaturePreview } from '../components/FeaturePreview'
 import { Card, CardContent } from '../components/ui'
 import { TrendingUp, TrendingDown, Calendar, ArrowUpRight, ArrowDownRight, MinusCircle, ArrowUpDown, ChevronRight, ChevronDown } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
@@ -196,6 +197,12 @@ export function ComparativeReports() {
   }, [])
 
   return (
+    <FeaturePreview
+      feature="reports"
+      title="Relatórios Comparativos"
+      subtitle="Análises detalhadas dos seus gastos por categoria"
+      requiredTier="planejador"
+    >
     <div className="space-y-6">
       {/* Header */}
       <div>
@@ -678,5 +685,6 @@ export function ComparativeReports() {
         </CardContent>
       </Card>
     </div>
+    </FeaturePreview>
   )
 }
