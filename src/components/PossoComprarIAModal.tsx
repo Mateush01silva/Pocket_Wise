@@ -187,40 +187,38 @@ export function PossoComprarIAModal({
         <p className="text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">
           O que você quer saber?
         </p>
-        <div className="relative">
-          <textarea
-            ref={textareaRef}
-            value={pergunta}
-            onChange={(e) => setPergunta(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={`Ex: "posso comprar um tênis de R$ 300?" ou "tenho margem pra jantar fora essa semana?"`}
-            rows={3}
-            disabled={isLoading}
-            className={cn(
-              'w-full resize-none rounded-xl border bg-dark-800 px-4 py-3 pr-12',
-              'text-sm text-gray-100 placeholder-gray-600',
-              'border-dark-600 focus:border-secondary-500 focus:outline-none focus:ring-1 focus:ring-secondary-500/30',
-              'transition-colors duration-150',
-              'disabled:opacity-50 disabled:cursor-not-allowed'
-            )}
-          />
-          <button
-            onClick={handlePerguntar}
-            disabled={!pergunta.trim() || isLoading}
-            className={cn(
-              'absolute bottom-3 right-3 p-1.5 rounded-lg transition-all duration-150',
-              pergunta.trim() && !isLoading
-                ? 'bg-secondary-500 text-white hover:bg-secondary-400'
-                : 'bg-dark-700 text-gray-600 cursor-not-allowed'
-            )}
-          >
-            {isLoading
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <Send className="w-4 h-4" />
-            }
-          </button>
-        </div>
-        <p className="text-[10px] text-gray-600 mt-1.5">
+        <textarea
+          ref={textareaRef}
+          value={pergunta}
+          onChange={(e) => setPergunta(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={`Ex: "posso comprar um tênis de R$ 300?" ou "tenho margem pra jantar fora essa semana?"`}
+          rows={3}
+          disabled={isLoading}
+          className={cn(
+            'w-full resize-none rounded-xl border bg-dark-800 px-4 py-3',
+            'text-sm text-gray-100 placeholder-gray-600',
+            'border-dark-600 focus:border-secondary-500 focus:outline-none focus:ring-1 focus:ring-secondary-500/30',
+            'transition-colors duration-150',
+            'disabled:opacity-50 disabled:cursor-not-allowed'
+          )}
+        />
+        <button
+          onClick={handlePerguntar}
+          disabled={!pergunta.trim() || isLoading}
+          className={cn(
+            'w-full mt-2 py-2 px-4 rounded-xl font-medium text-sm flex items-center justify-center gap-2 transition-all duration-150',
+            pergunta.trim() && !isLoading
+              ? 'bg-secondary-500 text-white hover:bg-secondary-400'
+              : 'bg-dark-700 text-gray-600 cursor-not-allowed'
+          )}
+        >
+          {isLoading
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> Analisando...</>
+            : <><Send className="w-4 h-4" /> Perguntar</>
+          }
+        </button>
+        <p className="text-[10px] text-gray-600 mt-1.5 hidden sm:block">
           Enter para enviar · Shift+Enter para nova linha
         </p>
       </div>
