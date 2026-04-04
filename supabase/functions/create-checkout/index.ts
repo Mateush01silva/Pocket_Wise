@@ -181,23 +181,51 @@ serve(async (req) => {
     const userEmail = profile?.email || user.email || ''
     console.log('Usuário:', userEmail, '| Plano:', plan)
 
-    // 4. Verificar e cancelar assinatura ativa anterior (evitar cobrança dupla no upgrade)
+    // 4. Verificar assinatura ativa anterior: estornar dias restantes e cancelar (upgrade)
     const { data: currentPlan } = await supabaseAdmin
       .from('plano_usuario')
-      .select('asaas_subscription_id, status, plan_id')
+      .select('asaas_subscription_id, status, plan_id, current_period_start, current_period_end')
       .eq('user_id', user.id)
       .single()
 
     if (currentPlan?.asaas_subscription_id && currentPlan.status === 'active') {
-      console.log('Cancelando assinatura anterior:', currentPlan.asaas_subscription_id)
       try {
+        // 4a. Buscar último pagamento confirmado da assinatura antiga para estorno proporcional
+        const paymentsRes = await fetch(
+          `${ASAAS_API_URL}/payments?subscription=${currentPlan.asaas_subscription_id}&status=RECEIVED`,
+          { headers: asaasHeaders() }
+        )
+        const paymentsData = await paymentsRes.json()
+        const lastPayment = paymentsData?.data?.[0]
+
+        if (lastPayment?.id && currentPlan.current_period_end && currentPlan.current_period_start) {
+          const diasRestantes = Math.max(0, Math.ceil(
+            (new Date(currentPlan.current_period_end).getTime() - Date.now()) / 86400000
+          ))
+          const totalDias = Math.max(1, Math.round(
+            (new Date(currentPlan.current_period_end).getTime() - new Date(currentPlan.current_period_start).getTime()) / 86400000
+          ))
+          const valorEstorno = Math.round(lastPayment.value / totalDias * diasRestantes * 100) / 100
+
+          if (valorEstorno >= 0.01) {
+            console.log(`Emitindo estorno de R$${valorEstorno} (${diasRestantes}/${totalDias} dias restantes)`)
+            const refundRes = await fetch(
+              `${ASAAS_API_URL}/payments/${lastPayment.id}/refund`,
+              { method: 'POST', headers: asaasHeaders(), body: JSON.stringify({ value: valorEstorno }) }
+            )
+            console.log('Estorno:', refundRes.status)
+          }
+        }
+
+        // 4b. Cancelar assinatura anterior
+        console.log('Cancelando assinatura anterior:', currentPlan.asaas_subscription_id)
         const cancelRes = await fetch(
           `${ASAAS_API_URL}/subscriptions/${currentPlan.asaas_subscription_id}`,
           { method: 'DELETE', headers: asaasHeaders() }
         )
         console.log('Cancelamento da assinatura anterior:', cancelRes.status)
       } catch (err) {
-        console.error('Erro ao cancelar assinatura anterior (não bloqueante):', err)
+        console.error('Erro no estorno/cancelamento (não bloqueante):', err)
         // Não bloqueia o fluxo — a nova assinatura será criada de qualquer forma
       }
     }
