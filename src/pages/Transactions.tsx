@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { usePlan } from '../hooks/usePlan'
 import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
-import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw, Clock, Pause, Eye, User } from 'lucide-react'
+import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw, Clock, Pause, Eye, User } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
 import { useFamilyStore } from '../store/useFamilyStore'
@@ -495,63 +495,28 @@ export function Transactions() {
 
       {/* Transaction Summary - Moved to top */}
       {filteredLancamentos.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 md:gap-4">
-          <Card>
-            <CardContent className="py-3 md:py-4 px-3 md:px-6">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs md:text-sm text-gray-400 mb-1">Receitas</p>
-                  <p className="text-base md:text-2xl font-bold text-green-400 truncate">
-                    {formatCurrency(totals.totalReceitas)}
-                  </p>
-                </div>
-                <div className="w-8 h-8 md:w-12 md:h-12 bg-green-500/10 rounded-full flex items-center justify-center shrink-0 hidden sm:flex">
-                  <TrendingUp className="text-green-500" size={20} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3 md:py-4 px-3 md:px-6">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs md:text-sm text-gray-400 mb-1">Despesas</p>
-                  <p className="text-base md:text-2xl font-bold text-red-400 truncate">
-                    {formatCurrency(totals.totalDespesas)}
-                  </p>
-                </div>
-                <div className="w-8 h-8 md:w-12 md:h-12 bg-red-500/10 rounded-full flex items-center justify-center shrink-0 hidden sm:flex">
-                  <TrendingDown className="text-red-500" size={20} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3 md:py-4 px-3 md:px-6">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs md:text-sm text-gray-400 mb-1">Saldo</p>
-                  <p className={`text-base md:text-2xl font-bold truncate ${
-                    totals.saldo >= 0 ? 'text-green-400' : 'text-red-400'
-                  }`}>
-                    {formatCurrency(totals.saldo)}
-                  </p>
-                </div>
-                <div className={`w-8 h-8 md:w-12 md:h-12 rounded-full flex items-center justify-center shrink-0 hidden sm:flex ${
-                  totals.saldo >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'
-                }`}>
-                  <DollarSign className={totals.saldo >= 0 ? 'text-green-500' : 'text-red-500'} size={20} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="rounded-xl bg-dark-800/50 backdrop-blur-md border border-dark-700/50 shadow-xl overflow-hidden">
+          <div className="grid grid-cols-3 divide-x divide-dark-700/50">
+            <div className="py-3 px-3 md:py-4 md:px-4">
+              <p className="text-xs md:text-sm text-gray-400 mb-1">Receitas</p>
+              <p className="text-sm md:text-xl font-bold text-green-400">{formatCurrency(totals.totalReceitas)}</p>
+            </div>
+            <div className="py-3 px-3 md:py-4 md:px-4">
+              <p className="text-xs md:text-sm text-gray-400 mb-1">Despesas</p>
+              <p className="text-sm md:text-xl font-bold text-red-400">{formatCurrency(totals.totalDespesas)}</p>
+            </div>
+            <div className="py-3 px-3 md:py-4 md:px-4">
+              <p className="text-xs md:text-sm text-gray-400 mb-1">Saldo</p>
+              <p className={`text-sm md:text-xl font-bold ${totals.saldo >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                {formatCurrency(totals.saldo)}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Filters and Tabs */}
-      <Card>
+      <Card className="overflow-hidden">
         <div className="space-y-4">
           {/* Tabs */}
           <Tabs
