@@ -157,7 +157,7 @@ export function SignUp() {
             <span className="text-3xl font-bold text-gray-100">Pocket<span className="text-primary-500">Wise</span></span>
           </div>
           <h1 className="text-2xl font-bold text-gray-100 mb-2">Crie sua conta</h1>
-          <p className="text-gray-400">Comece seu teste grátis de 7 dias</p>
+          <p className="text-gray-400">Comece seu teste grátis de 14 dias</p>
         </div>
 
         {/* Form */}
@@ -303,7 +303,7 @@ export function SignUp() {
         <div className="mt-6 bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-center">
           <p className="text-sm text-green-300 flex items-center justify-center gap-2">
             <CheckCircle className="w-5 h-5" />
-            <span>✨ 7 dias grátis • Sem cartão de crédito</span>
+            <span>✨ 14 dias grátis • Sem cartão de crédito</span>
           </p>
         </div>
       </div>

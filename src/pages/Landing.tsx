@@ -123,7 +123,7 @@ export function Landing() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
             <Button size="lg" onClick={() => navigate('/cadastro')} className="w-full sm:w-auto">
-              Começar 7 dias grátis
+              Começar 14 dias grátis
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
             <Button size="lg" variant="ghost" onClick={() => scrollToSection('como-funciona')} className="w-full sm:w-auto">
@@ -592,7 +592,7 @@ export function Landing() {
             Pronto para ter controle total das suas finanças?
           </h2>
           <p className="text-xl text-gray-400 mb-8">
-            Teste grátis por 7 dias. Sem cartão de crédito.
+            14 dias grátis como Explorador. Sem cartão de crédito.
           </p>
           <Button size="lg" onClick={() => navigate('/cadastro')}>
             Começar agora
