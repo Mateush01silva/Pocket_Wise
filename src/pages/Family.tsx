@@ -277,9 +277,9 @@ export function Family() {
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="min-w-0 overflow-hidden flex-1">
                   <p className="text-sm text-gray-400 mb-1">Dias organizando</p>
-                  <p className="text-2xl font-bold text-orange-400">
+                  <p className="text-lg md:text-2xl font-bold text-orange-400 truncate">
                     {estatisticas.diasUsando}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
@@ -288,7 +288,7 @@ export function Family() {
                       : 'O hábito se forma com constância'}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center shrink-0">
                   <Flame className="text-orange-500" size={24} />
                 </div>
               </div>
@@ -298,16 +298,16 @@ export function Family() {
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="min-w-0 overflow-hidden flex-1">
                   <p className="text-sm text-gray-400 mb-1">Total controlado</p>
-                  <p className="text-2xl font-bold text-primary-400">
+                  <p className="text-lg md:text-2xl font-bold text-primary-400 truncate">
                     {formatCurrency(estatisticas.totalControlado)}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     em movimentações registradas
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-primary-500/10 rounded-full flex items-center justify-center shrink-0">
                   <DollarSign className="text-primary-500" size={24} />
                 </div>
               </div>
@@ -317,16 +317,16 @@ export function Family() {
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="min-w-0 overflow-hidden flex-1">
                   <p className="text-sm text-gray-400 mb-1">Transações</p>
-                  <p className="text-2xl font-bold text-blue-400">
+                  <p className="text-lg md:text-2xl font-bold text-blue-400 truncate">
                     {estatisticas.totalLancamentos}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     registradas no sistema
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center shrink-0">
                   <ListChecks className="text-blue-500" size={24} />
                 </div>
               </div>
@@ -336,16 +336,16 @@ export function Family() {
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="min-w-0 overflow-hidden flex-1">
                   <p className="text-sm text-gray-400 mb-1">Meses planejados</p>
-                  <p className="text-2xl font-bold text-green-400">
+                  <p className="text-lg md:text-2xl font-bold text-green-400 truncate">
                     {estatisticas.totalOrcamentos}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     orçamentos criados
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center shrink-0">
                   <CalendarCheck className="text-green-500" size={24} />
                 </div>
               </div>
@@ -355,16 +355,16 @@ export function Family() {
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="min-w-0 overflow-hidden flex-1">
                   <p className="text-sm text-gray-400 mb-1">Categorias</p>
-                  <p className="text-2xl font-bold text-purple-400">
+                  <p className="text-lg md:text-2xl font-bold text-purple-400 truncate">
                     {estatisticas.totalCategorias}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     organizando seus gastos
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-purple-500/10 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-purple-500/10 rounded-full flex items-center justify-center shrink-0">
                   <Tags className="text-purple-500" size={24} />
                 </div>
               </div>
@@ -374,16 +374,16 @@ export function Family() {
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
-                <div>
+                <div className="min-w-0 overflow-hidden flex-1">
                   <p className="text-sm text-gray-400 mb-1">Cartões</p>
-                  <p className="text-2xl font-bold text-yellow-400">
+                  <p className="text-lg md:text-2xl font-bold text-yellow-400 truncate">
                     {estatisticas.totalCartoes}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
                     sendo monitorados
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-yellow-500/10 rounded-full flex items-center justify-center shrink-0">
                   <CreditCard className="text-yellow-500" size={24} />
                 </div>
               </div>

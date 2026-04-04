@@ -350,9 +350,9 @@ export function Dashboard() {
           <Card hover>
             <CardContent>
               <div className="flex items-center justify-between mb-2">
-                <div className="flex-1">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <p className="text-sm text-gray-400 mb-1">Receitas</p>
-                  <p className="text-2xl font-bold text-gray-100">{formatCurrency(receitas)}</p>
+                  <p className="text-lg md:text-2xl font-bold text-gray-100 truncate">{formatCurrency(receitas)}</p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
                   <TrendingUp className="w-6 h-6 text-green-400" />
@@ -370,9 +370,9 @@ export function Dashboard() {
           <Card hover>
             <CardContent>
               <div className="flex items-center justify-between mb-2">
-                <div className="flex-1">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <p className="text-sm text-gray-400 mb-1">Despesas</p>
-                  <p className="text-2xl font-bold text-gray-100">{formatCurrency(despesas)}</p>
+                  <p className="text-lg md:text-2xl font-bold text-gray-100 truncate">{formatCurrency(despesas)}</p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
                   <TrendingDown className="w-6 h-6 text-red-400" />
@@ -390,9 +390,9 @@ export function Dashboard() {
           <Card hover className={`ring-2 ${saldo >= 0 ? 'ring-green-500/30' : 'ring-red-500/30'}`}>
             <CardContent>
               <div className="flex items-center justify-between mb-2">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-400 mb-1">Saldo do Período</p>
-                  <p className={`text-2xl font-bold ${saldo >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <p className="text-xs md:text-sm text-gray-400 mb-1">Saldo do Período</p>
+                  <p className={`text-lg md:text-2xl font-bold truncate ${saldo >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {formatCurrency(saldo)}
                   </p>
                 </div>
@@ -412,9 +412,9 @@ export function Dashboard() {
           <Card hover>
             <CardContent>
               <div className="flex items-center justify-between mb-2">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-400 mb-1">Saldo Projetado</p>
-                  <p className="text-2xl font-bold text-gray-100">
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <p className="text-xs md:text-sm text-gray-400 mb-1">Saldo Projetado</p>
+                  <p className="text-lg md:text-2xl font-bold text-gray-100 truncate">
                     {formatCurrency(projecao?.saldo_projetado_fim_mes ?? saldo)}
                   </p>
                 </div>
@@ -434,9 +434,9 @@ export function Dashboard() {
           <Card hover>
             <CardContent>
               <div className="flex items-center justify-between mb-2">
-                <div className="flex-1">
-                  <p className="text-sm text-gray-400 mb-1">Próximas Faturas</p>
-                  <p className="text-2xl font-bold text-gray-100">{formatCurrency(faturasCartaoAtuais)}</p>
+                <div className="flex-1 min-w-0 overflow-hidden">
+                  <p className="text-xs md:text-sm text-gray-400 mb-1">Próximas Faturas</p>
+                  <p className="text-lg md:text-2xl font-bold text-gray-100 truncate">{formatCurrency(faturasCartaoAtuais)}</p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-secondary-500/10 flex items-center justify-center shrink-0">
                   <CreditCard className="w-6 h-6 text-secondary-400" />

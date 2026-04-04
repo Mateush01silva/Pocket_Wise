@@ -145,12 +145,12 @@ export function Subscriptions() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-100">Assinaturas</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-100">Assinaturas</h1>
           <p className="text-gray-400 mt-1">Gerencie suas assinaturas recorrentes</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 shrink-0">
           {canEdit && (
             <Button
               variant="secondary"
