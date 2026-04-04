@@ -142,6 +142,8 @@ serve(async (req) => {
         break
 
       case 'SUBSCRIPTION_DELETED':
+      case 'SUBSCRIPTION_CANCELLED':
+      case 'SUBSCRIPTION_INACTIVATED':
         await handleSubscriptionCanceled(payload)
         break
 
@@ -177,7 +179,7 @@ async function handlePaymentConfirmed(payload: AsaasWebhookPayload) {
   // Buscar plano atual
   const { data: sub, error: fetchError } = await supabaseAdmin
     .from('plano_usuario')
-    .select('plan, status')
+    .select('plan, plan_id, tier, status')
     .eq('user_id', userId)
     .single()
 
@@ -191,14 +193,25 @@ async function handlePaymentConfirmed(payload: AsaasWebhookPayload) {
     return
   }
 
-  console.log(`handlePaymentConfirmed: user=${userId}, status_atual=${sub.status}, plan=${sub.plan}`)
+  console.log(`handlePaymentConfirmed: user=${userId}, status_atual=${sub.status}, plan=${sub.plan}, plan_id=${sub.plan_id}`)
 
-  const plan = sub.plan || 'monthly'
+  // Resolver tier a partir de plan_id (novo) ou plan (legado)
+  const tierMap: Record<string, string> = {
+    planejador_monthly: 'planejador',
+    planejador_annual:  'planejador',
+    mestre_monthly:     'mestre',
+    mestre_annual:      'mestre',
+    monthly:            'planejador',
+    annual:             'planejador',
+  }
+  const planId = sub.plan_id || (sub.plan === 'annual' ? 'planejador_annual' : 'planejador_monthly')
+  const tier = tierMap[planId] ?? sub.tier ?? 'planejador'
+  const planCycle = planId.includes('annual') ? 'annual' : 'monthly'
 
   // Calcular período
   const now = new Date()
   const periodEnd = new Date(now)
-  if (plan === 'annual') {
+  if (planCycle === 'annual') {
     periodEnd.setFullYear(periodEnd.getFullYear() + 1)
   } else {
     periodEnd.setMonth(periodEnd.getMonth() + 1)
@@ -208,12 +221,14 @@ async function handlePaymentConfirmed(payload: AsaasWebhookPayload) {
     .from('plano_usuario')
     .update({
       status: 'active',
+      tier,
+      plan_id: planId,
       current_period_start: now.toISOString(),
       current_period_end: periodEnd.toISOString(),
       updated_at: now.toISOString(),
     })
     .eq('user_id', userId)
-    .select('id, status')
+    .select('id, status, tier')
 
   if (error) {
     console.error('handlePaymentConfirmed: Erro ao atualizar para active:', error)
@@ -221,7 +236,7 @@ async function handlePaymentConfirmed(payload: AsaasWebhookPayload) {
   }
 
   console.log(`handlePaymentConfirmed: UPDATE resultado:`, JSON.stringify(updated))
-  console.log(`Assinatura ativada com sucesso: user=${userId}, plan=${plan}`)
+  console.log(`Assinatura ativada com sucesso: user=${userId}, plan_id=${planId}, tier=${tier}`)
 }
 
 async function handlePaymentOverdue(payload: AsaasWebhookPayload) {
