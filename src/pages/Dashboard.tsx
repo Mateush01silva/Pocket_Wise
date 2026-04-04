@@ -352,7 +352,7 @@ export function Dashboard() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex-1 min-w-0 overflow-hidden">
                   <p className="text-sm text-gray-400 mb-1">Receitas</p>
-                  <p className="text-lg md:text-2xl font-bold text-gray-100 truncate">{formatCurrency(receitas)}</p>
+                  <p className="text-sm md:text-xl font-bold text-gray-100">{formatCurrency(receitas)}</p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
                   <TrendingUp className="w-6 h-6 text-green-400" />
@@ -372,7 +372,7 @@ export function Dashboard() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex-1 min-w-0 overflow-hidden">
                   <p className="text-sm text-gray-400 mb-1">Despesas</p>
-                  <p className="text-lg md:text-2xl font-bold text-gray-100 truncate">{formatCurrency(despesas)}</p>
+                  <p className="text-sm md:text-xl font-bold text-gray-100">{formatCurrency(despesas)}</p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
                   <TrendingDown className="w-6 h-6 text-red-400" />
@@ -392,7 +392,7 @@ export function Dashboard() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex-1 min-w-0 overflow-hidden">
                   <p className="text-xs md:text-sm text-gray-400 mb-1">Saldo do Período</p>
-                  <p className={`text-lg md:text-2xl font-bold truncate ${saldo >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  <p className={`text-sm md:text-xl font-bold ${saldo >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {formatCurrency(saldo)}
                   </p>
                 </div>
@@ -414,7 +414,7 @@ export function Dashboard() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex-1 min-w-0 overflow-hidden">
                   <p className="text-xs md:text-sm text-gray-400 mb-1">Saldo Projetado</p>
-                  <p className="text-lg md:text-2xl font-bold text-gray-100 truncate">
+                  <p className="text-sm md:text-xl font-bold text-gray-100">
                     {formatCurrency(projecao?.saldo_projetado_fim_mes ?? saldo)}
                   </p>
                 </div>
@@ -436,7 +436,7 @@ export function Dashboard() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex-1 min-w-0 overflow-hidden">
                   <p className="text-xs md:text-sm text-gray-400 mb-1">Próximas Faturas</p>
-                  <p className="text-lg md:text-2xl font-bold text-gray-100 truncate">{formatCurrency(faturasCartaoAtuais)}</p>
+                  <p className="text-sm md:text-xl font-bold text-gray-100">{formatCurrency(faturasCartaoAtuais)}</p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-secondary-500/10 flex items-center justify-center shrink-0">
                   <CreditCard className="w-6 h-6 text-secondary-400" />
@@ -739,7 +739,7 @@ export function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
           {/* Gastos por Categoria */}
           <LearningTooltip content={learningContent.graficoGastosPorCategoria} position="bottom" className="block">
-          <Card>
+          <Card className="overflow-hidden">
             <CardContent>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-100">Gastos por Categoria (Mês Atual)</h2>
@@ -809,7 +809,7 @@ export function Dashboard() {
                   </div>
 
                   {/* Legenda com percentuais */}
-                  <div className="flex-1 w-full space-y-2 max-h-64 overflow-y-auto">
+                  <div className="flex-1 min-w-0 w-full space-y-2 max-h-64 overflow-y-auto">
                     {gastosPorCategoria.map((entry, index) => (
                       <div key={entry.categoria_id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-dark-700/30 transition-colors">
                         <div
@@ -838,12 +838,12 @@ export function Dashboard() {
 
           {/* Receitas x Despesas */}
           <LearningTooltip content={learningContent.graficoReceitasDespesas} position="bottom" className="block">
-          <Card>
+          <Card className="overflow-hidden">
             <CardContent>
               <h2 className="text-lg font-semibold text-gray-100 mb-4">
                 Receitas x Despesas (Últimos 6 Meses)
               </h2>
-              <div className="h-80">
+              <div className="h-80 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={receitasDespesasPorMes}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />

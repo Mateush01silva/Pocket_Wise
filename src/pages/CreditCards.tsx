@@ -595,7 +595,7 @@ export function CreditCards() {
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 overflow-hidden flex-1">
                     <p className="text-xs md:text-sm text-gray-400 mb-1">Limite Total</p>
-                    <p className="text-lg md:text-2xl font-bold text-gray-100 truncate">
+                    <p className="text-sm md:text-xl font-bold text-gray-100">
                       {formatCurrency(
                         cartoesAtivos.reduce((sum, c) => sum + (c.limite ?? 0), 0)
                       )}
@@ -615,7 +615,7 @@ export function CreditCards() {
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 overflow-hidden flex-1">
                     <p className="text-xs md:text-sm text-gray-400 mb-1">Total a Pagar</p>
-                    <p className="text-lg md:text-2xl font-bold text-red-400 truncate">
+                    <p className="text-sm md:text-xl font-bold text-red-400">
                       {formatCurrency(
                         cartoesAtivos.reduce((sum, c) => sum + c.totalUsandoLimite, 0)
                       )}
@@ -635,7 +635,7 @@ export function CreditCards() {
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 overflow-hidden flex-1">
                     <p className="text-xs md:text-sm text-gray-400 mb-1">Disponível</p>
-                    <p className="text-lg md:text-2xl font-bold text-green-400 truncate">
+                    <p className="text-sm md:text-xl font-bold text-green-400">
                       {formatCurrency(
                         cartoesAtivos.reduce((sum, c) => sum + c.limiteDisponivel, 0)
                       )}

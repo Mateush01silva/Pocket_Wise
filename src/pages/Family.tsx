@@ -279,7 +279,7 @@ export function Family() {
               <div className="flex items-center justify-between">
                 <div className="min-w-0 overflow-hidden flex-1">
                   <p className="text-sm text-gray-400 mb-1">Dias organizando</p>
-                  <p className="text-lg md:text-2xl font-bold text-orange-400 truncate">
+                  <p className="text-sm md:text-xl font-bold text-orange-400">
                     {estatisticas.diasUsando}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
@@ -300,7 +300,7 @@ export function Family() {
               <div className="flex items-center justify-between">
                 <div className="min-w-0 overflow-hidden flex-1">
                   <p className="text-sm text-gray-400 mb-1">Total controlado</p>
-                  <p className="text-lg md:text-2xl font-bold text-primary-400 truncate">
+                  <p className="text-sm md:text-xl font-bold text-primary-400">
                     {formatCurrency(estatisticas.totalControlado)}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
@@ -319,7 +319,7 @@ export function Family() {
               <div className="flex items-center justify-between">
                 <div className="min-w-0 overflow-hidden flex-1">
                   <p className="text-sm text-gray-400 mb-1">Transações</p>
-                  <p className="text-lg md:text-2xl font-bold text-blue-400 truncate">
+                  <p className="text-sm md:text-xl font-bold text-blue-400">
                     {estatisticas.totalLancamentos}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
@@ -338,7 +338,7 @@ export function Family() {
               <div className="flex items-center justify-between">
                 <div className="min-w-0 overflow-hidden flex-1">
                   <p className="text-sm text-gray-400 mb-1">Meses planejados</p>
-                  <p className="text-lg md:text-2xl font-bold text-green-400 truncate">
+                  <p className="text-sm md:text-xl font-bold text-green-400">
                     {estatisticas.totalOrcamentos}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
@@ -357,7 +357,7 @@ export function Family() {
               <div className="flex items-center justify-between">
                 <div className="min-w-0 overflow-hidden flex-1">
                   <p className="text-sm text-gray-400 mb-1">Categorias</p>
-                  <p className="text-lg md:text-2xl font-bold text-purple-400 truncate">
+                  <p className="text-sm md:text-xl font-bold text-purple-400">
                     {estatisticas.totalCategorias}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
@@ -376,7 +376,7 @@ export function Family() {
               <div className="flex items-center justify-between">
                 <div className="min-w-0 overflow-hidden flex-1">
                   <p className="text-sm text-gray-400 mb-1">Cartões</p>
-                  <p className="text-lg md:text-2xl font-bold text-yellow-400 truncate">
+                  <p className="text-sm md:text-xl font-bold text-yellow-400">
                     {estatisticas.totalCartoes}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">

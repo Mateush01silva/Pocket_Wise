@@ -99,7 +99,7 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
         {/* Valores e Ações */}
         <div className="text-right ml-3 md:ml-4 shrink-0">
           <div className="mb-3">
-            <p className="text-xl md:text-2xl font-bold text-gray-100">
+            <p className="text-sm md:text-xl font-bold text-gray-100">
               {formatCurrency(valorMensal)}
             </p>
             <p className="text-xs text-gray-500">por mês</p>
