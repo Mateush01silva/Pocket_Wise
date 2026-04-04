@@ -222,14 +222,15 @@ serve(async (req) => {
     }
 
     // 7. Salvar IDs no Supabase
-    const planConfig = PLANS[plan as keyof typeof PLANS]
+    // IMPORTANTE: não setar tier aqui — tier só é atualizado pelo webhook
+    // PAYMENT_CONFIRMED após pagamento confirmado. plan_id é salvo para que
+    // o webhook possa derivar o tier correto.
     const billingCycle = plan.includes('annual') ? 'annual' : 'monthly'
     await supabaseAdmin
       .from('plano_usuario')
       .update({
         plan: billingCycle,
         plan_id: plan,
-        tier: planConfig.tier,
         asaas_customer_id: customer.id,
         asaas_subscription_id: subscription.id,
         asaas_payment_url: paymentLink,
