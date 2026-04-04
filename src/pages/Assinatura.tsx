@@ -167,7 +167,20 @@ export function Assinatura() {
     }
   }
 
-  // Upgrade: ao migrar para Mestre, a assinatura atual é cancelada e nova cobrança iniciada
+  // Estimativa de estorno proporcional: Planejador → Mestre
+  const estimativaEstorno = (() => {
+    if (tier !== 'planejador' || !subscription?.current_period_end || !subscription?.current_period_start) return null
+    const diasRestantes = Math.max(0, Math.ceil(
+      (new Date(subscription.current_period_end).getTime() - Date.now()) / 86400000
+    ))
+    if (diasRestantes === 0) return null
+    const totalDias = Math.max(1, Math.round(
+      (new Date(subscription.current_period_end).getTime() - new Date(subscription.current_period_start).getTime()) / 86400000
+    ))
+    const planPrice = subscription.plan === 'annual' ? 119.90 : 12.90
+    const valorEstorno = Math.round(planPrice / totalDias * diasRestantes * 100) / 100
+    return { diasRestantes, valorEstorno }
+  })()
 
   // Trial progress
   const trialProgress = Math.max(0, Math.min(100, ((14 - trialDaysLeft) / 14) * 100))
@@ -377,8 +390,17 @@ export function Assinatura() {
           ) : (
             <>
               {tier === 'planejador' && (
-                <div className="mb-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-300">
-                  Ao assinar o Mestre, sua assinatura atual do Planejador será cancelada e você começará a ser cobrado <strong>R$18,90/mês</strong> a partir de hoje.
+                <div className="mb-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-xs text-emerald-300">
+                  {estimativaEstorno ? (
+                    <>
+                      Sua assinatura Planejador será cancelada e você receberá um{' '}
+                      <strong>estorno de ~R${estimativaEstorno.valorEstorno.toFixed(2).replace('.', ',')}</strong>
+                      {' '}({estimativaEstorno.diasRestantes} dias não utilizados).<br />
+                      A assinatura Mestre será cobrada: <strong>R$18,90/mês</strong> a partir de hoje.
+                    </>
+                  ) : (
+                    <>Sua assinatura atual do Planejador será cancelada e você começará a ser cobrado <strong>R$18,90/mês</strong> a partir de hoje.</>
+                  )}
                 </div>
               )}
               <button
