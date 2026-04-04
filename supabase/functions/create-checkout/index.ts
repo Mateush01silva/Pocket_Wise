@@ -30,8 +30,12 @@ function asaasHeaders() {
 
 // Planos do Pocket Wise
 const PLANS = {
-  monthly: { value: 12.90, cycle: 'MONTHLY', description: 'Pocket Wise - Plano Mensal' },
-  annual: { value: 119.90, cycle: 'YEARLY', description: 'Pocket Wise - Plano Anual' },
+  monthly:            { value: 12.90,  cycle: 'MONTHLY', description: 'Pocket Wise - Planejador Mensal', tier: 'planejador' },
+  annual:             { value: 119.90, cycle: 'YEARLY',  description: 'Pocket Wise - Planejador Anual',  tier: 'planejador' },
+  planejador_monthly: { value: 12.90,  cycle: 'MONTHLY', description: 'Pocket Wise - Planejador Mensal', tier: 'planejador' },
+  planejador_annual:  { value: 119.90, cycle: 'YEARLY',  description: 'Pocket Wise - Planejador Anual',  tier: 'planejador' },
+  mestre_monthly:     { value: 18.90,  cycle: 'MONTHLY', description: 'Pocket Wise - Mestre Mensal',     tier: 'mestre' },
+  mestre_annual:      { value: 175.90, cycle: 'YEARLY',  description: 'Pocket Wise - Mestre Anual',      tier: 'mestre' },
 } as const
 
 // ============================================================================
@@ -153,9 +157,10 @@ serve(async (req) => {
     const { plan, cpfCnpj } = await req.json()
     const billingType = 'CREDIT_CARD' // Sempre cartão de crédito (recorrência automática)
 
-    if (!plan || !['monthly', 'annual'].includes(plan)) {
+    const validPlans = ['monthly', 'annual', 'planejador_monthly', 'planejador_annual', 'mestre_monthly', 'mestre_annual']
+    if (!plan || !validPlans.includes(plan)) {
       return new Response(
-        JSON.stringify({ error: 'Plano inválido. Use "monthly" ou "annual".' }),
+        JSON.stringify({ error: 'Plano inválido.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -217,10 +222,14 @@ serve(async (req) => {
     }
 
     // 7. Salvar IDs no Supabase
+    const planConfig = PLANS[plan as keyof typeof PLANS]
+    const billingCycle = plan.includes('annual') ? 'annual' : 'monthly'
     await supabaseAdmin
       .from('plano_usuario')
       .update({
-        plan,
+        plan: billingCycle,
+        plan_id: plan,
+        tier: planConfig.tier,
         asaas_customer_id: customer.id,
         asaas_subscription_id: subscription.id,
         asaas_payment_url: paymentLink,
