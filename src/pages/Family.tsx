@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
+import { FeaturePreview } from '../components/FeaturePreview'
 import {
   Users,
   UserPlus,
@@ -200,6 +201,12 @@ export function Family() {
   }
 
   return (
+    <FeaturePreview
+      feature="family"
+      title="Família"
+      subtitle="Gerencie as finanças juntos, em tempo real"
+      requiredTier="planejador"
+    >
     <>
       <FamilyInviteModal
         isOpen={isInviteModalOpen}
@@ -539,5 +546,6 @@ export function Family() {
         </Card>
       </div>
     </>
+    </FeaturePreview>
   )
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { toast } from 'sonner'
 import { Check, X, AlertTriangle, TrendingUp, Search, PiggyBank, Clock } from 'lucide-react'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select } from './ui'
@@ -18,6 +19,7 @@ interface BudgetPlanningModalProps {
   onClose: () => void
   orcamento?: OrcamentoMensal // Para edição
   mesReferencia: string
+  envelopeLimit?: number // Limite de envelopes para o tier atual
 }
 
 interface CategoriaFormData {
@@ -31,6 +33,7 @@ export function BudgetPlanningModal({
   onClose,
   orcamento,
   mesReferencia,
+  envelopeLimit = Infinity,
 }: BudgetPlanningModalProps) {
   const categorias = useCategoriasStore((state) => state.categorias)
   const categoriasBudget = useOrcamentosStore((state) => state.categoriasBudget)
@@ -215,6 +218,10 @@ export function BudgetPlanningModal({
     if (exists) {
       setCategoriasDespesaSelecionadas((prev) => prev.filter((c) => c.categoria_id !== categoria.id))
     } else {
+      if (categoriasDespesaSelecionadas.length >= envelopeLimit) {
+        toast.error(`Limite do Explorador atingido (${envelopeLimit} envelopes). Assine o Planejador para adicionar mais.`)
+        return
+      }
       setCategoriasDespesaSelecionadas((prev) => [
         ...prev,
         { categoria_id: categoria.id, valor_orcado: 0, prioridade: 'importante' },

@@ -1,4 +1,4 @@
-import { CheckCircle, TrendingUp, PiggyBank, Bell, Users, ArrowRight, Check, Smartphone, ChevronDown, Download, BarChart3, DollarSign } from 'lucide-react'
+import { CheckCircle, TrendingUp, PiggyBank, Bell, Users, ArrowRight, Check, Smartphone, ChevronDown, Download, BarChart3, DollarSign, Zap, Crown } from 'lucide-react'
 import { Button } from '../components/ui'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -60,6 +60,7 @@ export function Landing() {
   const navigate = useNavigate()
   const { user, loading } = useAuth()
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
+  const [isPricingAnnual, setIsPricingAnnual] = useState(false)
 
   // Se o usuário já está logado, redirecionar diretamente para o app
   useEffect(() => {
@@ -405,74 +406,128 @@ export function Landing() {
       <section id="precos" className="py-20 px-4 sm:px-6 lg:px-8 bg-dark-800/50">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-bold text-center text-gray-100 mb-4">
-            Comece grátis por 7 dias
+            Comece grátis por 14 dias
           </h2>
-          <p className="text-center text-gray-400 mb-16">Depois escolha o melhor plano para você</p>
+          <p className="text-center text-gray-400 mb-8">Depois escolha o melhor plano para você</p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Plano Mensal */}
-            <div className="bg-dark-700/30 border border-dark-600 rounded-2xl p-8">
-              <h3 className="text-2xl font-bold text-gray-100 mb-2">Mensal</h3>
-              <div className="mb-6">
-                <span className="text-4xl font-bold text-gray-100">R$ 12,90</span>
-                <span className="text-gray-400">/mês</span>
+          {/* Toggle mensal/anual */}
+          <div className="flex items-center justify-center gap-3 mb-12">
+            <span className={`text-sm ${!isPricingAnnual ? 'text-gray-200 font-medium' : 'text-gray-500'}`}>Mensal</span>
+            <button
+              onClick={() => setIsPricingAnnual(!isPricingAnnual)}
+              className={`relative w-12 h-6 rounded-full transition-colors ${isPricingAnnual ? 'bg-primary-500' : 'bg-dark-600'}`}
+            >
+              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${isPricingAnnual ? 'left-7' : 'left-1'}`} />
+            </button>
+            <span className={`text-sm ${isPricingAnnual ? 'text-gray-200 font-medium' : 'text-gray-500'}`}>
+              Anual <span className="text-green-400 font-semibold">(-22%)</span>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Explorador */}
+            <div className="bg-dark-700/30 border border-dark-600 rounded-2xl p-7 flex flex-col">
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="w-5 h-5 text-gray-400" />
+                <h3 className="text-xl font-bold text-gray-100">Explorador</h3>
               </div>
-
-              <ul className="space-y-3 mb-8">
+              <div className="mb-1">
+                <span className="text-4xl font-bold text-gray-100">Grátis</span>
+              </div>
+              <p className="text-sm text-gray-500 mb-6">14 dias de acesso completo</p>
+              <ul className="space-y-2.5 mb-8 flex-1">
                 {[
-                  'Cancele quando quiser',
-                  'Todas as funcionalidades',
-                  'Família completa incluída',
-                  'Suporte prioritário',
+                  'Até 20 transações',
+                  '1 cartão e 1 conta',
+                  '5 envelopes e 2 caixinhas',
+                  'Dashboard e categorias',
                 ].map((item, i) => (
-                  <li key={i} className="flex items-center gap-2 text-gray-300">
-                    <Check className="w-5 h-5 text-green-400" />
+                  <li key={i} className="flex items-center gap-2 text-sm text-gray-300">
+                    <Check className="w-4 h-4 text-gray-500 shrink-0" />
                     {item}
                   </li>
                 ))}
               </ul>
-
-              <Button className="w-full" onClick={() => navigate('/cadastro')}>
-                Começar teste grátis
+              <Button variant="ghost" className="w-full border border-dark-500" onClick={() => navigate('/cadastro')}>
+                Começar grátis
               </Button>
             </div>
 
-            {/* Plano Anual */}
-            <div className="bg-gradient-to-br from-primary-500/10 to-secondary-500/10 border-2 border-primary-500 rounded-2xl p-8 relative">
-              <div className="absolute -top-4 right-8 bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
-                Mais Popular
+            {/* Planejador */}
+            <div className="bg-dark-700/30 border border-dark-600 rounded-2xl p-7 flex flex-col">
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="w-5 h-5 text-primary-400" />
+                <h3 className="text-xl font-bold text-gray-100">Planejador</h3>
               </div>
-
-              <h3 className="text-2xl font-bold text-gray-100 mb-2">Anual</h3>
-              <div className="mb-2">
-                <span className="text-4xl font-bold text-gray-100">R$ 119,90</span>
-                <span className="text-gray-400">/ano</span>
+              <div className="mb-1">
+                <span className="text-4xl font-bold text-gray-100">
+                  {isPricingAnnual ? 'R$119,90' : 'R$12,90'}
+                </span>
+                <span className="text-gray-400">{isPricingAnnual ? '/ano' : '/mês'}</span>
               </div>
-              <p className="text-sm text-green-400 mb-6">Economize R$ 34,90 (23% de desconto) • R$ 9,99/mês</p>
-
-              <ul className="space-y-3 mb-8">
+              <p className="text-sm text-green-400 mb-6">
+                {isPricingAnnual ? 'R$9,99/mês — economize R$34,90' : 'ou R$119,90/ano (R$9,99/mês)'}
+              </p>
+              <ul className="space-y-2.5 mb-8 flex-1">
                 {[
-                  '2 meses grátis',
-                  'Todas as funcionalidades',
-                  'Família completa incluída',
-                  'Suporte prioritário',
+                  'Transações ilimitadas',
+                  'Cartões e contas ilimitados',
+                  'Fluxo de Caixa e Relatórios',
+                  'Envelopes e Caixinhas ilimitados',
+                  'Família e compartilhamento',
                 ].map((item, i) => (
-                  <li key={i} className="flex items-center gap-2 text-gray-300">
-                    <Check className="w-5 h-5 text-green-400" />
+                  <li key={i} className="flex items-center gap-2 text-sm text-gray-300">
+                    <Check className="w-4 h-4 text-primary-400 shrink-0" />
                     {item}
                   </li>
                 ))}
               </ul>
-
               <Button className="w-full" onClick={() => navigate('/cadastro')}>
-                Começar teste grátis
+                Começar grátis
+              </Button>
+            </div>
+
+            {/* Mestre */}
+            <div className="bg-gradient-to-br from-teal-500/10 to-emerald-500/10 border-2 border-teal-400 rounded-2xl p-7 flex flex-col relative">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-xs font-semibold px-4 py-1 rounded-full">
+                Recomendado
+              </div>
+              <div className="flex items-center gap-2 mb-1">
+                <Crown className="w-5 h-5 text-teal-400" />
+                <h3 className="text-xl font-bold text-gray-100">Mestre</h3>
+              </div>
+              <div className="mb-1">
+                <span className="text-4xl font-bold text-gray-100">
+                  {isPricingAnnual ? 'R$175,90' : 'R$18,90'}
+                </span>
+                <span className="text-gray-400">{isPricingAnnual ? '/ano' : '/mês'}</span>
+              </div>
+              <p className="text-sm text-green-400 mb-6">
+                {isPricingAnnual ? 'R$14,66/mês — economize R$50,90' : 'ou R$175,90/ano (R$14,66/mês)'}
+              </p>
+              <ul className="space-y-2.5 mb-8 flex-1">
+                {[
+                  'Tudo do Planejador',
+                  'Assistente IA financeiro',
+                  'Pocks — score e conquistas',
+                  '"Posso comprar?" com IA',
+                  'Personalidades da IA',
+                ].map((item, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm text-gray-300">
+                    <Check className="w-4 h-4 text-teal-400 shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Button className="w-full bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white border-0" onClick={() => navigate('/cadastro')}>
+                Começar grátis
               </Button>
             </div>
           </div>
 
           <p className="text-center text-gray-400 mt-8 flex items-center justify-center gap-2">
             <span className="text-2xl">💯</span>
-            <span>7 dias grátis - Teste sem compromisso</span>
+            <span>14 dias grátis como Explorador — sem cartão de crédito</span>
           </p>
         </div>
       </section>
@@ -488,7 +543,7 @@ export function Landing() {
             {[
               {
                 q: 'Preciso dar cartão de crédito no teste?',
-                a: 'Não! Use 7 dias completos antes de decidir.',
+                a: 'Não! Use 14 dias completos como Explorador antes de decidir.',
               },
               {
                 q: 'Posso cancelar quando quiser?',
@@ -507,8 +562,8 @@ export function Landing() {
                 a: 'Perfeitamente! Design responsivo e pode ser instalado como app na tela inicial do seu celular.',
               },
               {
-                q: 'O que acontece após os 7 dias?',
-                a: 'Você escolhe se quer assinar. Sem cobranças automáticas no trial.',
+                q: 'O que acontece após os 14 dias Explorador?',
+                a: 'Você escolhe o plano Planejador ou Mestre. Sem cobranças automáticas.',
               },
             ].map((item, i) => (
               <div key={i} className="bg-dark-700/30 border border-dark-600 rounded-xl overflow-hidden">

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { usePlan } from '../hooks/usePlan'
 import { ShoppingCart, AlertCircle, CheckCircle, AlertTriangle, X, GraduationCap, Lightbulb, Target, BookOpen, Sparkles } from 'lucide-react'
 import { CurrencyInput } from './ui/CurrencyInput'
 import { Select } from './ui/Select'
@@ -33,6 +34,8 @@ export function PossoComprarFloating() {
   // Hook da IA — instância única no componente pai, props passadas ao modal
   const iaHook = usePossoComprarIA()
   const { hasAccess: hasIAAccess, isCheckingAccess } = iaHook
+  const { featureAccess } = usePlan()
+  const hasIAAccessByTier = featureAccess('posso_comprar_ai') === 'full'
 
   // Filtrar categorias
   const categorias = useMemo(
@@ -149,7 +152,7 @@ export function PossoComprarFloating() {
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full animate-pulse shadow-lg shadow-amber-500/50 z-10 pointer-events-none" />
         )}
         {/* Badge IA disponível */}
-        {!isCheckingAccess && hasIAAccess && !isLearningMode && (
+        {!isCheckingAccess && (hasIAAccess || hasIAAccessByTier) && !isLearningMode && (
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-secondary-400 to-primary-500 rounded-full shadow-lg shadow-secondary-500/50 z-10 pointer-events-none" />
         )}
         <button
@@ -224,7 +227,7 @@ export function PossoComprarFloating() {
             </div>
 
             {/* Tabs — só exibe se o usuário tiver acesso à IA */}
-            {hasIAAccess && (
+            {(hasIAAccess || hasIAAccessByTier) && (
               <div className="flex border-b border-dark-700">
                 <button
                   onClick={() => setActiveTab('simular')}

@@ -26,7 +26,9 @@ import {
   Cell,
   Tooltip,
 } from 'recharts'
-import { usePocksAccess } from '../hooks/usePocksAccess'
+import { usePlan } from '../hooks/usePlan'
+import { FeaturePreview } from '../components/FeaturePreview'
+import { FeatureCTA } from '../components/FeatureCTA'
 import { useAuth } from '../contexts/AuthContext'
 import {
   carregarDadosPocks,
@@ -241,7 +243,8 @@ function CustomTooltip({ active, payload, label }: any) {
 // ============================================================
 
 export function Pocks() {
-  const { hasAccess, isCheckingAccess } = usePocksAccess()
+  const { featureAccess } = usePlan()
+  const pocksAccess = featureAccess('pocks')
   const { activeFamilyId } = useAuth()
 
   const [dados, setDados] = useState<PocksData | null>(null)
@@ -262,8 +265,8 @@ export function Pocks() {
   }, [activeFamilyId])
 
   useEffect(() => {
-    if (hasAccess && activeFamilyId) carregar()
-  }, [hasAccess, activeFamilyId, carregar])
+    if (pocksAccess === 'full' && activeFamilyId) carregar()
+  }, [pocksAccess, activeFamilyId, carregar])
 
   // ---- Derivados ----
 
@@ -290,8 +293,19 @@ export function Pocks() {
 
   // ---- Renderização ----
 
-  if (isCheckingAccess) return <LoadingState />
-  if (!hasAccess) return <AccessDeniedState />
+  if (pocksAccess === 'preview') {
+    return (
+      <FeaturePreview
+        feature="pocks"
+        title="Pocks — Saúde Financeira"
+        subtitle="Seu score de saúde financeira, atualizado todo mês"
+        requiredTier="planejador"
+      >
+        <LoadingState />
+      </FeaturePreview>
+    )
+  }
+  if (pocksAccess === 'locked') return <FeatureCTA feature="pocks" />
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">

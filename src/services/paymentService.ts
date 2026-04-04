@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase'
 
-export type PlanType = 'monthly' | 'annual'
+export type PlanType = 'monthly' | 'annual' | 'planejador_monthly' | 'planejador_annual' | 'mestre_monthly' | 'mestre_annual'
 interface CheckoutResponse {
   success: boolean
   subscription: {

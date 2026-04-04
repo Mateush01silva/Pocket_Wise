@@ -1,4 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
+import { usePlan } from '../hooks/usePlan'
 import {
   Plus,
   Landmark,
@@ -41,6 +44,8 @@ const LABEL_POR_TIPO: Record<TipoConta, string> = {
 
 export function BankAccounts() {
   const { canEdit } = usePermissions()
+  const navigate = useNavigate()
+  const { getLimit } = usePlan()
   const contas = useContasBancariasStore((state) => state.contas)
   const fetchContas = useContasBancariasStore((state) => state.fetchContas)
   const deleteConta = useContasBancariasStore((state) => state.deleteConta)
@@ -67,6 +72,18 @@ export function BankAccounts() {
   )
 
   const saldoTotal = useMemo(() => getSaldoTotal(), [contas, getSaldoTotal])
+
+  const handleOpenNewAccount = () => {
+    const limit = getLimit('accounts')
+    if (contasAtivas.length >= limit) {
+      toast.error(`Você atingiu o limite do Explorador (${limit} conta). Assine o Planejador para adicionar mais.`, {
+        action: { label: 'Assinar Planejador', onClick: () => navigate('/app/assinatura') },
+      })
+      return
+    }
+    setContaToEdit(undefined)
+    setIsModalOpen(true)
+  }
 
   const handleEdit = (conta: ContaBancaria) => {
     setContaToEdit(conta)
@@ -221,7 +238,7 @@ export function BankAccounts() {
             {saldosVisiveis ? <EyeOff size={16} /> : <Eye size={16} />}
           </Button>
           {canEdit && (
-            <Button onClick={() => setIsModalOpen(true)}>
+            <Button onClick={handleOpenNewAccount}>
               <Plus size={16} className="mr-2" />
               Nova Conta
             </Button>
@@ -310,7 +327,7 @@ export function BankAccounts() {
             <p className="text-gray-500 mb-4">
               Adicione sua primeira conta para começar a gerenciar seus saldos
             </p>
-            <Button onClick={() => setIsModalOpen(true)}>
+            <Button onClick={handleOpenNewAccount}>
               <Plus size={16} className="mr-2" />
               Adicionar Conta
             </Button>

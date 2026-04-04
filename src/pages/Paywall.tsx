@@ -158,11 +158,14 @@ export function Paywall() {
             </div>
           </div>
           <h1 className="text-4xl font-bold text-gray-100 mb-4">
-            Seu teste de 7 dias terminou
+            Seu período Explorador terminou
           </h1>
           <p className="text-xl text-gray-400">
             Continue no controle total das suas finanças
           </p>
+          <a href="/app/assinatura" className="inline-block mt-4 text-sm text-primary-400 hover:text-primary-300 underline">
+            Ver todos os planos
+          </a>
         </div>
 
         {/* Pricing Cards */}

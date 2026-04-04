@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { FeaturePreview } from '../components/FeaturePreview'
 import { Card, CardContent, Button } from '../components/ui'
 import { AlertTriangle, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
@@ -241,6 +242,12 @@ export function CashFlow() {
   }
 
   return (
+    <FeaturePreview
+      feature="cashflow"
+      title="Fluxo de Caixa"
+      subtitle="Veja para onde seu dinheiro vai nos próximos meses"
+      requiredTier="planejador"
+    >
     <div className="space-y-6">
       {/* Header */}
       <div>
@@ -607,5 +614,6 @@ export function CashFlow() {
         </CardContent>
       </Card>
     </div>
+    </FeaturePreview>
   )
 }

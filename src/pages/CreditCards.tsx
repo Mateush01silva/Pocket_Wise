@@ -1,4 +1,7 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
+import { usePlan } from '../hooks/usePlan'
 import {
   Plus,
   CreditCard,
@@ -177,6 +180,8 @@ function getFaturaFechadaPendente(
 
 export function CreditCards() {
   const { canEdit } = usePermissions()
+  const navigate = useNavigate()
+  const { getLimit } = usePlan()
   const cartoes = useCartoesStore((state) => state.cartoes)
   const deleteCartao = useCartoesStore((state) => state.deleteCartao)
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
@@ -331,6 +336,18 @@ export function CreditCards() {
     () => parcelasPendentes.reduce((sum, p) => sum + p.valor, 0),
     [parcelasPendentes]
   )
+
+  const handleOpenNewCard = () => {
+    const limit = getLimit('cards')
+    if (cartoes.length >= limit) {
+      toast.error(`Você atingiu o limite do Explorador (${limit} cartão). Assine o Planejador para adicionar mais.`, {
+        action: { label: 'Assinar Planejador', onClick: () => navigate('/app/assinatura') },
+      })
+      return
+    }
+    setCartaoToEdit(undefined)
+    setIsModalOpen(true)
+  }
 
   const handleEdit = (cartao: Cartao) => {
     setCartaoToEdit(cartao)
@@ -562,7 +579,7 @@ export function CreditCards() {
           </p>
         </div>
         {canEdit && (
-          <Button onClick={() => setIsModalOpen(true)}>
+          <Button onClick={handleOpenNewCard}>
             <Plus size={16} className="mr-2" />
             Novo Cartão
           </Button>
@@ -709,7 +726,7 @@ export function CreditCards() {
               Adicione seu primeiro cartão para começar a gerenciar suas faturas
             </p>
             {canEdit && (
-              <Button onClick={() => setIsModalOpen(true)}>
+              <Button onClick={handleOpenNewCard}>
                 <Plus size={16} className="mr-2" />
                 Adicionar Cartão
               </Button>

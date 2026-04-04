@@ -18,6 +18,7 @@ import {
   Trophy,
   ChevronLeft,
   ChevronRight,
+  Wallet,
 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { useLearningModeStore } from '../../store/useLearningModeStore'
@@ -27,7 +28,7 @@ import { LearningTooltipMenu } from '../ui/LearningTooltip'
 import { learningContent } from '../../lib/learningContent'
 import { FamilySwitcher } from '../ui/FamilySwitcher'
 import { useAssistenteIA } from '../../hooks/useAssistenteIA'
-import { usePocksAccess } from '../../hooks/usePocksAccess'
+import { usePlan } from '../../hooks/usePlan'
 
 interface NavItem {
   name: string
@@ -49,6 +50,9 @@ const navItems: NavItem[] = [
   { name: 'Assinaturas', path: '/app/assinaturas', icon: Repeat, learningKey: 'menuAssinaturas' },
   { name: 'Família', path: '/app/familia', icon: Users, learningKey: 'menuFamilia' },
   { name: 'Configurações', path: '/app/configuracoes', icon: Settings, learningKey: 'menuConfiguracoes' },
+  { name: 'Pocks', path: '/app/pocks', icon: Trophy },
+  { name: 'Assistente IA', path: '/app/assistente', icon: Bot },
+  { name: 'Assinatura', path: '/app/assinatura', icon: Wallet },
 ]
 
 interface SidebarProps {
@@ -65,17 +69,20 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
   const isLearningMode = useLearningModeStore((state) => state.isEnabled)
   const toggleLearningMode = useLearningModeStore((state) => state.toggleLearningMode)
   const prefsName = useUserPreferencesStore((state) => state.nome)
-  const { hasAccess: hasAssistenteAccess, mensagensProativasNaoLidas } = useAssistenteIA()
-  const { hasAccess: hasPocksAccess } = usePocksAccess()
+  const { mensagensProativasNaoLidas } = useAssistenteIA()
+  const { tier } = usePlan()
 
   const userName = userProfile?.full_name || prefsName
   const userAvatar = userProfile?.avatar_url || null
 
-  const planLabel = subscription?.status === 'active'
-    ? (subscription.plan === 'annual' ? 'Plano Anual' : 'Plano Mensal')
-    : subscription?.status === 'trial'
-      ? 'Trial Gratuito'
-      : 'Plano Free'
+  const planLabel = (() => {
+    if (subscription?.status === 'trial') return 'Explorador (Trial)'
+    if (subscription?.status === 'active') {
+      if (tier === 'mestre') return 'Mestre'
+      return 'Planejador'
+    }
+    return 'Explorador'
+  })()
 
   const handleLogout = async () => {
     try {
@@ -118,6 +125,32 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
             const isActive = location.pathname === item.path
             const content = item.learningKey ? learningContent[item.learningKey] : null
 
+            const isAssistente = item.path === '/app/assistente'
+            const isPocks = item.path === '/app/pocks'
+
+            const iconNode = isAssistente ? (
+              <div className="relative shrink-0">
+                <Icon className="w-5 h-5" />
+                {mensagensProativasNaoLidas > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-amber-500 rounded-full text-[9px] font-bold text-dark-900 flex items-center justify-center leading-none">
+                    {mensagensProativasNaoLidas > 9 ? '9+' : mensagensProativasNaoLidas}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <Icon className="w-5 h-5 shrink-0" />
+            )
+
+            const labelNode = !isCollapsed && (
+              <span className="font-medium">{item.name}</span>
+            )
+
+            const badgeNode = !isCollapsed && (isPocks || isAssistente) && (
+              <span className="ml-auto text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-secondary-500/20 text-secondary-400">
+                {tier === 'mestre' ? '' : 'Pro'}
+              </span>
+            )
+
             const linkElement = (
               <Link
                 to={item.path}
@@ -131,8 +164,9 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
                     : 'text-gray-400 hover:bg-dark-800 hover:text-gray-200'
                 )}
               >
-                <Icon className="w-5 h-5 shrink-0" />
-                {!isCollapsed && <span className="font-medium">{item.name}</span>}
+                {iconNode}
+                {labelNode}
+                {badgeNode}
               </Link>
             )
 
@@ -149,71 +183,6 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
             )
           })}
 
-          {/* Item Pocks — visível apenas para usuários com acesso */}
-          {hasPocksAccess && (
-            <li>
-              <Link
-                to="/app/pocks"
-                onClick={onClose}
-                title={isCollapsed ? 'Pocks' : undefined}
-                className={cn(
-                  'flex items-center rounded-lg transition-all duration-200',
-                  isCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3',
-                  location.pathname === '/app/pocks'
-                    ? 'bg-secondary-500/10 text-secondary-400 shadow-lg shadow-secondary-500/20'
-                    : 'text-gray-400 hover:bg-dark-800 hover:text-gray-200'
-                )}
-              >
-                <Trophy className="w-5 h-5 shrink-0" />
-                {!isCollapsed && (
-                  <>
-                    <span className="font-medium">Pocks</span>
-                    <span className="ml-auto text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-secondary-500/20 text-secondary-400">
-                      Beta
-                    </span>
-                  </>
-                )}
-              </Link>
-            </li>
-          )}
-
-          {/* Item do Assistente Financeiro — visível apenas para usuários com acesso */}
-          {hasAssistenteAccess && (
-            <li>
-              <Link
-                to="/app/assistente"
-                onClick={onClose}
-                title={isCollapsed ? 'Assistente IA' : undefined}
-                className={cn(
-                  'flex items-center rounded-lg transition-all duration-200',
-                  isCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3',
-                  location.pathname === '/app/assistente'
-                    ? 'bg-secondary-500/10 text-secondary-400 shadow-lg shadow-secondary-500/20'
-                    : 'text-gray-400 hover:bg-dark-800 hover:text-gray-200'
-                )}
-              >
-                {/* Ícone com badge numérica de proativas não lidas */}
-                <div className="relative shrink-0">
-                  <Bot className="w-5 h-5" />
-                  {mensagensProativasNaoLidas > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-amber-500 rounded-full text-[9px] font-bold text-dark-900 flex items-center justify-center leading-none">
-                      {mensagensProativasNaoLidas > 9 ? '9+' : mensagensProativasNaoLidas}
-                    </span>
-                  )}
-                </div>
-                {!isCollapsed && (
-                  <>
-                    <span className="font-medium">Assistente IA</span>
-                    {mensagensProativasNaoLidas === 0 && (
-                      <span className="ml-auto text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-secondary-500/20 text-secondary-400">
-                        Beta
-                      </span>
-                    )}
-                  </>
-                )}
-              </Link>
-            </li>
-          )}
         </ul>
       </nav>
 

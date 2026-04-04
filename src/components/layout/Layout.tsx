@@ -5,9 +5,11 @@ import { Sidebar } from './Sidebar'
 import { NotificationBell } from '../NotificationBell'
 import { OnboardingModal } from '../OnboardingModal'
 import { PushPermissionBanner } from '../PushPermissionBanner'
+import { TrialExpiredModal } from '../TrialExpiredModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { useUserPreferencesStore } from '../../store/useUserPreferencesStore'
-import { AlertTriangle } from 'lucide-react'
+import { usePlan } from '../../hooks/usePlan'
+import { AlertTriangle, Zap } from 'lucide-react'
 
 interface LayoutProps {
   children: ReactNode
@@ -27,25 +29,28 @@ export function Layout({ children }: LayoutProps) {
     })
   }
   const { user, subscription, daysUntilExpiration, userProfile } = useAuth()
+  const { tier, trialDaysLeft, isTrialExpired } = usePlan()
   const onboardingCompletedInStore = useUserPreferencesStore((s) => s.onboardingCompleted)
 
   // Onboarding é persistido por usuário em uma chave separada que não é apagada no logout.
-  // Isso garante que cada usuário veja o onboarding apenas na primeira vez que acessa o app,
-  // independente de quantas vezes sai e volta — padrão de mercado.
   const onboardingCompleted = user
     ? localStorage.getItem(`pw-onboarding-done-${user.id}`) === '1' || onboardingCompletedInStore
     : onboardingCompletedInStore
 
   const days = daysUntilExpiration()
   const isAdmin = userProfile?.role === 'admin'
+  const isTrial = subscription?.status === 'trial'
 
-  // Mostrar banner se: trial ou cancelamento pendente, e faltam 7 dias ou menos
-  const showWarning = !isAdmin && days >= 0 && days <= 7 && (
-    (subscription?.status === 'trial') ||
-    (subscription?.status === 'active' && subscription?.cancel_at_period_end)
+  // Banner trial: mostrar para todos os usuários Explorador em trial (não expirado)
+  const showTrialBanner = !isAdmin && isTrial && !isTrialExpired
+
+  // Banner de expiração de assinatura paga: faltam 7 dias ou menos
+  const showSubscriptionWarning = !isAdmin && !isTrial && days >= 0 && days <= 7 && (
+    subscription?.status === 'active' && subscription?.cancel_at_period_end
   )
 
-  const isTrial = subscription?.status === 'trial'
+  // Modal bloqueante ao expirar trial
+  const showTrialExpiredModal = !isAdmin && isTrial && isTrialExpired
 
   return (
     <div className="flex min-h-screen bg-dark-900">
@@ -102,40 +107,71 @@ export function Layout({ children }: LayoutProps) {
         </div>
 
         <div className="max-w-7xl mx-auto pt-14 lg:pt-0">
-          {/* Banner de aviso de expiração */}
-          {showWarning && (
-            <div className={`mb-6 rounded-lg p-3 flex items-center justify-between gap-3 ${
-              days <= 2
-                ? 'bg-red-500/10 border border-red-500/20'
-                : 'bg-yellow-500/10 border border-yellow-500/20'
-            }`}>
+          {/* Banner trial Explorador — exibido durante todo o período de trial */}
+          {showTrialBanner && (
+            <div className={cn(
+              'mb-6 rounded-lg p-3 flex items-center justify-between gap-3',
+              trialDaysLeft <= 3
+                ? 'bg-orange-500/10 border border-orange-500/20'
+                : 'bg-primary-500/10 border border-primary-500/20'
+            )}>
+              <div className="flex items-center gap-3 min-w-0">
+                {trialDaysLeft <= 3 ? (
+                  <AlertTriangle size={18} className="text-orange-400 shrink-0" />
+                ) : (
+                  <Zap size={18} className="text-primary-400 shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <p className={cn('text-sm', trialDaysLeft <= 3 ? 'text-orange-200' : 'text-primary-200')}>
+                    {trialDaysLeft === 0
+                      ? 'Seu período Explorador termina hoje!'
+                      : trialDaysLeft === 1
+                        ? 'Seu período Explorador termina amanhã!'
+                        : `Explorador: ${trialDaysLeft} dias restantes`}
+                    {trialDaysLeft <= 3 && ' — não perca seu progresso!'}
+                  </p>
+                  {/* Barra de progresso dos 14 dias */}
+                  <div className="mt-1.5 h-1 w-40 bg-dark-700 rounded-full overflow-hidden">
+                    <div
+                      className={cn('h-full rounded-full transition-all', trialDaysLeft <= 3 ? 'bg-orange-400' : 'bg-primary-400')}
+                      style={{ width: `${Math.max(0, ((14 - trialDaysLeft) / 14) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <Link
+                to="/app/assinatura"
+                className={cn(
+                  'text-sm font-medium whitespace-nowrap shrink-0',
+                  trialDaysLeft <= 3 ? 'text-orange-400 hover:text-orange-300' : 'text-primary-400 hover:text-primary-300'
+                )}
+              >
+                Assinar agora
+              </Link>
+            </div>
+          )}
+
+          {/* Banner de cancelamento pendente de assinatura paga */}
+          {showSubscriptionWarning && (
+            <div className={cn(
+              'mb-6 rounded-lg p-3 flex items-center justify-between gap-3',
+              days <= 2 ? 'bg-red-500/10 border border-red-500/20' : 'bg-yellow-500/10 border border-yellow-500/20'
+            )}>
               <div className="flex items-center gap-3">
                 <AlertTriangle size={18} className={days <= 2 ? 'text-red-400' : 'text-yellow-400'} />
-                <p className={`text-sm ${days <= 2 ? 'text-red-200' : 'text-yellow-200'}`}>
-                  {isTrial ? (
-                    days === 0
-                      ? 'Seu teste gratuito termina hoje!'
-                      : days === 1
-                        ? 'Seu teste gratuito termina amanhã!'
-                        : `Seu teste gratuito termina em ${days} dias.`
-                  ) : (
-                    days === 0
-                      ? 'Sua assinatura expira hoje!'
-                      : days === 1
-                        ? 'Sua assinatura expira amanhã!'
-                        : `Sua assinatura expira em ${days} dias.`
-                  )}
+                <p className={cn('text-sm', days <= 2 ? 'text-red-200' : 'text-yellow-200')}>
+                  {days === 0
+                    ? 'Sua assinatura expira hoje!'
+                    : days === 1
+                      ? 'Sua assinatura expira amanhã!'
+                      : `Sua assinatura expira em ${days} dias.`}
                 </p>
               </div>
               <Link
-                to={isTrial ? '/app/assinar' : '/app/configuracoes'}
-                className={`text-sm font-medium whitespace-nowrap ${
-                  days <= 2
-                    ? 'text-red-400 hover:text-red-300'
-                    : 'text-yellow-400 hover:text-yellow-300'
-                }`}
+                to="/app/assinatura"
+                className={cn('text-sm font-medium whitespace-nowrap', days <= 2 ? 'text-red-400 hover:text-red-300' : 'text-yellow-400 hover:text-yellow-300')}
               >
-                {isTrial ? 'Assinar agora' : 'Ver detalhes'}
+                Ver planos
               </Link>
             </div>
           )}
@@ -146,6 +182,9 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Onboarding de primeiro acesso */}
       {!onboardingCompleted && <OnboardingModal />}
+
+      {/* Modal bloqueante quando trial expira */}
+      {showTrialExpiredModal && <TrialExpiredModal />}
 
       {/* Banner de permissão push — aparece após 3 visitas, de forma não intrusiva */}
       <PushPermissionBanner />

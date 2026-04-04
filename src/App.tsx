@@ -30,6 +30,7 @@ import {
   Pocks,
 } from './pages'
 import { Caixinhas } from './pages/Caixinhas'
+import { Assinatura } from './pages/Assinatura'
 import { AcceptInvite } from './pages/AcceptInvite'
 import { useCategoriasStore, useTransacoesStore, useCartoesStore, useAssinaturasStore } from './store'
 import { useFamilyStore } from './store/useFamilyStore'
@@ -399,6 +400,16 @@ function AppRoutes() {
               <PrivateRoute>
                 <Layout>
                   <Pocks />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/assinatura"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Assinatura />
                 </Layout>
               </PrivateRoute>
             }
