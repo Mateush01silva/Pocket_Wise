@@ -34,6 +34,7 @@ import { Assinatura } from './pages/Assinatura'
 import { AcceptInvite } from './pages/AcceptInvite'
 import { useCategoriasStore, useTransacoesStore, useCartoesStore, useAssinaturasStore } from './store'
 import { useFamilyStore } from './store/useFamilyStore'
+import { useCaixinhasStore } from './store/useCaixinhasStore'
 import { isSupabaseConfigured } from './lib/supabase'
 
 function AppRoutes() {
@@ -49,6 +50,7 @@ function AppRoutes() {
   const initializeFamily = useFamilyStore((state) => state.initialize)
   const resetFamily = useFamilyStore((state) => state.reset)
   const initializeAssinaturas = useAssinaturasStore((state) => state.initialize)
+  const initializeCaixinhas = useCaixinhasStore((state) => state.initialize)
 
   useEffect(() => {
     isMounted.current = true
@@ -125,6 +127,14 @@ function AppRoutes() {
         if (!isMounted.current) return
 
         console.log('✅ Assinaturas inicializadas')
+
+        console.log('🏦 Inicializando caixinhas...')
+        await initializeCaixinhas()
+
+        // Check if still mounted before updating state
+        if (!isMounted.current) return
+
+        console.log('✅ Caixinhas inicializadas')
 
         console.log('🎉 PocketWise inicializado com sucesso!')
 
