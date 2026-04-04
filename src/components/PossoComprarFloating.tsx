@@ -183,7 +183,7 @@ export function PossoComprarFloating() {
           <div
             className={cn(
               'bg-dark-900 border border-dark-700 rounded-xl shadow-xl',
-              'w-full max-w-md',
+              'w-full max-w-md max-h-[90vh] overflow-y-auto',
               'animate-in fade-in zoom-in-95 duration-200'
             )}
             onClick={(e) => e.stopPropagation()}
