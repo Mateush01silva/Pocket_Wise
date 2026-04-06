@@ -44,6 +44,7 @@ export function BudgetPlanningModal({
   // Caixinhas para mostrar retiradas destinadas a este mês
   const caixinhas = useCaixinhasStore((state) => state.caixinhas)
   const transacoesCaixinhas = useCaixinhasStore((state) => state.transacoes)
+  const deleteTransacaoCaixinha = useCaixinhasStore((state) => state.deleteTransacao)
 
   // Lançamentos para sugestão de receitas pendentes
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
@@ -428,9 +429,9 @@ export function BudgetPlanningModal({
                     Receitas de Caixinhas ({retiradasCaixinhas.length})
                   </h4>
                   <div className="space-y-2">
-                    {retiradasCaixinhas.map((retirada, index) => (
+                    {retiradasCaixinhas.map((retirada) => (
                       <div
-                        key={`${retirada.caixinha_id}-${index}`}
+                        key={retirada.id}
                         className="flex items-center gap-3 p-2 bg-primary-500/5 border border-primary-500/30 rounded-lg"
                       >
                         <span className="text-lg">{retirada.caixinha_icone || '💰'}</span>
@@ -440,6 +441,16 @@ export function BudgetPlanningModal({
                         <span className="text-sm font-semibold text-primary-400">
                           {formatCurrency(retirada.valor)}
                         </span>
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`Remover aporte de ${formatCurrency(retirada.valor)} da ${retirada.caixinha_nome} deste orçamento? O valor voltará para a caixinha.`)) return
+                            await deleteTransacaoCaixinha(retirada.id, retirada.caixinha_id)
+                          }}
+                          className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                          title="Remover do orçamento"
+                        >
+                          <X size={14} />
+                        </button>
                       </div>
                     ))}
                   </div>

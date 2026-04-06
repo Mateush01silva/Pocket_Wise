@@ -258,6 +258,7 @@ export function calcularSaldoAcumuladoNaoAlocado(
  * Interface para retiradas de caixinhas destinadas a um mês específico
  */
 export interface RetiradaCaixinhaParaOrcamento {
+  id: string
   caixinha_id: string
   caixinha_nome: string
   caixinha_icone: string | null
@@ -290,6 +291,7 @@ export function getRetiradasCaixinhasParaMes(
   const retiradas: RetiradaCaixinhaParaOrcamento[] = retiradasDoMes.map((t) => {
     const caixinha = caixinhas.find((c) => c.id === t.caixinha_id)
     return {
+      id: t.id,
       caixinha_id: t.caixinha_id,
       caixinha_nome: caixinha?.nome || 'Caixinha',
       caixinha_icone: caixinha?.icone || null,
