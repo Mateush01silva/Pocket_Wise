@@ -67,6 +67,18 @@ export function BudgetPlanningModal({
     return mesReferencia.substring(0, 7)
   }, [mesReferencia])
 
+  // Sincronizar dismissed com localStorage ao abrir o modal (por mês)
+  useEffect(() => {
+    const key = `budget-receitas-dismissed-${mesReferenciaFormatado}`
+    setSugestaoReceitasDismissed(localStorage.getItem(key) === 'true')
+  }, [isOpen, mesReferenciaFormatado])
+
+  const dismissSugestao = () => {
+    const key = `budget-receitas-dismissed-${mesReferenciaFormatado}`
+    localStorage.setItem(key, 'true')
+    setSugestaoReceitasDismissed(true)
+  }
+
   // Calcular retiradas de caixinhas destinadas a este mês
   const { retiradas: retiradasCaixinhas, totalRetiradas: totalRetiradasCaixinhas } = useMemo(() => {
     const todasTransacoes = Object.values(transacoesCaixinhas).flat()
@@ -117,7 +129,7 @@ export function BudgetPlanningModal({
     })
 
     setCategoriasReceitaSelecionadas(novasSelecionadas)
-    setSugestaoReceitasDismissed(true)
+    dismissSugestao()
   }
 
   // Filtrar categorias de receita principais
@@ -351,7 +363,7 @@ export function BudgetPlanningModal({
                     </Button>
                     <button
                       type="button"
-                      onClick={() => setSugestaoReceitasDismissed(true)}
+                      onClick={dismissSugestao}
                       className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
                     >
                       <X size={14} />
