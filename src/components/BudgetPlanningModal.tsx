@@ -59,6 +59,14 @@ export function BudgetPlanningModal({
   const [filtroDespesa, setFiltroDespesa] = useState('')
   const [sugestaoReceitasDismissed, setSugestaoReceitasDismissed] = useState(false)
 
+  const isEditMode = !!orcamento
+
+  // Converter mesReferencia para YYYY-MM
+  const mesReferenciaFormatado = useMemo(() => {
+    // mesReferencia pode vir como YYYY-MM-DD ou YYYY-MM
+    return mesReferencia.substring(0, 7)
+  }, [mesReferencia])
+
   // Sincronizar dismissed com localStorage ao abrir o modal (por mês)
   useEffect(() => {
     const key = `budget-receitas-dismissed-${mesReferenciaFormatado}`
@@ -70,14 +78,6 @@ export function BudgetPlanningModal({
     localStorage.setItem(key, 'true')
     setSugestaoReceitasDismissed(true)
   }
-
-  const isEditMode = !!orcamento
-
-  // Converter mesReferencia para YYYY-MM
-  const mesReferenciaFormatado = useMemo(() => {
-    // mesReferencia pode vir como YYYY-MM-DD ou YYYY-MM
-    return mesReferencia.substring(0, 7)
-  }, [mesReferencia])
 
   // Calcular retiradas de caixinhas destinadas a este mês
   const { retiradas: retiradasCaixinhas, totalRetiradas: totalRetiradasCaixinhas } = useMemo(() => {
