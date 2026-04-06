@@ -45,6 +45,17 @@ export function BudgetPlanningModal({
   const caixinhas = useCaixinhasStore((state) => state.caixinhas)
   const transacoesCaixinhas = useCaixinhasStore((state) => state.transacoes)
   const deleteTransacaoCaixinha = useCaixinhasStore((state) => state.deleteTransacao)
+  const fetchTransacoesCaixinha = useCaixinhasStore((state) => state.fetchTransacoes)
+
+  // Garantir que as transações de todas as caixinhas estejam carregadas ao abrir o modal
+  useEffect(() => {
+    if (!isOpen || caixinhas.length === 0) return
+    caixinhas.forEach((c) => {
+      if (!transacoesCaixinhas[c.id]) {
+        fetchTransacoesCaixinha(c.id)
+      }
+    })
+  }, [isOpen, caixinhas, fetchTransacoesCaixinha])
 
   // Lançamentos para sugestão de receitas pendentes
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
