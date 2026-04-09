@@ -5,6 +5,10 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { supabase } from '../lib/supabase'
+
+// Untyped alias for tables not yet in Database type definition
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as any
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from 'sonner'
 
@@ -66,8 +70,7 @@ export function Suporte() {
         user_id: user?.id ?? null,
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('support_tickets').insert(payload)
+      const { error } = await db.from('support_tickets').insert(payload)
       if (error) throw error
       setSuccess(true)
     } catch (err) {
