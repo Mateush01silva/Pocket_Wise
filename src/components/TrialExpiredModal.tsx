@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Lock, Zap, Crown, Check, Loader2 } from 'lucide-react'
+import { Lock, Zap, Crown, Check, Loader2, LogOut } from 'lucide-react'
 import { Button } from './ui/Button'
 import { createCheckout, openPaymentWindow, redirectToPayment } from '../services/paymentService'
 import { useAuth } from '../contexts/AuthContext'
@@ -37,7 +37,7 @@ const PLANS = [
 
 export function TrialExpiredModal() {
   const navigate = useNavigate()
-  const { refreshSubscription } = useAuth()
+  const { refreshSubscription, signOut } = useAuth()
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [cpf, setCpf] = useState('')
   const [showCpfInput, setShowCpfInput] = useState(false)
@@ -90,6 +90,11 @@ export function TrialExpiredModal() {
 
   const handleViewAllPlans = () => {
     navigate('/app/assinatura')
+  }
+
+  const handleSignOut = async () => {
+    await signOut()
+    navigate('/login', { replace: true })
   }
 
   return (
@@ -151,13 +156,22 @@ export function TrialExpiredModal() {
               ))}
             </div>
 
-            <div className="text-center">
+            <div className="text-center space-y-3">
               <button
                 onClick={handleViewAllPlans}
                 className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
               >
                 Ver todos os planos (incluindo anuais com desconto)
               </button>
+              <div>
+                <button
+                  onClick={handleSignOut}
+                  className="inline-flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-400 transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Sair / Trocar conta
+                </button>
+              </div>
             </div>
           </>
         ) : (

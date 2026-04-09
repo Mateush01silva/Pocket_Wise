@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '../components/ui'
-import { Check, TrendingUp, Loader2, X } from 'lucide-react'
+import { Check, Loader2, X, Zap, Crown, TrendingUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { createCheckout, openPaymentWindow, redirectToPayment } from '../services/paymentService'
 import type { PlanType } from '../services/paymentService'
 import { toast } from 'sonner'
 import { useAuth } from '../contexts/AuthContext'
+
+type BillingCycle = 'mensal' | 'anual'
 
 function formatCpfCnpj(value: string): string {
   const digits = value.replace(/\D/g, '')
@@ -27,15 +29,32 @@ function isValidCpfCnpj(value: string): boolean {
   return digits.length === 11 || digits.length === 14
 }
 
+function getPlanLabel(plan: PlanType): string {
+  if (plan.startsWith('planejador')) return 'Planejador'
+  return 'Mestre'
+}
+
+function getPlanPriceLabel(plan: PlanType): string {
+  if (plan === 'planejador_monthly') return 'Mensal • R$ 12,90/mês'
+  if (plan === 'planejador_annual') return 'Anual • R$ 119,90/ano'
+  if (plan === 'mestre_monthly') return 'Mensal • R$ 18,90/mês'
+  if (plan === 'mestre_annual') return 'Anual • R$ 175,90/ano'
+  return ''
+}
+
 export function Paywall() {
   const navigate = useNavigate()
-  const { refreshSubscription } = useAuth()
+  const { refreshSubscription, signOut } = useAuth()
+  const [ciclo, setCiclo] = useState<BillingCycle>('mensal')
   const [loadingPlan, setLoadingPlan] = useState<PlanType | null>(null)
   const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null)
   const [cpfCnpj, setCpfCnpj] = useState('')
   const [waitingPayment, setWaitingPayment] = useState(false)
   const [paymentLink, setPaymentLink] = useState<string | null>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const planejadorId: PlanType = ciclo === 'anual' ? 'planejador_annual' : 'planejador_monthly'
+  const mestreId: PlanType = ciclo === 'anual' ? 'mestre_annual' : 'mestre_monthly'
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
@@ -44,7 +63,6 @@ export function Paywall() {
     }
   }, [])
 
-  // Polling: verifica a cada 5s se o pagamento foi confirmado pelo webhook
   const startPolling = useCallback(() => {
     stopPolling()
     setWaitingPayment(true)
@@ -64,12 +82,10 @@ export function Paywall() {
     }, 5000)
   }, [refreshSubscription, stopPolling, navigate])
 
-  // Limpar polling ao desmontar o componente
   useEffect(() => {
     return () => stopPolling()
   }, [stopPolling])
 
-  // Quando o usuário volta para a aba, faz uma verificação imediata
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible' && waitingPayment) {
@@ -117,7 +133,6 @@ export function Paywall() {
 
     setLoadingPlan(selectedPlan)
 
-    // Abrir janela ANTES do await para evitar bloqueio de popup do navegador
     const paymentWindow = openPaymentWindow()
 
     try {
@@ -147,46 +162,101 @@ export function Paywall() {
     }
   }
 
+  const handleSignOut = async () => {
+    await signOut()
+    navigate('/login', { replace: true })
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-dark-900 via-dark-800 to-dark-900 flex items-center justify-center p-4">
       <div className="max-w-4xl w-full">
         {/* Header */}
-        <div className="text-center mb-12">
-          <div className="flex items-center justify-center gap-2 mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-9 h-9 text-white" />
+        <div className="flex items-center justify-between mb-10">
+          <a href="/" className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-white" />
             </div>
-          </div>
-          <h1 className="text-4xl font-bold text-gray-100 mb-4">
+            <span className="text-gray-200 font-semibold text-sm hidden sm:block">PocketWise</span>
+          </a>
+          <button
+            onClick={handleSignOut}
+            className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            Sair / Trocar conta
+          </button>
+        </div>
+
+        {/* Title */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-100 mb-2">
             Seu período Explorador terminou
           </h1>
-          <p className="text-xl text-gray-400">
-            Continue no controle total das suas finanças
+          <p className="text-gray-400">
+            Escolha um plano para continuar no controle das suas finanças
           </p>
-          <a href="/app/assinatura" className="inline-block mt-4 text-sm text-primary-400 hover:text-primary-300 underline">
-            Ver todos os planos
-          </a>
+        </div>
+
+        {/* Toggle mensal/anual */}
+        <div className="flex items-center justify-center gap-4 mb-8">
+          <button
+            onClick={() => setCiclo('mensal')}
+            className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+              ciclo === 'mensal'
+                ? 'bg-secondary-500 text-white shadow-lg shadow-secondary-500/20'
+                : 'text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            Mensal
+          </button>
+          <button
+            onClick={() => setCiclo('anual')}
+            className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all ${
+              ciclo === 'anual'
+                ? 'bg-secondary-500 text-white shadow-lg shadow-secondary-500/20'
+                : 'text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            Anual
+            <span className="text-xs bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full font-semibold">
+              -23%
+            </span>
+          </button>
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-          {/* Plano Mensal */}
-          <div className="bg-dark-800/50 border border-dark-700 rounded-2xl p-8">
-            <h3 className="text-2xl font-bold text-gray-100 mb-2">Mensal</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          {/* Planejador */}
+          <div className="bg-dark-800/50 border border-dark-700 hover:border-secondary-500/50 transition-colors rounded-2xl p-8">
+            <div className="flex items-center gap-2 mb-3">
+              <Zap className="w-5 h-5 text-secondary-400" />
+              <h3 className="text-xl font-bold text-gray-100">Planejador</h3>
+            </div>
+
             <div className="mb-6">
-              <span className="text-5xl font-bold text-gray-100">R$ 12,90</span>
-              <span className="text-gray-400">/mês</span>
+              {ciclo === 'anual' ? (
+                <>
+                  <span className="text-4xl font-bold text-gray-100">R$9,90</span>
+                  <span className="text-gray-400 text-sm">/mês</span>
+                  <p className="text-xs text-green-400 mt-1">cobrado como R$119,90/ano</p>
+                </>
+              ) : (
+                <>
+                  <span className="text-4xl font-bold text-gray-100">R$12,90</span>
+                  <span className="text-gray-400 text-sm">/mês</span>
+                </>
+              )}
             </div>
 
             <ul className="space-y-3 mb-8">
               {[
-                'Cancele quando quiser',
-                'Todas as funcionalidades',
-                'Família completa incluída',
-                'Suporte prioritário',
+                'Tudo do Explorador sem limites',
+                'Fluxo de Caixa e Relatórios',
+                'Família / Multi-usuário',
+                'Transações, cartões e contas ilimitados',
+                'Envelopes ilimitados',
               ].map((item, i) => (
-                <li key={i} className="flex items-center gap-2 text-gray-300">
-                  <Check className="w-5 h-5 text-green-400" />
+                <li key={i} className="flex items-center gap-2 text-gray-300 text-sm">
+                  <Check className="w-4 h-4 text-secondary-400 shrink-0" />
                   {item}
                 </li>
               ))}
@@ -195,35 +265,52 @@ export function Paywall() {
             <Button
               className="w-full"
               size="lg"
-              onClick={() => handlePlanClick('monthly')}
+              onClick={() => handlePlanClick(planejadorId)}
               disabled={loadingPlan !== null}
             >
-              Assinar Mensal
+              Assinar Planejador
             </Button>
           </div>
 
-          {/* Plano Anual */}
-          <div className="bg-gradient-to-br from-primary-500/10 to-secondary-500/10 border-2 border-primary-500 rounded-2xl p-8 relative">
-            <div className="absolute -top-4 right-8 bg-gradient-to-r from-primary-500 to-secondary-500 text-white px-4 py-1 rounded-full text-sm font-semibold">
-              Mais Popular
+          {/* Mestre */}
+          <div className="relative bg-gradient-to-br from-dark-800/80 to-dark-800/50 border-2 border-emerald-500/60 rounded-2xl p-8">
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-4 py-1 rounded-full text-sm font-semibold whitespace-nowrap">
+              Recomendado
             </div>
 
-            <h3 className="text-2xl font-bold text-gray-100 mb-2">Anual</h3>
-            <div className="mb-2">
-              <span className="text-5xl font-bold text-gray-100">R$ 119,90</span>
-              <span className="text-gray-400">/ano</span>
+            <div className="flex items-center gap-2 mb-3">
+              <Crown className="w-5 h-5 text-emerald-400" />
+              <h3 className="text-xl font-bold text-gray-100">Mestre</h3>
+              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-semibold ml-auto">
+                IA + Pocks
+              </span>
             </div>
-            <p className="text-sm text-green-400 mb-6">Economize R$ 34,90 • R$ 9,99/mês</p>
+
+            <div className="mb-6">
+              {ciclo === 'anual' ? (
+                <>
+                  <span className="text-4xl font-bold text-gray-100">R$14,66</span>
+                  <span className="text-gray-400 text-sm">/mês</span>
+                  <p className="text-xs text-green-400 mt-1">cobrado como R$175,90/ano</p>
+                </>
+              ) : (
+                <>
+                  <span className="text-4xl font-bold text-gray-100">R$18,90</span>
+                  <span className="text-gray-400 text-sm">/mês</span>
+                </>
+              )}
+            </div>
 
             <ul className="space-y-3 mb-8">
               {[
-                '2 meses grátis',
-                'Todas as funcionalidades',
-                'Família completa incluída',
-                'Suporte prioritário',
+                'Tudo do Planejador',
+                'Pocks — Score de Saúde Financeira',
+                'Assistente Financeiro IA',
+                'Posso Comprar? com IA',
+                'Créditos mensais de IA',
               ].map((item, i) => (
-                <li key={i} className="flex items-center gap-2 text-gray-300">
-                  <Check className="w-5 h-5 text-green-400" />
+                <li key={i} className="flex items-center gap-2 text-gray-300 text-sm">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                   {item}
                 </li>
               ))}
@@ -232,10 +319,11 @@ export function Paywall() {
             <Button
               className="w-full"
               size="lg"
-              onClick={() => handlePlanClick('annual')}
+              onClick={() => handlePlanClick(mestreId)}
               disabled={loadingPlan !== null}
+              style={{ background: 'linear-gradient(135deg, #10b981, #0d9488)' }}
             >
-              Assinar Anual
+              Assinar Mestre
             </Button>
           </div>
         </div>
@@ -279,20 +367,14 @@ export function Paywall() {
           </div>
         )}
 
-        {/* FAQ Mini */}
+        {/* Footer */}
         <div className="bg-dark-800/30 border border-dark-700 rounded-xl p-6 text-center">
-          <p className="text-gray-400 mb-4">
+          <p className="text-gray-400 mb-2">
             Pagamento 100% seguro via Asaas • Cancele quando quiser
           </p>
-          <p className="text-xs text-gray-500 mb-4">
+          <p className="text-xs text-gray-500">
             Pagamento via Cartão de Crédito com cobrança automática
           </p>
-          <button
-            onClick={() => navigate('/app')}
-            className="text-sm text-gray-500 hover:text-gray-400 transition-colors"
-          >
-            Voltar para o app (apenas leitura)
-          </button>
         </div>
       </div>
 
@@ -312,7 +394,7 @@ export function Paywall() {
               Confirmar assinatura
             </h3>
             <p className="text-gray-400 mb-6">
-              Plano {selectedPlan === 'monthly' ? 'Mensal • R$ 12,90/mês' : 'Anual • R$ 119,90/ano'}
+              {getPlanLabel(selectedPlan)} • {getPlanPriceLabel(selectedPlan)}
             </p>
 
             <label htmlFor="cpfCnpj" className="block text-sm font-medium text-gray-300 mb-2">
