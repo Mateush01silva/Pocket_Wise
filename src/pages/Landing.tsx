@@ -100,9 +100,9 @@ export function Landing() {
           </div>
 
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/suporte')} className="hidden sm:flex items-center gap-1.5">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/suporte')} className="flex items-center">
               <Headphones className="w-4 h-4" />
-              Suporte
+              <span className="hidden sm:inline ml-1.5">Suporte</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>
               Entrar

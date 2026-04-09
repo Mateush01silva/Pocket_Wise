@@ -30,6 +30,7 @@ import {
   Pocks,
   Suporte,
   AdminSuporte,
+  AdminUsuarios,
 } from './pages'
 import { Caixinhas } from './pages/Caixinhas'
 import { Assinatura } from './pages/Assinatura'
@@ -435,6 +436,18 @@ function AppRoutes() {
                 <AdminRoute>
                   <Layout>
                     <AdminSuporte />
+                  </Layout>
+                </AdminRoute>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/admin/usuarios"
+            element={
+              <PrivateRoute>
+                <AdminRoute>
+                  <Layout>
+                    <AdminUsuarios />
                   </Layout>
                 </AdminRoute>
               </PrivateRoute>

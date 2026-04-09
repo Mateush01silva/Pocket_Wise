@@ -216,6 +216,30 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
                   )}
                 </Link>
               </li>
+              <li>
+                <Link
+                  to="/app/admin/usuarios"
+                  onClick={onClose}
+                  title={isCollapsed ? 'Admin — Usuários' : undefined}
+                  className={[
+                    'flex items-center rounded-lg transition-all duration-200',
+                    isCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3',
+                    location.pathname === '/app/admin/usuarios'
+                      ? 'bg-secondary-500/10 text-secondary-400 shadow-lg shadow-secondary-500/20'
+                      : 'text-gray-400 hover:bg-dark-800 hover:text-gray-200',
+                  ].join(' ')}
+                >
+                  <Users className="w-5 h-5 shrink-0" />
+                  {!isCollapsed && (
+                    <>
+                      <span className="font-medium">Admin — Usuários</span>
+                      <span className="ml-auto text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-secondary-500/20 text-secondary-400">
+                        Admin
+                      </span>
+                    </>
+                  )}
+                </Link>
+              </li>
             </>
           )}
 
