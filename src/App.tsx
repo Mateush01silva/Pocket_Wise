@@ -28,10 +28,13 @@ import {
   Settings,
   Assistente,
   Pocks,
+  Suporte,
+  AdminSuporte,
 } from './pages'
 import { Caixinhas } from './pages/Caixinhas'
 import { Assinatura } from './pages/Assinatura'
 import { AcceptInvite } from './pages/AcceptInvite'
+import { AdminRoute } from './components/AdminRoute'
 import { useCategoriasStore, useTransacoesStore, useCartoesStore, useAssinaturasStore } from './store'
 import { useFamilyStore } from './store/useFamilyStore'
 import { useCaixinhasStore } from './store/useCaixinhasStore'
@@ -266,6 +269,7 @@ function AppRoutes() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/convite/:token" element={<AcceptInvite />} />
           <Route path="/app/assinar" element={<Paywall />} />
+          <Route path="/suporte" element={<Suporte />} />
 
           {/* Private routes */}
           <Route
@@ -421,6 +425,18 @@ function AppRoutes() {
                 <Layout>
                   <Assinatura />
                 </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/admin/suporte"
+            element={
+              <PrivateRoute>
+                <AdminRoute>
+                  <Layout>
+                    <AdminSuporte />
+                  </Layout>
+                </AdminRoute>
               </PrivateRoute>
             }
           />

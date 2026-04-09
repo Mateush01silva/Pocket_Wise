@@ -23,6 +23,7 @@ import {
   Sparkles,
   Wallet,
   ArrowUpRight,
+  Headphones,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { usePlan } from '../hooks/usePlan'
@@ -1013,6 +1014,26 @@ export function Settings() {
               Retomar Tour de Configuração
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Suporte */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Headphones size={20} className="text-primary-400" />
+            Suporte
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-gray-400">
+            Está com alguma dúvida ou problema? Nossa equipe está aqui para ajudar.
+          </p>
+          <Link to="/suporte">
+            <Button variant="secondary" className="w-full sm:w-auto">
+              Abrir chamado de suporte
+            </Button>
+          </Link>
         </CardContent>
       </Card>
 
