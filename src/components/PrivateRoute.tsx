@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -15,21 +16,33 @@ const Spinner = () => (
 )
 
 export function PrivateRoute({ children }: PrivateRouteProps) {
-  const { user, loading, hasAccess, subscription } = useAuth()
+  const { user, loading, hasAccess, subscription, userProfile } = useAuth()
+  const [timedOut, setTimedOut] = useState(false)
+
+  useEffect(() => {
+    // Sempre reseta ao mudar dependências
+    setTimedOut(false)
+
+    // Se auth finalizou, há usuário, mas subscription não carregou,
+    // aguarda até 5s (race condition de login) — depois redireciona para paywall
+    if (!loading && user && !subscription) {
+      const timer = setTimeout(() => setTimedOut(true), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [loading, user, subscription])
 
   if (loading) return <Spinner />
+  if (!user) return <Navigate to="/login" replace />
 
-  if (!user) {
-    return <Navigate to="/login" replace />
-  }
+  // Admin não precisa de validação de assinatura
+  if (userProfile?.role === 'admin') return <>{children}</>
 
-  // Usuário autenticado mas subscription ainda não carregou (race condition
-  // entre onAuthStateChange e fetchSubscription após login) — aguardar.
-  if (!subscription) return <Spinner />
+  // Aguarda subscription carregar (race condition breve após login)
+  // Mas se o timeout expirou, para de esperar e vai para o paywall
+  if (!subscription && !timedOut) return <Spinner />
 
-  if (!hasAccess()) {
-    return <Navigate to="/app/assinar" replace />
-  }
+  // Sem assinatura (fetch falhou ou expirado) ou sem acesso → paywall
+  if (!subscription || !hasAccess()) return <Navigate to="/app/assinar" replace />
 
   return <>{children}</>
 }
