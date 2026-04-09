@@ -162,12 +162,17 @@ function UserCard({ user, onActionDone }: { user: UserRow; onActionDone: () => v
   const fetchPlano = async () => {
     if (!supabase) return
     setLoadingPlano(true)
-    const { data } = await db.from('plano_usuario')
-      .select('status, tier, plan_id, trial_ends_at, current_period_start, current_period_end, cancel_at_period_end')
-      .eq('user_id', user.id)
-      .single()
-    setPlano(data ?? null)
-    setLoadingPlano(false)
+    try {
+      const { data } = await db.from('plano_usuario')
+        .select('status, tier, plan_id, trial_ends_at, current_period_start, current_period_end, cancel_at_period_end')
+        .eq('user_id', user.id)
+        .single()
+      setPlano(data ?? null)
+    } catch (err) {
+      console.error('Erro ao buscar plano:', err)
+    } finally {
+      setLoadingPlano(false)
+    }
   }
 
   useEffect(() => { fetchPlano() }, [user.id])
