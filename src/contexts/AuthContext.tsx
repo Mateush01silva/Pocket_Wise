@@ -31,6 +31,7 @@ interface AuthContextType {
   user: User | null
   session: Session | null
   subscription: Subscription | null
+  subscriptionLoaded: boolean
   userProfile: UserProfile | null
   loading: boolean
   userFamilies: UserFamilyInfo[]
@@ -73,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [subscriptionLoaded, setSubscriptionLoaded] = useState(false)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [userFamilies, setUserFamilies] = useState<UserFamilyInfo[]>([])
@@ -130,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!session?.user) {
         setUserProfile(null)
         setSubscription(null)
+        setSubscriptionLoaded(false)
       }
     })
 
@@ -154,7 +157,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const fetchSubscription = async (userId: string): Promise<Subscription | null> => {
-    if (!supabase) return null
+    if (!supabase) {
+      setSubscriptionLoaded(true)
+      return null
+    }
 
     try {
       const { data, error } = await (supabase as any)
@@ -169,6 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Erro ao buscar assinatura:', error)
       return null
+    } finally {
+      setSubscriptionLoaded(true)
     }
   }
 
@@ -372,6 +380,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     session,
     subscription,
+    subscriptionLoaded,
     userProfile,
     loading,
     userFamilies,
