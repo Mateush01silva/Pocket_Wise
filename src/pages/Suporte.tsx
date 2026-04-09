@@ -54,17 +54,20 @@ export function Suporte() {
     setErrors({})
     setLoading(true)
     try {
-      const payload: Record<string, string | null> = {
+      if (!supabase) throw new Error('Supabase não configurado')
+
+      const payload = {
         nome: form.nome.trim(),
         email: form.email.trim(),
         telefone: form.telefone.trim() || null,
         categoria: form.categoria,
         descricao: form.descricao.trim(),
         status: 'aberto',
+        user_id: user?.id ?? null,
       }
-      if (user?.id) payload.user_id = user.id
 
-      const { error } = await supabase.from('support_tickets').insert(payload)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('support_tickets').insert(payload)
       if (error) throw error
       setSuccess(true)
     } catch (err) {
