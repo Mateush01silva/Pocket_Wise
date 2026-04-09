@@ -122,7 +122,7 @@ function TicketCard({
       if (!supabase) return
       const [{ data: u }, { data: s }] = await Promise.all([
         db.from('users').select('full_name, email, created_at').eq('id', ticket.user_id).single(),
-        db.from('subscriptions')
+        db.from('plano_usuario')
           .select('status, tier, trial_ends_at, plan')
           .eq('user_id', ticket.user_id)
           .order('created_at', { ascending: false })
