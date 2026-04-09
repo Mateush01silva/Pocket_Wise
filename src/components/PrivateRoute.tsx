@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -16,36 +15,23 @@ const Spinner = () => (
 )
 
 export function PrivateRoute({ children }: PrivateRouteProps) {
-  const { user, loading, hasAccess, subscription, userProfile } = useAuth()
-  const [timedOut, setTimedOut] = useState(false)
+  const { user, loading, hasAccess, subscription, subscriptionLoaded, userProfile } = useAuth()
 
-  useEffect(() => {
-    // Sempre reseta ao mudar dependências
-    setTimedOut(false)
-
-    // Se auth finalizou, há usuário, mas subscription não carregou,
-    // aguarda até 5s (race condition de login) — depois redireciona para paywall
-    if (!loading && user && !subscription) {
-      const timer = setTimeout(() => setTimedOut(true), 5000)
-      return () => clearTimeout(timer)
-    }
-  }, [loading, user, subscription])
-
+  // Auth ainda carregando (getSession ainda não terminou)
   if (loading) return <Spinner />
+
+  // Sem sessão → login
   if (!user) return <Navigate to="/login" replace />
 
-  // Admin não precisa de validação de assinatura
+  // Admin bypass — não precisa de assinatura
   if (userProfile?.role === 'admin') return <>{children}</>
 
-  // Aguarda subscription carregar (race condition breve após login)
-  // Mas se o timeout expirou, para de esperar
-  if (!subscription && !timedOut) return <Spinner />
+  // Aguarda fetchSubscription terminar (sucesso ou falha)
+  // subscriptionLoaded=true após qualquer tentativa, então o spinner
+  // só aparece por instantes — nunca infinitamente
+  if (!subscriptionLoaded) return <Spinner />
 
-  // Se tanto perfil quanto assinatura falharam após timeout, é problema de sessão
-  // (JWT expirado ou corrompido) — forçar novo login em vez de mostrar paywall
-  if (timedOut && !subscription && !userProfile) return <Navigate to="/login" replace />
-
-  // Sem assinatura (fetch falhou) ou sem acesso → paywall
+  // Sem assinatura ou sem acesso → paywall
   if (!subscription || !hasAccess()) return <Navigate to="/app/assinar" replace />
 
   return <>{children}</>
