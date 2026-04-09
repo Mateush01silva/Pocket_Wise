@@ -1,4 +1,4 @@
-import { CheckCircle, TrendingUp, PiggyBank, Bell, Users, ArrowRight, Check, Smartphone, ChevronDown, Download, BarChart3, DollarSign, Zap, Crown } from 'lucide-react'
+import { CheckCircle, TrendingUp, PiggyBank, Bell, Users, ArrowRight, Check, Smartphone, ChevronDown, Download, BarChart3, DollarSign, Zap, Crown, Headphones } from 'lucide-react'
 import { Button } from '../components/ui'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -100,6 +100,10 @@ export function Landing() {
           </div>
 
           <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/suporte')} className="hidden sm:flex items-center gap-1.5">
+              <Headphones className="w-4 h-4" />
+              Suporte
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>
               Entrar
             </Button>
