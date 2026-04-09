@@ -60,14 +60,13 @@ export function Suporte() {
         nome: form.nome.trim(),
         email: form.email.trim(),
         telefone: form.telefone.trim() || null,
-        categoria: form.categoria,
+        categoria: form.categoria as 'Assinatura' | 'Problema Técnico' | 'Dúvidas' | 'Outro',
         descricao: form.descricao.trim(),
-        status: 'aberto',
+        status: 'aberto' as const,
         user_id: user?.id ?? null,
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('support_tickets').insert(payload)
+      const { error } = await supabase.from('support_tickets').insert(payload)
       if (error) throw error
       setSuccess(true)
     } catch (err) {

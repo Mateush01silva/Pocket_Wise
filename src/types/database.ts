@@ -507,6 +507,41 @@ export interface Database {
           updated_at?: string
         }
       }
+      support_tickets: {
+        Row: {
+          id: string
+          nome: string
+          email: string
+          telefone: string | null
+          categoria: 'Assinatura' | 'Problema Técnico' | 'Dúvidas' | 'Outro'
+          descricao: string
+          status: 'aberto' | 'em_andamento' | 'resolvido'
+          user_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          nome: string
+          email: string
+          telefone?: string | null
+          categoria: 'Assinatura' | 'Problema Técnico' | 'Dúvidas' | 'Outro'
+          descricao: string
+          status?: 'aberto' | 'em_andamento' | 'resolvido'
+          user_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          nome?: string
+          email?: string
+          telefone?: string | null
+          categoria?: 'Assinatura' | 'Problema Técnico' | 'Dúvidas' | 'Outro'
+          descricao?: string
+          status?: 'aberto' | 'em_andamento' | 'resolvido'
+          user_id?: string | null
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

@@ -56,8 +56,7 @@ export function AdminSuporte() {
     setLoading(true)
     try {
       if (!supabase) throw new Error('Supabase não configurado')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('support_tickets')
         .select('*')
         .order('created_at', { ascending: false })
@@ -82,8 +81,7 @@ export function AdminSuporte() {
     setUpdatingId(ticket.id)
     try {
       if (!supabase) throw new Error('Supabase não configurado')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('support_tickets')
         .update({ status: next })
         .eq('id', ticket.id)
