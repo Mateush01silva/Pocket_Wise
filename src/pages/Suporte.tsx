@@ -5,6 +5,10 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { supabase } from '../lib/supabase'
+
+// Untyped alias for tables not yet in Database type definition
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as any
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from 'sonner'
 
@@ -60,13 +64,13 @@ export function Suporte() {
         nome: form.nome.trim(),
         email: form.email.trim(),
         telefone: form.telefone.trim() || null,
-        categoria: form.categoria as 'Assinatura' | 'Problema Técnico' | 'Dúvidas' | 'Outro',
+        categoria: form.categoria,
         descricao: form.descricao.trim(),
-        status: 'aberto' as const,
+        status: 'aberto',
         user_id: user?.id ?? null,
       }
 
-      const { error } = await supabase.from('support_tickets').insert(payload)
+      const { error } = await db.from('support_tickets').insert(payload)
       if (error) throw error
       setSuccess(true)
     } catch (err) {

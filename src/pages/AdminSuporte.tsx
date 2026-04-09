@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Headphones, RefreshCw, Filter } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+
+// Untyped alias for tables not yet in Database type definition
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as any
 import { Button } from '../components/ui/Button'
 import { Select } from '../components/ui/Select'
 import { toast } from 'sonner'
@@ -56,7 +60,7 @@ export function AdminSuporte() {
     setLoading(true)
     try {
       if (!supabase) throw new Error('Supabase não configurado')
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('support_tickets')
         .select('*')
         .order('created_at', { ascending: false })
@@ -81,7 +85,7 @@ export function AdminSuporte() {
     setUpdatingId(ticket.id)
     try {
       if (!supabase) throw new Error('Supabase não configurado')
-      const { error } = await supabase
+      const { error } = await db
         .from('support_tickets')
         .update({ status: next })
         .eq('id', ticket.id)
