@@ -516,6 +516,10 @@ export interface Database {
           categoria: 'Assinatura' | 'Problema Técnico' | 'Dúvidas' | 'Outro'
           descricao: string
           status: 'aberto' | 'em_andamento' | 'resolvido'
+          origem: string
+          prioridade: string
+          tags: string[]
+          admin_notes: string | null
           user_id: string | null
           created_at: string
         }
@@ -527,6 +531,10 @@ export interface Database {
           categoria: 'Assinatura' | 'Problema Técnico' | 'Dúvidas' | 'Outro'
           descricao: string
           status?: 'aberto' | 'em_andamento' | 'resolvido'
+          origem?: string
+          prioridade?: string
+          tags?: string[]
+          admin_notes?: string | null
           user_id?: string | null
           created_at?: string
         }
@@ -538,6 +546,10 @@ export interface Database {
           categoria?: 'Assinatura' | 'Problema Técnico' | 'Dúvidas' | 'Outro'
           descricao?: string
           status?: 'aberto' | 'em_andamento' | 'resolvido'
+          origem?: string
+          prioridade?: string
+          tags?: string[]
+          admin_notes?: string | null
           user_id?: string | null
           created_at?: string
         }

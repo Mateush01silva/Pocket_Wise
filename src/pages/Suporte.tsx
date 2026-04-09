@@ -1,16 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Headphones, ArrowLeft, CheckCircle, DollarSign, Loader2 } from 'lucide-react'
+import { Headphones, ArrowLeft, CheckCircle, DollarSign, Loader2, Lock, UserCircle } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { supabase } from '../lib/supabase'
-
-// Untyped alias for tables not yet in Database type definition
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from 'sonner'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as any
 
 const CATEGORIAS = ['Assinatura', 'Problema Técnico', 'Dúvidas', 'Outro'] as const
 
@@ -24,7 +23,11 @@ function formatTelefone(value: string) {
 
 export function Suporte() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, userProfile } = useAuth()
+
+  const isLoggedIn = !!user && !!userProfile
+  const [overrideIdentity, setOverrideIdentity] = useState(false)
+  const identityLocked = isLoggedIn && !overrideIdentity
 
   const [form, setForm] = useState({
     nome: '',
@@ -36,6 +39,17 @@ export function Suporte() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Pre-fill from profile when logged in
+  useEffect(() => {
+    if (isLoggedIn && !overrideIdentity) {
+      setForm(prev => ({
+        ...prev,
+        nome: userProfile.full_name ?? '',
+        email: userProfile.email ?? '',
+      }))
+    }
+  }, [isLoggedIn, overrideIdentity, userProfile?.full_name, userProfile?.email])
 
   const validate = () => {
     const e: Record<string, string> = {}
@@ -67,6 +81,7 @@ export function Suporte() {
         categoria: form.categoria,
         descricao: form.descricao.trim(),
         status: 'aberto',
+        origem: isLoggedIn ? 'app' : 'landing',
         user_id: user?.id ?? null,
       }
 
@@ -132,7 +147,8 @@ export function Suporte() {
               </div>
               <h2 className="text-2xl font-semibold text-gray-100 mb-2">Chamado enviado!</h2>
               <p className="text-gray-400 mb-6">
-                Recebemos sua mensagem e entraremos em contato pelo e-mail <strong className="text-gray-200">{form.email}</strong> em breve.
+                Recebemos sua mensagem e entraremos em contato pelo e-mail{' '}
+                <strong className="text-gray-200">{form.email}</strong> em breve.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button variant="secondary" onClick={() => navigate('/')}>
@@ -146,22 +162,51 @@ export function Suporte() {
               </div>
             </div>
           ) : (
-            /* Form */
             <form
               onSubmit={handleSubmit}
               className="bg-dark-800 border border-dark-600 rounded-2xl p-6 sm:p-8 space-y-5"
             >
+              {/* Identity banner when logged in */}
+              {identityLocked && (
+                <div className="flex items-center gap-3 bg-primary-500/10 border border-primary-500/20 rounded-lg px-4 py-3">
+                  <UserCircle className="w-4 h-4 text-primary-400 shrink-0" />
+                  <p className="text-sm text-gray-300 flex-1">
+                    Enviando como{' '}
+                    <strong className="text-gray-100">{userProfile.email}</strong>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOverrideIdentity(true)
+                      setForm(prev => ({ ...prev, nome: '', email: '' }))
+                    }}
+                    className="text-xs text-primary-400 hover:text-primary-300 transition-colors shrink-0 underline"
+                  >
+                    Usar outro e-mail
+                  </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1.5">
                     Nome completo <span className="text-red-400">*</span>
                   </label>
-                  <Input
-                    placeholder="Seu nome completo"
-                    value={form.nome}
-                    onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                    className={errors.nome ? 'border-red-500' : ''}
-                  />
+                  <div className="relative">
+                    <Input
+                      placeholder="Seu nome completo"
+                      value={form.nome}
+                      onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                      disabled={identityLocked}
+                      className={[
+                        errors.nome ? 'border-red-500' : '',
+                        identityLocked ? 'opacity-60 cursor-not-allowed pr-9' : '',
+                      ].join(' ')}
+                    />
+                    {identityLocked && (
+                      <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+                    )}
+                  </div>
                   {errors.nome && <p className="mt-1 text-xs text-red-400">{errors.nome}</p>}
                 </div>
 
@@ -169,13 +214,22 @@ export function Suporte() {
                   <label className="block text-sm font-medium text-gray-300 mb-1.5">
                     E-mail <span className="text-red-400">*</span>
                   </label>
-                  <Input
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    className={errors.email ? 'border-red-500' : ''}
-                  />
+                  <div className="relative">
+                    <Input
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      disabled={identityLocked}
+                      className={[
+                        errors.email ? 'border-red-500' : '',
+                        identityLocked ? 'opacity-60 cursor-not-allowed pr-9' : '',
+                      ].join(' ')}
+                    />
+                    {identityLocked && (
+                      <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+                    )}
+                  </div>
                   {errors.email && <p className="mt-1 text-xs text-red-400">{errors.email}</p>}
                 </div>
               </div>
