@@ -99,9 +99,9 @@ function planPayload(action: PlanAction) {
 
   switch (action) {
     case 'mestre':
-      return { status: 'active', tier: 'mestre', plan_id: 'mestre_manual', current_period_start: now.toISOString(), current_period_end: farFuture, cancel_at_period_end: false, trial_ends_at: null }
+      return { status: 'active', tier: 'mestre', plan_id: null, current_period_start: now.toISOString(), current_period_end: farFuture, cancel_at_period_end: false, trial_ends_at: null }
     case 'planejador':
-      return { status: 'active', tier: 'planejador', plan_id: 'planejador_manual', current_period_start: now.toISOString(), current_period_end: farFuture, cancel_at_period_end: false, trial_ends_at: null }
+      return { status: 'active', tier: 'planejador', plan_id: null, current_period_start: now.toISOString(), current_period_end: farFuture, cancel_at_period_end: false, trial_ends_at: null }
     case 'trial':
       return { status: 'trial', tier: 'explorador', plan_id: null, trial_ends_at: trialEnd, current_period_start: null, current_period_end: null, cancel_at_period_end: false }
     case 'bloquear':

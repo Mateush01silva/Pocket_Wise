@@ -7,10 +7,11 @@
 
 -- ① Liberar plano MESTRE (manual, sem cobrar)
 -- ────────────────────────────────────────────
+-- plan_id = NULL pois é concessão manual, não vinculada a pagamento
 UPDATE plano_usuario SET
   status                = 'active',
   tier                  = 'mestre',
-  plan_id               = 'mestre_manual',
+  plan_id               = NULL,
   current_period_start  = now(),
   current_period_end    = now() + interval '100 years',
   cancel_at_period_end  = false,
@@ -20,10 +21,11 @@ WHERE user_id = (SELECT id FROM users WHERE email = 'EMAIL_AQUI');
 
 -- ② Liberar plano PLANEJADOR (manual, sem cobrar)
 -- ─────────────────────────────────────────────────
+-- plan_id = NULL pois é concessão manual, não vinculada a pagamento
 UPDATE plano_usuario SET
   status                = 'active',
   tier                  = 'planejador',
-  plan_id               = 'planejador_manual',
+  plan_id               = NULL,
   current_period_start  = now(),
   current_period_end    = now() + interval '100 years',
   cancel_at_period_end  = false,
