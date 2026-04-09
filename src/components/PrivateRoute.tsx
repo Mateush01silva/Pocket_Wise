@@ -38,10 +38,14 @@ export function PrivateRoute({ children }: PrivateRouteProps) {
   if (userProfile?.role === 'admin') return <>{children}</>
 
   // Aguarda subscription carregar (race condition breve após login)
-  // Mas se o timeout expirou, para de esperar e vai para o paywall
+  // Mas se o timeout expirou, para de esperar
   if (!subscription && !timedOut) return <Spinner />
 
-  // Sem assinatura (fetch falhou ou expirado) ou sem acesso → paywall
+  // Se tanto perfil quanto assinatura falharam após timeout, é problema de sessão
+  // (JWT expirado ou corrompido) — forçar novo login em vez de mostrar paywall
+  if (timedOut && !subscription && !userProfile) return <Navigate to="/login" replace />
+
+  // Sem assinatura (fetch falhou) ou sem acesso → paywall
   if (!subscription || !hasAccess()) return <Navigate to="/app/assinar" replace />
 
   return <>{children}</>
