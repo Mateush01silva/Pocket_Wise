@@ -9,6 +9,7 @@ import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
 import { toast } from 'sonner'
 import type { SaldoMesInfo } from '../lib/financialCalculations'
+import { intencoesCaixinhasService } from '../services/intencoesCaixinhasService'
 
 interface AlocarSaldoModalProps {
   isOpen: boolean
@@ -35,9 +36,9 @@ export function AlocarSaldoModal({
   const [isLoading, setIsLoading] = useState(false)
   const [showDetalhes, setShowDetalhes] = useState(false)
 
-  // Filtrar apenas caixinhas ativas
+  // Filtrar apenas caixinhas com status='ativa' (exclui pausadas e concluídas)
   const caixinhasAtivas = useMemo(
-    () => caixinhas.filter((c) => c.ativa),
+    () => caixinhas.filter((c) => c.ativa && c.status === 'ativa'),
     [caixinhas]
   )
 
@@ -57,12 +58,24 @@ export function AlocarSaldoModal({
 
   const saldoRestante = Math.round((saldoDisponivel - totalAlocado) * 100) / 100
 
-  // Resetar alocações quando o modal abre
+  // Resetar alocações quando o modal abre e carregar intenções do mês (pré-fill)
   useEffect(() => {
-    if (isOpen) {
-      setAlocacoes({})
-    }
-  }, [isOpen])
+    if (!isOpen) return
+
+    // Calcular o mês de referência para buscar intenções
+    const mesRefParaIntencoes = mesReferencia
+      ? mesReferencia.substring(0, 7) + '-01'
+      : format(startOfMonth(new Date()), 'yyyy-MM-dd')
+
+    intencoesCaixinhasService.getIntencoesPorMes(mesRefParaIntencoes).then(({ data }) => {
+      if (data && Object.keys(data).length > 0) {
+        // Pré-preencher com as intenções planejadas (usuário pode editar antes de confirmar)
+        setAlocacoes(data)
+      } else {
+        setAlocacoes({})
+      }
+    })
+  }, [isOpen, mesReferencia])
 
   const handleAlocacaoChange = (caixinhaId: string, valor: number) => {
     setAlocacoes((prev) => ({

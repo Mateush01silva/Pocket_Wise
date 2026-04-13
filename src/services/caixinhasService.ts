@@ -15,6 +15,7 @@
  */
 
 import { supabase, getCurrentUser, getUserFamilyId } from '../lib/supabase'
+import { historicoMensalService } from './historicoMensalService'
 import type {
   Caixinha,
   CaixinhaComDetalhes,
@@ -252,6 +253,65 @@ export const caixinhasService = {
   },
 
   /**
+   * Atualizar o status de uma caixinha de Objetivos & Reservas.
+   * - 'pausada': mantém ativa=true mas pausa aportes; incrementa meses_pausados no fechamento do mês
+   * - 'ativa': retoma a caixinha pausada
+   * - 'concluida': arquiva (ativa=false) sem deletar — histórico preservado
+   */
+  async updateStatus(
+    id: string,
+    status: 'ativa' | 'pausada' | 'concluida'
+  ): Promise<DbResult<Caixinha>> {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const familyId = await getUserFamilyId()
+    if (!familyId) {
+      return { data: null, error: new Error('User has no family') }
+    }
+
+    const { data: existing } = await supabase
+      // @ts-ignore
+      .from('caixinhas')
+      .select('family_id, tipo, saldo_atual')
+      .eq('id', id)
+      .single()
+
+    if (!existing || existing.family_id !== familyId) {
+      return { data: null, error: new Error('Caixinha not found or access denied') }
+    }
+
+    // Concluída: exige saldo zero (usuário deve retirar antes)
+    if (status === 'concluida' && existing.saldo_atual > 0) {
+      return {
+        data: null,
+        error: new Error(
+          `Retire o saldo (${existing.saldo_atual.toFixed(2)}) antes de concluir a caixinha.`
+        ),
+      }
+    }
+
+    const updatePayload: Record<string, unknown> = { status }
+    // Sincronizar ativa com o status para compatibilidade com código existente
+    if (status === 'concluida') {
+      updatePayload.ativa = false
+    } else {
+      updatePayload.ativa = true
+    }
+
+    const { data, error } = await supabase
+      // @ts-ignore
+      .from('caixinhas')
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .single()
+
+    return { data, error }
+  },
+
+  /**
    * Deletar caixinha (marca como inativa)
    */
   async deleteCaixinha(id: string): Promise<DbResult<boolean>> {
@@ -479,6 +539,20 @@ export const transacoesCaixinhasService = {
       .insert(insertData)
       .select()
       .single()
+
+    // Atualizar histórico mensal após depósito em caixinha de objetivo/emergência
+    if (!error && data && input.tipo === 'deposito') {
+      const { data: caixinhaInfo } = await supabase
+        .from('caixinhas')
+        .select('tipo')
+        .eq('id', input.caixinha_id)
+        .single()
+      if (caixinhaInfo && caixinhaInfo.tipo !== 'investimento') {
+        historicoMensalService.upsertMesAtual(input.caixinha_id, input.valor).catch(() => {
+          // Falha silenciosa — não afeta o depósito em si
+        })
+      }
+    }
 
     return { data, error }
   },

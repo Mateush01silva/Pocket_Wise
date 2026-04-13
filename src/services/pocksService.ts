@@ -36,7 +36,7 @@ export interface CriteriaBreakdown {
 }
 
 export interface Bonus {
-  type: 'streak' | 'improvement'
+  type: 'streak' | 'improvement' | 'caixinha_aporte' | 'caixinha_concluida'
   value: number
   description: string
 }
@@ -481,6 +481,45 @@ export async function carregarDadosPocks(familyId: string): Promise<PocksData | 
       type: 'improvement',
       value: 2,
       description: 'Score melhorou em relação ao mês anterior',
+    })
+  }
+
+  // Bônus: aporte em caixinha de meta/emergência no mês atual
+  const { firstDay: mesAtualFirst, nextFirstDay: mesAtualNext } = getMesRange(mesAtualDate)
+  const { data: depositosCaixinhas } = await supabase
+    .from('transacoes_caixinhas')
+    .select('id, caixinhas!inner(tipo, family_id)')
+    .eq('caixinhas.family_id', familyId)
+    .neq('caixinhas.tipo', 'investimento')
+    .eq('tipo', 'deposito')
+    .gte('created_at', mesAtualFirst)
+    .lt('created_at', mesAtualNext)
+    .limit(1)
+
+  if (depositosCaixinhas && depositosCaixinhas.length > 0) {
+    bonuses.push({
+      type: 'caixinha_aporte',
+      value: 3,
+      description: 'Aportou em uma meta este mês',
+    })
+  }
+
+  // Bônus: caixinha de meta/emergência concluída no mês atual
+  const { data: caixinhasConcluidas } = await supabase
+    .from('caixinhas')
+    .select('id')
+    .eq('family_id', familyId)
+    .eq('status', 'concluida')
+    .neq('tipo', 'investimento')
+    .gte('updated_at', mesAtualFirst)
+    .lt('updated_at', mesAtualNext)
+    .limit(1)
+
+  if (caixinhasConcluidas && caixinhasConcluidas.length > 0) {
+    bonuses.push({
+      type: 'caixinha_concluida',
+      value: 5,
+      description: '🏆 Meta concluída este mês!',
     })
   }
 
