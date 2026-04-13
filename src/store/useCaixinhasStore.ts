@@ -49,6 +49,7 @@ interface CaixinhasActions {
   fetchCaixinhaById: (id: string) => Promise<CaixinhaComDetalhes | null>
   createCaixinha: (input: CreateCaixinhaInput) => Promise<Caixinha | null>
   updateCaixinha: (input: UpdateCaixinhaInput) => Promise<Caixinha | null>
+  updateStatus: (id: string, status: 'ativa' | 'pausada' | 'concluida') => Promise<boolean>
   deleteCaixinha: (id: string) => Promise<boolean>
   atualizarValorMercado: (input: AtualizarValorMercadoInput) => Promise<Caixinha | null>
   reverterCotacao: (caixinhaId: string, valorAnterior: number) => Promise<boolean>
@@ -225,6 +226,30 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
         console.error('Erro ao atualizar caixinha:', error)
         set({ error: (error as Error).message })
         return null
+      }
+    },
+
+    updateStatus: async (id: string, status: 'ativa' | 'pausada' | 'concluida') => {
+      set({ error: null })
+
+      try {
+        const { data, error } = await caixinhasService.updateStatus(id, status)
+
+        if (error) {
+          set({ error: error.message })
+          return false
+        }
+
+        if (data) {
+          await Promise.all([get().fetchCaixinhas(), get().fetchSummary()])
+          return true
+        }
+
+        return false
+      } catch (error) {
+        console.error('Erro ao atualizar status da caixinha:', error)
+        set({ error: (error as Error).message })
+        return false
       }
     },
 

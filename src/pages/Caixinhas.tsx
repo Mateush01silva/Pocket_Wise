@@ -4,18 +4,24 @@ import { usePlan } from '../hooks/usePlan'
 import {
   PiggyBank, Plus, Target, TrendingUp, TrendingDown, Wallet,
   Edit2, Trash2, ArrowUpCircle, ArrowDownCircle, History,
-  RefreshCw, AlertCircle, BarChart3,
+  RefreshCw, AlertCircle, BarChart3, PauseCircle, PlayCircle,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CaixinhaModal } from '../components/CaixinhaModal'
 import { MovimentarCaixinhaModal } from '../components/MovimentarCaixinhaModal'
 import { HistoricoCaixinhaModal } from '../components/HistoricoCaixinhaModal'
 import { AtualizarCotacaoModal } from '../components/AtualizarCotacaoModal'
+import { MiniTimeline } from '../components/MiniTimeline'
+import { MetasDashboard } from '../components/MetasDashboard'
+import { useMetasDashboardAccess } from '../hooks/useMetasDashboardAccess'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { usePermissions } from '../hooks/usePermissions'
 import { useTransacoesStore } from '../store'
 import { formatCurrency } from '../utils/currency'
 import { format, differenceInDays, formatDistanceToNow } from 'date-fns'
+import { historicoMensalService } from '../services/historicoMensalService'
+import { calcularStreak } from '../lib/caixinhasCalculations'
+import type { CaixinhaHistoricoMensal } from '../types'
 import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { LearningTooltip } from '../components/ui/LearningTooltip'
@@ -42,11 +48,14 @@ export function Caixinhas() {
     isLoadingCaixinhas,
     initialize,
     deleteCaixinha,
-    getCaixinhaById,
+    updateStatus,
+    updateCaixinha,
     fetchTransacoes: fetchTransacoesCaixinha,
     todasTransacoesFamily,
     fetchAllTransacoesFamily,
   } = useCaixinhasStore()
+
+  const { hasBetaAccess: metasBeta } = useMetasDashboardAccess()
 
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
 
@@ -57,6 +66,8 @@ export function Caixinhas() {
   const [historicoCaixinha, setHistoricoCaixinha] = useState<CaixinhaComDetalhes | null>(null)
   const [cotacaoCaixinha, setCotacaoCaixinha] = useState<CaixinhaComDetalhes | null>(null)
   const [isConcluindoMeta, setIsConcluindoMeta] = useState(false)
+  // Histórico mensal por caixinha: Record<caixinha_id, CaixinhaHistoricoMensal[]>
+  const [historicoMensal, setHistoricoMensal] = useState<Record<string, CaixinhaHistoricoMensal[]>>({})
 
   const { totalDisponivel: saldoDisponivelParaDeposito, mesesComSaldo } = useMemo(() => {
     return calcularSaldoAcumuladoNaoAlocado(lancamentos, todasTransacoesFamily)
@@ -95,6 +106,21 @@ export function Caixinhas() {
       console.error('Erro ao buscar transações da família:', err)
     })
   }, [fetchAllTransacoesFamily])
+
+  // Carregar histórico mensal das caixinhas de Objetivos & Reservas
+  useEffect(() => {
+    const caixinhasParaHistorico = caixinhas.filter(
+      (c) => c.ativa && c.tipo !== 'investimento'
+    )
+    if (caixinhasParaHistorico.length === 0) return
+
+    historicoMensalService
+      .getHistoricoMultiplas(caixinhasParaHistorico.map((c) => c.id))
+      .then(({ data }) => {
+        if (data) setHistoricoMensal(data)
+      })
+      .catch((err) => console.error('Erro ao buscar histórico mensal:', err))
+  }, [caixinhas])
 
   const handleOpenNewCaixinha = () => {
     const limit = getLimit('caixinhas')
@@ -151,17 +177,13 @@ export function Caixinhas() {
 
   const handleConcluirMetaSuccess = async () => {
     if (!movimentarCaixinha) return
-    // Pegar saldo atualizado do store após a retirada
-    const caixinhaAtualizada = getCaixinhaById(movimentarCaixinha.id)
-    if (caixinhaAtualizada && caixinhaAtualizada.saldo_atual === 0) {
-      const success = await deleteCaixinha(caixinhaAtualizada.id)
-      if (success) {
-        toast.success(`🎉 Meta "${movimentarCaixinha.nome}" concluída e arquivada com sucesso!`)
-      }
-    } else if (!caixinhaAtualizada || caixinhaAtualizada.saldo_atual === 0) {
-      // Caixinha não encontrada no store mas pode ter sido atualizada — tenta deletar mesmo assim
-      await deleteCaixinha(movimentarCaixinha.id)
+    // Após a retirada do saldo, arquivar a caixinha (status='concluida')
+    // Não deletar — histórico deve ser preservado
+    const success = await updateStatus(movimentarCaixinha.id, 'concluida')
+    if (success) {
       toast.success(`🎉 Meta "${movimentarCaixinha.nome}" concluída e arquivada com sucesso!`)
+    } else {
+      toast.error('Erro ao arquivar a caixinha. Verifique se o saldo foi zerado.')
     }
     setIsConcluindoMeta(false)
     setMovimentarCaixinha(null)
@@ -177,6 +199,30 @@ export function Caixinhas() {
 
   const handleAtualizarCotacao = (caixinha: CaixinhaComDetalhes) => setCotacaoCaixinha(caixinha)
   const handleCloseCotacao = () => setCotacaoCaixinha(null)
+
+  const handlePausar = async (caixinha: CaixinhaComDetalhes) => {
+    if (!confirm(`Pausar a caixinha "${caixinha.nome}"?\n\nO saldo é preservado e o prazo será estendido pelos meses pausados.`)) return
+    const success = await updateStatus(caixinha.id, 'pausada')
+    if (success) {
+      toast.success(`Caixinha "${caixinha.nome}" pausada. Retome quando quiser.`)
+    } else {
+      toast.error('Erro ao pausar a caixinha.')
+    }
+  }
+
+  const handleRetomar = async (caixinha: CaixinhaComDetalhes) => {
+    const success = await updateStatus(caixinha.id, 'ativa')
+    if (success) {
+      toast.success(`Caixinha "${caixinha.nome}" retomada!`)
+    } else {
+      toast.error('Erro ao retomar a caixinha.')
+    }
+  }
+
+  const handleReorder = async (id: string, newIndex: number) => {
+    // Atualiza ordem_exibicao para o card arrastado dentro do grupo atual
+    await updateCaixinha({ id, ordem_exibicao: newIndex })
+  }
 
   const getTipoLabel = (tipo: string) => {
     switch (tipo) {
@@ -626,14 +672,26 @@ export function Caixinhas() {
         {/* Lista de Outras Caixinhas (objetivo + emergência) */}
         {caixinhasOutras.length > 0 && (
           <div>
-            {hasInvestimentos && (
-              <h2 className="text-lg font-semibold text-gray-300 mb-4 flex items-center gap-2">
-                🎯 Objetivos & Reservas
-              </h2>
-            )}
-            {!hasInvestimentos && (
-              <h2 className="text-xl font-bold text-gray-100 mb-4">Minhas Caixinhas</h2>
-            )}
+            <h2 className={`mb-4 flex items-center gap-2 ${hasInvestimentos ? 'text-lg font-semibold text-gray-300' : 'text-xl font-bold text-gray-100'}`}>
+              🎯 Metas e Sonhos
+            </h2>
+
+            {/* Dashboard melhorado (beta) */}
+            {metasBeta ? (
+              <MetasDashboard
+                caixinhas={caixinhasOutras}
+                historicoMensal={historicoMensal}
+                canEdit={canEdit}
+                onDepositar={handleDepositar}
+                onRetirar={handleRetirar}
+                onConcluirMeta={handleConcluirMeta}
+                onPausar={handlePausar}
+                onRetomar={handleRetomar}
+                onHistorico={handleHistorico}
+                onEdit={handleEdit}
+                onReorder={handleReorder}
+              />
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {caixinhasOutras.map((caixinha) => {
                 const progresso = caixinha.progresso_percentual || 0
@@ -679,14 +737,31 @@ export function Caixinhas() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {/* Saldo */}
-                        <div>
-                          <div className="flex justify-between items-baseline mb-1">
-                            <span className="text-sm text-gray-400">Saldo Atual</span>
-                            <span className="text-xl font-bold text-primary-400">
-                              {formatCurrency(caixinha.saldo_atual)}
-                            </span>
-                          </div>
+                        {/* Duplo Saldo: Conquistado + Disponível */}
+                        <div className="space-y-1">
+                          {caixinha.saldo_conquistado !== undefined && caixinha.saldo_conquistado !== caixinha.saldo_atual ? (
+                            <>
+                              <div className="flex justify-between items-baseline">
+                                <span className="text-xs text-green-400 font-medium">Já conquistei</span>
+                                <span className="text-base font-bold text-green-400">
+                                  {formatCurrency(caixinha.saldo_conquistado)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-baseline">
+                                <span className="text-xs text-gray-400">Disponível agora</span>
+                                <span className="text-sm font-semibold text-primary-400">
+                                  {formatCurrency(caixinha.saldo_atual)}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex justify-between items-baseline">
+                              <span className="text-sm text-gray-400">Saldo Atual</span>
+                              <span className="text-xl font-bold text-primary-400">
+                                {formatCurrency(caixinha.saldo_atual)}
+                              </span>
+                            </div>
+                          )}
                           {caixinha.meta_valor && (
                             <div className="flex justify-between items-baseline text-xs text-gray-500">
                               <span>Meta: {formatCurrency(caixinha.meta_valor)}</span>
@@ -695,7 +770,7 @@ export function Caixinhas() {
                           )}
                         </div>
 
-                        {/* Progress Bar */}
+                        {/* Progress Bar — baseado em saldo_conquistado */}
                         {caixinha.meta_valor && (
                           <div className="w-full bg-dark-700 rounded-full h-2">
                             <div
@@ -725,10 +800,43 @@ export function Caixinhas() {
                           </div>
                         )}
 
+                        {/* Mini-timeline de contribuições dos últimos 6 meses */}
+                        {historicoMensal[caixinha.id]?.length > 0 && (
+                          <MiniTimeline
+                            historico={historicoMensal[caixinha.id]}
+                            streak={calcularStreak(historicoMensal[caixinha.id])}
+                          />
+                        )}
+
                         {/* Actions */}
                         {canEdit && (
                           <div className="space-y-2 pt-2">
-                            {progresso >= 100 && caixinha.saldo_atual > 0 ? (
+                            {caixinha.status === 'pausada' ? (
+                              <div className="space-y-2">
+                                <div className="flex gap-2">
+                                  {caixinha.saldo_atual > 0 && (
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      className="flex-1"
+                                      onClick={() => handleRetirar(caixinha)}
+                                    >
+                                      <ArrowDownCircle size={14} className="mr-1" />
+                                      Retirar
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="flex-1 text-green-400 hover:text-green-300"
+                                    onClick={() => handleRetomar(caixinha)}
+                                  >
+                                    <PlayCircle size={14} className="mr-1" />
+                                    Retomar
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : progresso >= 100 && caixinha.saldo_atual > 0 ? (
                               <LearningTooltip content={learningContent.caixinhaConcluirMeta} position="top">
                                 <Button
                                   size="sm"
@@ -740,27 +848,38 @@ export function Caixinhas() {
                                 </Button>
                               </LearningTooltip>
                             ) : (
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  className="flex-1"
-                                  onClick={() => handleDepositar(caixinha)}
-                                >
-                                  <ArrowUpCircle size={14} className="mr-1" />
-                                  Depositar
-                                </Button>
-                                {caixinha.saldo_atual > 0 && (
+                              <div className="space-y-2">
+                                <div className="flex gap-2">
                                   <Button
                                     size="sm"
                                     variant="secondary"
                                     className="flex-1"
-                                    onClick={() => handleRetirar(caixinha)}
+                                    onClick={() => handleDepositar(caixinha)}
                                   >
-                                    <ArrowDownCircle size={14} className="mr-1" />
-                                    Retirar
+                                    <ArrowUpCircle size={14} className="mr-1" />
+                                    Depositar
                                   </Button>
-                                )}
+                                  {caixinha.saldo_atual > 0 && (
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      className="flex-1"
+                                      onClick={() => handleRetirar(caixinha)}
+                                    >
+                                      <ArrowDownCircle size={14} className="mr-1" />
+                                      Retirar
+                                    </Button>
+                                  )}
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="w-full text-gray-600 hover:text-yellow-400"
+                                  onClick={() => handlePausar(caixinha)}
+                                >
+                                  <PauseCircle size={14} className="mr-1" />
+                                  Pausar
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -780,6 +899,7 @@ export function Caixinhas() {
                 )
               })}
             </div>
+            )}
           </div>
         )}
 

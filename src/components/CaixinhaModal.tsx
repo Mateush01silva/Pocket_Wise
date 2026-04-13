@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select, CurrencyInput } from './ui'
 import { useCaixinhasStore } from '../store/useCaixinhasStore'
@@ -7,6 +7,8 @@ import { useContasBancariasStore } from '../store/useContasBancariasStore'
 import type { Caixinha, CaixinhaTipo, SubtipoInvestimento } from '../types'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+import { calcularAporteSugerido } from '../lib/caixinhasCalculations'
+import { formatCurrency } from '../utils/currency'
 
 interface CaixinhaModalProps {
   isOpen: boolean
@@ -97,6 +99,20 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
   }, [editingCaixinha, isOpen])
 
   const isInvestimento = formData.tipo === 'investimento'
+
+  // Aporte sugerido: calculado em tempo real para Objetivos & Reservas
+  const aporteSugerido = useMemo(() => {
+    if (isInvestimento) return null
+    const saldoConquistado = editingCaixinha
+      ? ((editingCaixinha as unknown as { saldo_conquistado?: number }).saldo_conquistado ?? editingCaixinha.saldo_atual)
+      : 0
+    return calcularAporteSugerido(
+      formData.meta_valor > 0 ? formData.meta_valor : null,
+      saldoConquistado,
+      formData.prazo_data || null,
+      editingCaixinha?.meses_pausados ?? 0
+    )
+  }, [isInvestimento, formData.meta_valor, formData.prazo_data, editingCaixinha])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -287,6 +303,23 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
               onChange={(e) => setFormData({ ...formData, prazo_data: e.target.value })}
               min={format(new Date(), 'yyyy-MM-dd')}
             />
+          </div>
+        )}
+
+        {/* Aporte sugerido — exibido em tempo real quando meta + prazo estão preenchidos */}
+        {!isInvestimento && aporteSugerido !== null && aporteSugerido > 0 && (
+          <div className="bg-primary-500/10 border border-primary-500/30 rounded-md p-3">
+            <p className="text-xs text-primary-400 font-medium mb-0.5">Aporte mensal sugerido</p>
+            <p className="text-lg font-bold text-primary-300">{formatCurrency(aporteSugerido)}/mês</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Para atingir sua meta no prazo definido.
+              {editingCaixinha?.meses_pausados ? ` (${editingCaixinha.meses_pausados} ${editingCaixinha.meses_pausados === 1 ? 'mês pausado incluído' : 'meses pausados incluídos'})` : ''}
+            </p>
+          </div>
+        )}
+        {!isInvestimento && aporteSugerido === 0 && formData.meta_valor > 0 && (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-md p-3">
+            <p className="text-xs text-green-400 font-medium">✅ Meta já atingida!</p>
           </div>
         )}
 

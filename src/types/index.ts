@@ -696,6 +696,9 @@ export type SubtipoInvestimento =
   | 'internacional'
   | 'outro'
 
+// Status de uma caixinha de Objetivo/Reserva
+export type CaixinhaStatus = 'ativa' | 'pausada' | 'concluida'
+
 // Caixinha/Pote de objetivo
 export interface Caixinha {
   id: string
@@ -708,6 +711,10 @@ export interface Caixinha {
   icone: string | null // Emoji ou ícone
   saldo_atual: number // Total aportado (atualizado automaticamente por trigger)
   ativa: boolean
+  // Status expandido para Objetivos & Reservas (migration 051)
+  status: CaixinhaStatus // 'ativa' | 'pausada' | 'concluida'
+  meses_pausados: number // Quantidade de meses pausados (para extensão do prazo)
+  ordem_exibicao: number | null // Posição de exibição para drag-to-reorder
   cor: string
   descricao: string | null
   // Campos exclusivos para tipo='investimento'
@@ -722,9 +729,32 @@ export interface Caixinha {
 // Caixinha com informações do criador e estatísticas
 export interface CaixinhaComDetalhes extends Caixinha {
   criador_nome: string
-  progresso_percentual: number | null // % de progresso em relação à meta
-  valor_faltante: number | null // Quanto falta para atingir a meta
+  saldo_conquistado: number // Soma histórica de todos os depósitos (nunca diminui)
+  progresso_percentual: number | null // % de progresso em relação à meta (baseado em saldo_conquistado)
+  valor_faltante: number | null // Quanto falta para atingir a meta (baseado em saldo_conquistado)
   total_transacoes: number // Total de transações (depósitos + retiradas)
+}
+
+// Intenção de aporte mensal numa caixinha (seção "Metas e Sonhos" do orçamento)
+export interface CaixinhaIntencaoMensal {
+  id: string
+  caixinha_id: string
+  mes_referencia: string // YYYY-MM-DD (sempre primeiro dia do mês)
+  valor_planejado: number
+  created_at: string
+  updated_at: string
+}
+
+// Histórico mensal de contribuições por caixinha
+export interface CaixinhaHistoricoMensal {
+  id: string
+  caixinha_id: string
+  mes_referencia: string // YYYY-MM-DD (sempre primeiro dia do mês)
+  houve_deposito: boolean
+  valor_depositado: number
+  valor_planejado: number | null // Da intenção do mês, se existia
+  mes_pausado: boolean
+  created_at: string
 }
 
 // Transação de caixinha (depósito ou retirada)
@@ -768,6 +798,7 @@ export interface UpdateCaixinhaInput extends Partial<CreateCaixinhaInput> {
   ativa?: boolean
   valor_mercado?: number | null
   data_valor_mercado?: string | null
+  ordem_exibicao?: number | null
 }
 
 export interface AtualizarValorMercadoInput {

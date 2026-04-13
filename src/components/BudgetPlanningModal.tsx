@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Check, X, AlertTriangle, TrendingUp, Search, PiggyBank, Clock } from 'lucide-react'
+import { Check, X, AlertTriangle, TrendingUp, Search, PiggyBank, Clock, Target } from 'lucide-react'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select } from './ui'
 import { CurrencyInput } from './ui/CurrencyInput'
@@ -13,6 +13,8 @@ import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
 import { IconRenderer } from '../lib/iconRenderer'
 import { getRetiradasCaixinhasParaMes } from '../lib/financialCalculations'
+import { calcularAporteSugerido } from '../lib/caixinhasCalculations'
+import { intencoesCaixinhasService } from '../services/intencoesCaixinhasService'
 
 interface BudgetPlanningModalProps {
   isOpen: boolean
@@ -69,6 +71,8 @@ export function BudgetPlanningModal({
   const [filtroReceita, setFiltroReceita] = useState('')
   const [filtroDespesa, setFiltroDespesa] = useState('')
   const [sugestaoReceitasDismissed, setSugestaoReceitasDismissed] = useState(false)
+  // Intenções de aporte nas metas — Record<caixinha_id, valor_planejado>
+  const [intencoesMetas, setIntencoesMetas] = useState<Record<string, number>>({})
 
   const isEditMode = !!orcamento
 
@@ -77,6 +81,31 @@ export function BudgetPlanningModal({
     // mesReferencia pode vir como YYYY-MM-DD ou YYYY-MM
     return mesReferencia.substring(0, 7)
   }, [mesReferencia])
+
+  // mesReferencia normalizado para YYYY-MM-01 (usado nas intenções)
+  const mesReferenciaDB = useMemo(() => {
+    return mesReferenciaFormatado + '-01'
+  }, [mesReferenciaFormatado])
+
+  // Caixinhas ativas de Objetivos & Reservas (apenas tipo objetivo/emergencia)
+  const caixinhasMetas = useMemo(
+    () => caixinhas.filter((c) => c.ativa && c.status === 'ativa' && c.tipo !== 'investimento'),
+    [caixinhas]
+  )
+
+  // Carregar intenções existentes ao abrir o modal
+  useEffect(() => {
+    if (!isOpen) return
+    intencoesCaixinhasService.getIntencoesPorMes(mesReferenciaDB).then(({ data }) => {
+      setIntencoesMetas(data || {})
+    })
+  }, [isOpen, mesReferenciaDB])
+
+  // Total planejado em metas
+  const totalMetasPlanejadas = useMemo(
+    () => Object.values(intencoesMetas).reduce((sum, v) => sum + (v || 0), 0),
+    [intencoesMetas]
+  )
 
   // Sincronizar dismissed com localStorage ao abrir o modal (por mês)
   useEffect(() => {
@@ -322,6 +351,11 @@ export function BudgetPlanningModal({
           categorias: todasCategorias,
           substituir_existentes: true, // Importante: deletar categorias antigas antes de criar novas
         })
+      }
+
+      // Salvar intenções de aporte nas metas (sem bloquear o save principal)
+      if (Object.keys(intencoesMetas).length > 0 || caixinhasMetas.length > 0) {
+        await intencoesCaixinhasService.bulkUpsertIntencoes(intencoesMetas, mesReferenciaDB)
       }
 
       onClose()
@@ -640,6 +674,89 @@ export function BudgetPlanningModal({
             </div>
           </div>
         </div>
+
+        {/* =====================================================
+            SEÇÃO: METAS E SONHOS
+            Planejamento de aporte nas caixinhas de Objetivos & Reservas.
+            Não altera saldos nem envelopes — é puramente intenção de aporte.
+        ===================================================== */}
+        {caixinhasMetas.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+              <Target size={16} className="text-primary-400" />
+              Metas e Sonhos
+              <span className="text-xs text-gray-500 font-normal ml-1">
+                — quanto planejo aportar este mês (opcional, não afeta o orçamento)
+              </span>
+            </h3>
+
+            <div className="space-y-2">
+              {caixinhasMetas.map((caixinha) => {
+                const saldoConquistado = (caixinha as unknown as { saldo_conquistado?: number }).saldo_conquistado ?? caixinha.saldo_atual
+                const aporteSugerido = calcularAporteSugerido(
+                  caixinha.meta_valor,
+                  saldoConquistado,
+                  caixinha.prazo_data,
+                  caixinha.meses_pausados ?? 0
+                )
+                const valorPlanejado = intencoesMetas[caixinha.id] ?? 0
+
+                return (
+                  <div
+                    key={caixinha.id}
+                    className="flex items-center gap-3 p-3 bg-dark-700 rounded-lg border border-dark-600"
+                  >
+                    <span className="text-xl flex-shrink-0">{caixinha.icone || '🎯'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-200 truncate">{caixinha.nome}</p>
+                      {aporteSugerido !== null && aporteSugerido > 0 && (
+                        <p className="text-xs text-gray-500">
+                          Sugerido: {formatCurrency(aporteSugerido)}/mês
+                        </p>
+                      )}
+                    </div>
+                    <div className="w-36 flex-shrink-0">
+                      <CurrencyInput
+                        value={valorPlanejado}
+                        onChange={(value) =>
+                          setIntencoesMetas((prev) => ({ ...prev, [caixinha.id]: value }))
+                        }
+                        placeholder="R$ 0,00"
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Resumo: Receita - Despesas - Metas = Saldo livre não alocado */}
+            {totalMetasPlanejadas > 0 && (
+              <div className="p-3 bg-primary-500/10 rounded-lg border border-primary-500/30 text-sm space-y-1">
+                <div className="flex justify-between text-gray-400">
+                  <span>Receita declarada</span>
+                  <span className="text-green-400">{formatCurrency(totalReceitasPlanejadas)}</span>
+                </div>
+                <div className="flex justify-between text-gray-400">
+                  <span>— Despesas planejadas</span>
+                  <span className="text-red-400">− {formatCurrency(totalDespesasPlanejadas)}</span>
+                </div>
+                <div className="flex justify-between text-gray-400">
+                  <span>— Metas e Sonhos</span>
+                  <span className="text-primary-400">− {formatCurrency(totalMetasPlanejadas)}</span>
+                </div>
+                <div className="flex justify-between font-semibold pt-1 border-t border-dark-600">
+                  <span className="text-gray-300">= Saldo livre não alocado</span>
+                  <span className={totalReceitasPlanejadas - totalDespesasPlanejadas - totalMetasPlanejadas >= 0 ? 'text-green-400' : 'text-yellow-400'}>
+                    {formatCurrency(totalReceitasPlanejadas - totalDespesasPlanejadas - totalMetasPlanejadas)}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Apenas informativo — não bloqueia o save do orçamento.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Seção de Resumo e Validação */}
         <div
