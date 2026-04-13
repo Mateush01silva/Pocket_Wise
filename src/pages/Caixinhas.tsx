@@ -50,7 +50,6 @@ export function Caixinhas() {
     deleteCaixinha,
     updateStatus,
     updateCaixinha,
-    getCaixinhaById,
     fetchTransacoes: fetchTransacoesCaixinha,
     todasTransacoesFamily,
     fetchAllTransacoesFamily,

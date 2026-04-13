@@ -15,7 +15,6 @@ import { IconRenderer } from '../lib/iconRenderer'
 import { getRetiradasCaixinhasParaMes } from '../lib/financialCalculations'
 import { calcularAporteSugerido } from '../lib/caixinhasCalculations'
 import { intencoesCaixinhasService } from '../services/intencoesCaixinhasService'
-import { format, startOfMonth } from 'date-fns'
 
 interface BudgetPlanningModalProps {
   isOpen: boolean
