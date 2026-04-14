@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   Users, Search, RefreshCw, Crown, Clock, Calendar,
-  ShieldOff, Loader2,
+  ShieldOff, Loader2, Mail,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { Button } from '../components/ui/Button'
@@ -158,6 +158,10 @@ function UserCard({ user, onActionDone }: { user: UserRow; onActionDone: () => v
   const [loadingPlano, setLoadingPlano] = useState(true)
   const [pendingAction, setPendingAction] = useState<PlanAction | null>(null)
   const [applying, setApplying] = useState(false)
+  const [displayEmail, setDisplayEmail] = useState(user.email)
+  const [editingEmail, setEditingEmail] = useState(false)
+  const [newEmail, setNewEmail] = useState('')
+  const [applyingEmail, setApplyingEmail] = useState(false)
 
   const fetchPlano = async () => {
     if (!supabase) return
@@ -195,6 +199,34 @@ function UserCard({ user, onActionDone }: { user: UserRow; onActionDone: () => v
     }
   }
 
+  const handleEmailUpdate = async () => {
+    if (!supabase) return
+    setApplyingEmail(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) throw new Error('Sessão não encontrada')
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ targetUserId: user.id, newEmail }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('E-mail atualizado! Confirmação enviada ao novo endereço.')
+      setDisplayEmail(newEmail)
+      setEditingEmail(false)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido'
+      toast.error(`Erro: ${msg}`)
+    } finally {
+      setApplyingEmail(false)
+    }
+  }
+
   const daysAsCustomer = differenceInDays(new Date(), new Date(user.created_at))
 
   return (
@@ -210,7 +242,7 @@ function UserCard({ user, onActionDone }: { user: UserRow; onActionDone: () => v
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-400 mt-0.5">{user.email}</p>
+          <p className="text-sm text-gray-400 mt-0.5">{displayEmail}</p>
         </div>
         <div className="flex flex-wrap gap-3 text-xs text-gray-500">
           <span className="flex items-center gap-1">
@@ -234,11 +266,33 @@ function UserCard({ user, onActionDone }: { user: UserRow; onActionDone: () => v
 
       {/* Actions */}
       <div className="pt-1 border-t border-dark-600">
-        {pendingAction ? (
+        {editingEmail ? (
+          <div className="space-y-2">
+            <span className="text-sm text-gray-300">Novo e-mail para <strong className="text-gray-100">{displayEmail}</strong>:</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="novo@email.com"
+                className="flex-1 min-w-0 bg-dark-700 border border-dark-500 rounded-lg px-3 py-1.5 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500"
+              />
+              <Button size="sm" onClick={handleEmailUpdate} isLoading={applyingEmail} disabled={applyingEmail || !newEmail.trim()}>
+                Confirmar
+              </Button>
+              <button
+                onClick={() => setEditingEmail(false)}
+                className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : pendingAction ? (
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm text-gray-300">
               {ACTION_CONFIG[pendingAction].confirmLabel} para{' '}
-              <strong className="text-gray-100">{user.email}</strong>?
+              <strong className="text-gray-100">{displayEmail}</strong>?
             </span>
             <Button size="sm" onClick={handleApply} isLoading={applying} disabled={applying}>
               Confirmar
@@ -262,6 +316,13 @@ function UserCard({ user, onActionDone }: { user: UserRow; onActionDone: () => v
                 {ACTION_CONFIG[action].label}
               </button>
             ))}
+            <button
+              onClick={() => { setEditingEmail(true); setNewEmail(displayEmail) }}
+              className="text-xs px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 bg-gray-500/10 text-gray-400 border border-gray-500/20 hover:bg-gray-500/20"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              Editar E-mail
+            </button>
           </div>
         )}
       </div>
