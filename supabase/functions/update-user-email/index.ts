@@ -92,10 +92,10 @@ serve(async (req) => {
     console.log('Passo 3: payload válido, targetUserId =', targetUserId, 'newEmail =', newEmail)
 
     // 4. Atualizar email em auth.users via Admin API
-    // Isso dispara automaticamente o e-mail de confirmação para o novo endereço
+    // email_confirm: false garante que o e-mail fique como não confirmado
     const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
       targetUserId,
-      { email: newEmail }
+      { email: newEmail, email_confirm: false }
     )
 
     if (authUpdateError) {
@@ -107,7 +107,21 @@ serve(async (req) => {
     }
     console.log('Passo 4: auth.users atualizado com sucesso')
 
-    // 5. Atualizar email em public.users
+    // 5. Disparar e-mail de confirmação para o novo endereço
+    // updateUserById por si só NÃO envia o e-mail — generateLink é necessário para isso
+    const { error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'signup',
+      email: newEmail,
+    })
+
+    if (linkError) {
+      console.warn('Aviso: e-mail atualizado mas falha ao disparar confirmação:', linkError.message)
+      // Não interrompemos — o e-mail foi corrigido no banco, admin pode reenviar manualmente
+    } else {
+      console.log('Passo 5: e-mail de confirmação enviado para', newEmail)
+    }
+
+    // 6. Atualizar email em public.users
     const { error: profileUpdateError } = await supabaseAdmin
       .from('users')
       .update({ email: newEmail, updated_at: new Date().toISOString() })
@@ -120,7 +134,7 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-    console.log('Passo 5: public.users atualizado com sucesso')
+    console.log('Passo 6: public.users atualizado com sucesso')
 
     console.log('=== update-user-email CONCLUÍDO com sucesso ===')
 
@@ -128,6 +142,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         message: 'E-mail atualizado. Confirmação enviada ao novo endereço.',
+        confirmation_sent: !linkError,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
