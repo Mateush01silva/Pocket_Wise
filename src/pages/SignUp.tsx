@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 export function SignUp() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { signUp } = useAuth()
+  const { signUp, signInWithGoogle } = useAuth()
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState(searchParams.get('email') || '')
@@ -16,8 +16,21 @@ export function SignUp() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [error, setError] = useState('')
   const [emailSent, setEmailSent] = useState(false)
+
+  const handleGoogleSignIn = async () => {
+    setError('')
+    setIsGoogleLoading(true)
+    try {
+      await signInWithGoogle()
+      // Não chega aqui — o navegador redireciona para o Google
+    } catch (err: any) {
+      setError('Erro ao autenticar com Google. Tente novamente.')
+      setIsGoogleLoading(false)
+    }
+  }
   const [registeredEmail, setRegisteredEmail] = useState('')
 
   // Password strength
@@ -162,6 +175,29 @@ export function SignUp() {
 
         {/* Form */}
         <div className="bg-dark-800/50 border border-dark-700 rounded-2xl p-8 backdrop-blur-sm">
+          {/* Google Sign Up */}
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={isGoogleLoading || isLoading}
+            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-700 font-medium py-2.5 px-4 rounded-xl border border-gray-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mb-5"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+              <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908C17.778 13.531 17.64 11.5 17.64 9.2z"/>
+              <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+              <path fill="#FBBC05" d="M3.964 10.706c-.18-.54-.282-1.117-.282-1.706s.102-1.166.282-1.706V4.962H.957C.347 6.177 0 7.547 0 9s.348 2.823.957 4.038l3.007-2.332z"/>
+              <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z"/>
+            </svg>
+            {isGoogleLoading ? 'Redirecionando...' : 'Cadastrar com Google'}
+          </button>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 h-px bg-dark-600" />
+            <span className="text-xs text-gray-500">ou cadastre com e-mail</span>
+            <div className="flex-1 h-px bg-dark-600" />
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Error Alert */}
             {error && (

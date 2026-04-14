@@ -43,6 +43,7 @@ interface AuthContextType {
   refreshSubscription: () => Promise<Subscription | null>
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, name: string) => Promise<void>
+  signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
   hasAccess: () => boolean
@@ -284,6 +285,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null
   }
 
+  const signInWithGoogle = async () => {
+    if (!supabase) throw new Error('Supabase not configured')
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/app`,
+      },
+    })
+    if (error) throw error
+    // O navegador redireciona para o Google, então nada mais executa aqui
+  }
+
   const signOut = async () => {
     if (!supabase) throw new Error('Supabase not configured')
 
@@ -392,6 +405,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshSubscription,
     signIn,
     signUp,
+    signInWithGoogle,
     signOut,
     resetPassword,
     hasAccess,
