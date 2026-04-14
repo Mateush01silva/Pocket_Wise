@@ -107,18 +107,22 @@ serve(async (req) => {
     }
     console.log('Passo 4: auth.users atualizado com sucesso')
 
-    // 5. Disparar e-mail de confirmação para o novo endereço
-    // updateUserById por si só NÃO envia o e-mail — generateLink é necessário para isso
-    const { error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+    // 5. Reenviar e-mail de confirmação
+    // generateLink() apenas gera o token mas NÃO envia o e-mail automaticamente.
+    // resend({ type: 'signup' }) usa o pipeline real de envio do Supabase (mesmo do cadastro inicial).
+    const supabaseAnon = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+    )
+    const { error: resendError } = await supabaseAnon.auth.resend({
       type: 'signup',
       email: newEmail,
     })
 
-    if (linkError) {
-      console.warn('Aviso: e-mail atualizado mas falha ao disparar confirmação:', linkError.message)
-      // Não interrompemos — o e-mail foi corrigido no banco, admin pode reenviar manualmente
+    if (resendError) {
+      console.warn('Aviso: e-mail atualizado mas falha ao reenviar confirmação:', resendError.message)
     } else {
-      console.log('Passo 5: e-mail de confirmação enviado para', newEmail)
+      console.log('Passo 5: e-mail de confirmação reenviado para', newEmail)
     }
 
     // 6. Atualizar email em public.users
@@ -142,7 +146,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         message: 'E-mail atualizado. Confirmação enviada ao novo endereço.',
-        confirmation_sent: !linkError,
+        confirmation_sent: !resendError,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
