@@ -8,16 +8,27 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 // Check if we should use localStorage (MVP mode)
 export const useLocalStorage = import.meta.env.VITE_USE_LOCAL_STORAGE === 'true'
 
-// Create Supabase client (only if not in localStorage mode)
-export const supabase = !useLocalStorage && supabaseUrl && supabaseAnonKey
-  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
+// Use a global singleton to prevent multiple GoTrueClient instances
+// (can happen due to module hot-reloading or duplicate imports in the bundle)
+const GLOBAL_KEY = '__pocketwise_supabase__'
+type GlobalWithSupabase = typeof globalThis & { [GLOBAL_KEY]?: ReturnType<typeof createClient<Database>> | null }
+
+function getOrCreateClient() {
+  if (useLocalStorage || !supabaseUrl || !supabaseAnonKey) return null
+  const g = globalThis as GlobalWithSupabase
+  if (!g[GLOBAL_KEY]) {
+    g[GLOBAL_KEY] = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
       },
     })
-  : null
+  }
+  return g[GLOBAL_KEY]!
+}
+
+export const supabase = getOrCreateClient()
 
 // Helper to check if Supabase is configured
 export const isSupabaseConfigured = (): boolean => {
