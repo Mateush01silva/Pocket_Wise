@@ -450,18 +450,25 @@ export const familyInvitesService = {
   async getUserFamilies(): Promise<{ families: UserFamilyInfo[]; activeFamilyId: string | null; personalFamilyId: string | null } | null> {
     if (!supabase) return null
 
-    const { data, error } = await (supabase as any).rpc('get_user_families')
-    if (error || !data) {
-      console.error('Erro ao buscar famílias do usuário:', error)
-      return null
-    }
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
 
-    if (!data.success) return null
+    try {
+      const { data, error } = await (supabase as any).rpc('get_user_families').abortSignal(controller.signal)
+      if (error || !data) {
+        console.error('Erro ao buscar famílias do usuário:', error)
+        return null
+      }
 
-    return {
-      families: data.families ?? [],
-      activeFamilyId: data.active_family_id ?? null,
-      personalFamilyId: data.personal_family_id ?? null,
+      if (!data.success) return null
+
+      return {
+        families: data.families ?? [],
+        activeFamilyId: data.active_family_id ?? null,
+        personalFamilyId: data.personal_family_id ?? null,
+      }
+    } finally {
+      clearTimeout(timeoutId)
     }
   },
 

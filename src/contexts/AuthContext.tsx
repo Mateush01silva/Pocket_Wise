@@ -182,11 +182,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const fetchUserFamilies = async () => {
-    const result = await familyInvitesService.getUserFamilies()
-    if (result) {
-      setUserFamilies(result.families)
-      setActiveFamilyId(result.activeFamilyId)
-      setPersonalFamilyId(result.personalFamilyId)
+    try {
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000))
+      const result = await Promise.race([familyInvitesService.getUserFamilies(), timeout])
+      if (result) {
+        setUserFamilies(result.families)
+        setActiveFamilyId(result.activeFamilyId)
+        setPersonalFamilyId(result.personalFamilyId)
+      }
+    } catch (e) {
+      console.error('Erro ao buscar famílias do usuário:', e)
     }
   }
 
@@ -219,11 +224,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.user) {
       currentUserIdRef.current = data.user.id
       clearFamilyIdCache()
-      await Promise.all([
-        fetchUserProfile(data.user.id),
-        fetchSubscription(data.user.id),
-        fetchUserFamilies(),
-      ])
+      try {
+        await Promise.all([
+          fetchUserProfile(data.user.id),
+          fetchSubscription(data.user.id),
+          fetchUserFamilies(),
+        ])
+      } catch (e) {
+        console.error('Erro ao carregar dados pós-login:', e)
+      }
     }
   }
 
