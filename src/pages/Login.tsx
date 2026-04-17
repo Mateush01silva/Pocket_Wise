@@ -56,10 +56,20 @@ export function Login() {
         toast.success('Login realizado com sucesso!')
       }, 100)
     } catch (err: any) {
-      console.error('Erro no login:', err)
+      console.error('Erro no login - detalhes completos:', {
+        message: err.message,
+        status: err.status,
+        statusCode: err.statusCode,
+        name: err.name,
+        cause: err.cause,
+        stack: err.stack,
+        raw: err,
+      })
       const msg = err.message || ''
       if (msg === 'Failed to fetch' || msg.includes('fetch') || msg.includes('network')) {
         setError('Não foi possível conectar ao servidor. Verifique sua conexão ou tente novamente em instantes.')
+      } else if (err.status === 429 || err.statusCode === 429) {
+        setError('Muitas tentativas de login. Aguarde alguns minutos e tente novamente.')
       } else {
         setError(msg || 'Email ou senha incorretos')
       }
