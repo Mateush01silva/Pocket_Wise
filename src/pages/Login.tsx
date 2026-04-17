@@ -57,7 +57,12 @@ export function Login() {
       }, 100)
     } catch (err: any) {
       console.error('Erro no login:', err)
-      setError(err.message || 'Email ou senha incorretos')
+      const msg = err.message || ''
+      if (msg === 'Failed to fetch' || msg.includes('fetch') || msg.includes('network')) {
+        setError('Não foi possível conectar ao servidor. Verifique sua conexão ou tente novamente em instantes.')
+      } else {
+        setError(msg || 'Email ou senha incorretos')
+      }
     } finally {
       setIsLoading(false)
     }
