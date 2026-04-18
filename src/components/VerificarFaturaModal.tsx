@@ -1,10 +1,10 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
-import { X, Upload, FileText, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2, LayoutPanelLeft, TableIcon, Lock, Clock, RotateCcw } from 'lucide-react'
+import { X, Upload, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2, LayoutPanelLeft, TableIcon, Lock, Clock, RotateCcw } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { formatCurrency } from '../utils/currency'
 import { Button } from './ui/Button'
-import { useVerificarFatura, isExcelFile } from '../hooks/useVerificarFatura'
+import { useVerificarFatura } from '../hooks/useVerificarFatura'
 import { DiscrepanciasSplitView } from './DiscrepanciasSplitView'
 import type { Lancamento } from '../types'
 import type { ResultadoVerificacao } from '../hooks/useVerificarFatura'
@@ -44,7 +44,6 @@ export function VerificarFaturaModal({
   const { isExtraindo, isAnalisando, resultado, error, verificar, limpar } = useVerificarFatura()
 
   const isLoading = isExtraindo || isAnalisando
-  const isExcel = arquivoSelecionado ? isExcelFile(arquivoSelecionado) : false
   const storageKey = `pw_vf_${cartaoNome}_${periodo}`
 
   // Displayed result: fresh result takes priority, then saved, then null
@@ -89,8 +88,7 @@ export function VerificarFaturaModal({
 
   const handleArquivo = useCallback((file: File) => {
     const name = file.name.toLowerCase()
-    const valid = file.type === 'application/pdf' || name.endsWith('.xlsx') || name.endsWith('.xls')
-    if (!valid) return
+    if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) return
     setArquivoSelecionado(file)
     setSenha('')
     limpar()
@@ -123,12 +121,8 @@ export function VerificarFaturaModal({
 
   if (!isOpen) return null
 
-  const loadingLabel = isExtraindo
-    ? (isExcel ? 'Lendo arquivo Excel...' : 'Extraindo texto do PDF...')
-    : 'Analisando com IA...'
-  const loadingSubLabel = isExtraindo
-    ? (isExcel ? 'Processando planilha localmente' : 'Lendo as páginas do PDF')
-    : 'Comparando com seus lançamentos'
+  const loadingLabel = isExtraindo ? 'Lendo arquivo Excel...' : 'Analisando com IA...'
+  const loadingSubLabel = isExtraindo ? 'Processando planilha' : 'Comparando com seus lançamentos'
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-[60] sm:p-4">
@@ -166,11 +160,8 @@ export function VerificarFaturaModal({
 
               {/* Format hint */}
               <div className="flex gap-2 flex-wrap">
-                <span className="flex items-center gap-1 text-xs text-gray-500 bg-dark-700/50 px-2 py-1 rounded-md">
-                  <FileText size={11} /> PDF · 1 crédito de IA
-                </span>
                 <span className="flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md">
-                  <TableIcon size={11} /> Excel · 1 crédito · maior precisão
+                  <TableIcon size={11} /> Excel (.xlsx / .xls) · 1 crédito
                 </span>
               </div>
 
@@ -189,49 +180,39 @@ export function VerificarFaturaModal({
                     : isDragOver
                     ? 'border-primary-400 bg-primary-500/10'
                     : arquivoSelecionado
-                    ? isExcel
-                      ? 'border-emerald-500/50 bg-emerald-500/5 hover:bg-emerald-500/10'
-                      : 'border-green-500/50 bg-green-500/5 hover:bg-green-500/10'
+                    ? 'border-emerald-500/50 bg-emerald-500/5 hover:bg-emerald-500/10'
                     : 'border-dark-600 hover:border-dark-500 hover:bg-dark-700/30'
                 }`}
               >
                 <input
                   ref={inputRef}
                   type="file"
-                  accept="application/pdf,.xlsx,.xls"
+                  accept=".xlsx,.xls"
                   className="hidden"
                   onChange={handleInputChange}
                   disabled={isLoading}
                 />
                 {arquivoSelecionado ? (
                   <>
-                    {isExcel
-                      ? <TableIcon size={32} className="mx-auto mb-2 text-emerald-400" />
-                      : <FileText size={32} className="mx-auto mb-2 text-green-400" />
-                    }
-                    <p className={`text-sm font-medium truncate px-4 ${isExcel ? 'text-emerald-400' : 'text-green-400'}`}>
+                    <TableIcon size={32} className="mx-auto mb-2 text-emerald-400" />
+                    <p className="text-sm font-medium truncate px-4 text-emerald-400">
                       {arquivoSelecionado.name}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
                       {(arquivoSelecionado.size / 1024).toFixed(0)} KB · Clique para trocar
                     </p>
-                    {isExcel && (
-                      <p className="text-xs text-emerald-500 mt-1">
-                        Sem OCR — maior precisão na extração
-                      </p>
-                    )}
                   </>
                 ) : (
                   <>
                     <Upload size={32} className="mx-auto mb-2 text-gray-500" />
                     <p className="text-sm font-medium text-gray-300">Arraste o arquivo aqui ou clique para selecionar</p>
-                    <p className="text-xs text-gray-500 mt-1">PDF ou Excel (.xlsx / .xls)</p>
+                    <p className="text-xs text-gray-500 mt-1">Excel (.xlsx / .xls)</p>
                   </>
                 )}
               </div>
 
-              {/* Password field + instructions (Excel only) */}
-              {isExcel && arquivoSelecionado && (
+              {/* Password field + instructions */}
+              {arquivoSelecionado && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 p-3 bg-dark-700/40 rounded-xl border border-dark-600">
                     <Lock size={15} className="text-gray-500 shrink-0" />
@@ -358,12 +339,7 @@ export function VerificarFaturaModal({
               isLoading={isLoading}
               className="w-full"
             >
-              {isLoading
-                ? loadingLabel
-                : isExcel
-                  ? 'Analisar Fatura (Excel)'
-                  : 'Analisar Fatura (PDF)'
-              }
+              {isLoading ? loadingLabel : 'Analisar Fatura'}
             </Button>
           )}
         </div>
@@ -375,6 +351,7 @@ export function VerificarFaturaModal({
           onClose={() => setSplitViewOpen(false)}
           cartaoNome={cartaoNome}
           cartaoCor={cartaoCor}
+          periodo={periodo}
           resultado={resultadoExibir}
         />
       )}

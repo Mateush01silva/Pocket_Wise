@@ -1,13 +1,6 @@
 import { useState, useCallback } from 'react'
-import * as pdfjsLib from 'pdfjs-dist'
 import { supabase } from '../lib/supabase'
 import type { Lancamento } from '../types'
-
-// Configurar worker do pdfjs
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString()
 
 // ============================================================================
 // TYPES
@@ -33,7 +26,7 @@ export interface ResultadoVerificacao {
   no_app_nao_no_pdf: ItemFatura[]
   valores_divergentes: ItemDivergente[]
   resumo: string
-  fonte: 'pdf' | 'excel'
+  fonte: 'excel'
 }
 
 interface UseVerificarFaturaState {
@@ -62,15 +55,9 @@ export type UseVerificarFaturaReturn = UseVerificarFaturaState & UseVerificarFat
 // HELPERS
 // ============================================================================
 
-export function isExcelFile(file: File): boolean {
-  const name = file.name.toLowerCase()
-  return name.endsWith('.xlsx') || name.endsWith('.xls')
-}
-
 async function fileToBase64(file: File): Promise<string> {
   const buffer = await file.arrayBuffer()
   const bytes = new Uint8Array(buffer)
-  // Use btoa in chunks to avoid call stack overflow on large files
   let binary = ''
   const CHUNK = 8192
   for (let i = 0; i < bytes.length; i += CHUNK) {
@@ -88,23 +75,6 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
   const [isAnalisando, setIsAnalisando] = useState(false)
   const [resultado, setResultado] = useState<ResultadoVerificacao | null>(null)
   const [error, setError] = useState<string | null>(null)
-
-  const extrairTextoPDF = useCallback(async (arquivo: File): Promise<string> => {
-    const arrayBuffer = await arquivo.arrayBuffer()
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-
-    const textos: string[] = []
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i)
-      const content = await page.getTextContent()
-      const textosPagina = content.items
-        .map((item) => ('str' in item ? item.str : ''))
-        .join(' ')
-      textos.push(textosPagina)
-    }
-
-    return textos.join('\n')
-  }, [])
 
   const verificar = useCallback(
     async ({
@@ -127,49 +97,20 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
       setError(null)
       setResultado(null)
 
-      const excel = isExcelFile(arquivo)
-
       const transacoesSimples = transacoes.map((t: Lancamento) => ({
         data: t.data,
         descricao: t.observacao || getCategoryName(t.categoria_id),
-        valor: Math.abs(t.valor), // normalize: app stores expenses as negative, invoice has positives
+        valor: Math.abs(t.valor),
         ...(t.parcela_atual && t.parcela_total
           ? { parcela: `${t.parcela_atual}/${t.parcela_total}` }
           : {}),
       }))
 
-      // ------------------------------------------------------------------
-      // Step 1: Prepare file content
-      //   - Excel: encode as base64 (decryption handled server-side by Deno)
-      //   - PDF: extract text client-side with pdfjs
-      // ------------------------------------------------------------------
+      // Encode Excel as base64
       setIsExtraindo(true)
-      let body: Record<string, unknown>
+      let base64: string
       try {
-        if (excel) {
-          const base64 = await fileToBase64(arquivo)
-          body = {
-            excel_base64: base64,
-            excel_senha: senha || null,
-            transacoes: transacoesSimples,
-            total_app: totalFatura,
-            cartao_nome: cartaoNome,
-            periodo,
-          }
-        } else {
-          const pdfTexto = await extrairTextoPDF(arquivo)
-          if (!pdfTexto.trim()) {
-            setError('Não foi possível extrair texto do PDF. Verifique se o arquivo não é uma imagem escaneada.')
-            return
-          }
-          body = {
-            pdf_texto: pdfTexto,
-            transacoes: transacoesSimples,
-            total_app: totalFatura,
-            cartao_nome: cartaoNome,
-            periodo,
-          }
-        }
+        base64 = await fileToBase64(arquivo)
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Erro ao ler o arquivo.')
         return
@@ -177,9 +118,15 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
         setIsExtraindo(false)
       }
 
-      // ------------------------------------------------------------------
-      // Step 2: Call edge function (AI extraction + value-based matching)
-      // ------------------------------------------------------------------
+      const body = {
+        excel_base64: base64,
+        excel_senha: senha || null,
+        transacoes: transacoesSimples,
+        total_app: totalFatura,
+        cartao_nome: cartaoNome,
+        periodo,
+      }
+
       setIsAnalisando(true)
       try {
         const { data, error: fnError } = await supabase!.functions.invoke<{
@@ -236,7 +183,7 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
           return
         }
 
-        setResultado({ ...data.analise, fonte: excel ? 'excel' : 'pdf' })
+        setResultado({ ...data.analise, fonte: 'excel' })
       } catch (err) {
         console.error('Erro ao verificar fatura:', err)
         setError('Erro inesperado ao analisar a fatura. Tente novamente.')
@@ -244,7 +191,7 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
         setIsAnalisando(false)
       }
     },
-    [extrairTextoPDF]
+    []
   )
 
   const limpar = useCallback(() => {

@@ -29,15 +29,15 @@ interface TransacaoSimples {
   parcela?: string
 }
 
-interface PDFTransacao {
+interface FaturaTransacao {
   data: string
   descricao: string
   valor: number
 }
 
 interface ExtracaoIA {
-  total_pdf: number | null
-  transacoes: PDFTransacao[]
+  total_fatura: number | null
+  transacoes: FaturaTransacao[]
 }
 
 // ============================================================================
@@ -70,65 +70,74 @@ function getRenovacaoDate(mesAtual: string): string {
 // ---------------------------------------------------------------------------
 function parseInvoiceDate(dateStr: string, defaultYear: number): Date | null {
   const s = dateStr.trim()
-  // "10/03"
   const m1 = s.match(/^(\d{1,2})\/(\d{1,2})$/)
   if (m1) return new Date(defaultYear, parseInt(m1[2]) - 1, parseInt(m1[1]))
-  // "10/03/2026"
   const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
   if (m2) return new Date(parseInt(m2[3]), parseInt(m2[2]) - 1, parseInt(m2[1]))
-  // "2026-03-10"
   const m3 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if (m3) return new Date(parseInt(m3[1]), parseInt(m3[2]) - 1, parseInt(m3[3]))
   return null
 }
 
 // ---------------------------------------------------------------------------
-// Value-based matching — 2-pass to avoid wrong greedy matches when the same
-// value appears multiple times (e.g. recurring installments of the same amount)
+// Matching algorithm — 3 passes, ALL require date proximity.
 //
-// Pass 1: value within R$0.10  AND  date within 5 days  →  strong match
-// Pass 2: value within R$0.10  (date-agnostic)          →  loose match
+// The old "value-only, no date" pass was causing false matches (wrong items
+// matched together), making the discrepancy count worse instead of better.
+//
+// Pass 1: value ≤ R$0.02  AND  date ≤ 1 day  →  exact match
+// Pass 2: value ≤ R$0.02  AND  date ≤ 5 days →  posting-delay match
+// Pass 3: value within 2% AND  date ≤ 3 days →  FX/IOF rounding match
 // ---------------------------------------------------------------------------
 function matchTransacoes(
   appItems: TransacaoSimples[],
-  extItems: PDFTransacao[],
+  extItems: FaturaTransacao[],
   anoFatura: number,
 ): {
-  no_ext_nao_no_app: PDFTransacao[]
+  no_ext_nao_no_app: FaturaTransacao[]
   no_app_nao_no_ext: TransacaoSimples[]
 } {
   const appPool = appItems.map((item) => ({ item, matched: false }))
   const extPool = extItems.map((item) => ({ item, matched: false }))
-  const MS_5_DAYS = 5 * 24 * 60 * 60 * 1000
 
-  // Pass 1: value + date proximity
-  for (const extEntry of extPool) {
-    const extDate = parseInvoiceDate(extEntry.item.data, anoFatura)
-    if (!extDate) continue
+  const MS_1_DAY = 24 * 60 * 60 * 1000
+  const MS_3_DAYS = 3 * MS_1_DAY
+  const MS_5_DAYS = 5 * MS_1_DAY
 
-    const idx = appPool.findIndex((a) => {
-      if (a.matched) return false
-      if (Math.abs(a.item.valor - extEntry.item.valor) >= 0.10) return false
-      const appDate = new Date(a.item.data)
-      return Math.abs(appDate.getTime() - extDate.getTime()) <= MS_5_DAYS
-    })
+  function tryMatch(
+    valueTolerance: (a: number, b: number) => boolean,
+    dateTolerance: number,
+  ) {
+    for (const extEntry of extPool) {
+      if (extEntry.matched) continue
+      const extDate = parseInvoiceDate(extEntry.item.data, anoFatura)
+      if (!extDate) continue
 
-    if (idx !== -1) {
-      appPool[idx].matched = true
-      extEntry.matched = true
+      const idx = appPool.findIndex((a) => {
+        if (a.matched) return false
+        if (!valueTolerance(a.item.valor, extEntry.item.valor)) return false
+        const appDate = new Date(a.item.data)
+        return Math.abs(appDate.getTime() - extDate.getTime()) <= dateTolerance
+      })
+
+      if (idx !== -1) {
+        appPool[idx].matched = true
+        extEntry.matched = true
+      }
     }
   }
 
-  // Pass 2: value only (for entries whose date couldn't be parsed or didn't match)
-  for (const extEntry of extPool.filter((e) => !e.matched)) {
-    const idx = appPool.findIndex(
-      (a) => !a.matched && Math.abs(a.item.valor - extEntry.item.valor) < 0.10,
-    )
-    if (idx !== -1) {
-      appPool[idx].matched = true
-      extEntry.matched = true
-    }
-  }
+  // Pass 1: exact value + same day (±1 day)
+  tryMatch((a, b) => Math.abs(a - b) <= 0.02, MS_1_DAY)
+
+  // Pass 2: exact value + posting delay (≤5 days)
+  tryMatch((a, b) => Math.abs(a - b) <= 0.02, MS_5_DAYS)
+
+  // Pass 3: near value (≤2%) + close date (≤3 days) — handles FX rounding
+  tryMatch((a, b) => {
+    const max = Math.max(a, b)
+    return max > 0 && Math.abs(a - b) / max <= 0.02
+  }, MS_3_DAYS)
 
   return {
     no_ext_nao_no_app: extPool.filter((e) => !e.matched).map((e) => e.item),
@@ -137,7 +146,7 @@ function matchTransacoes(
 }
 
 function gerarResumo(params: {
-  noPdfNaoNoApp: PDFTransacao[]
+  noPdfNaoNoApp: FaturaTransacao[]
   noAppNaoNoPdf: TransacaoSimples[]
   totalPdf: number | null
   totalApp: number
@@ -175,62 +184,40 @@ function gerarResumo(params: {
 }
 
 // ============================================================================
-// PROMPTS
+// PROMPT
 // ============================================================================
-
-function buildPdfPrompt(pdfTexto: string): { system: string; user: string } {
-  const system = `Você é um parser de documentos financeiros brasileiros. Extraia todas as transações desta fatura de cartão de crédito a partir de texto extraído por OCR. Retorne SOMENTE JSON válido, sem markdown, sem texto adicional.`
-
-  const user = `Extraia TODAS as transações individuais desta fatura de cartão de crédito.
-
-REGRAS:
-1. Cada linha de lançamento é uma transação SEPARADA — nunca agrupe por estabelecimento.
-2. Para parcelas (ex: "Loja X 2/6"), cada parcela é uma transação separada.
-3. "valor" deve ser número positivo (sem sinal negativo).
-4. Inclua compras, tarifas, encargos, IOF, anuidades — tudo que gera débito.
-5. Ignore linhas de pagamento/crédito (valores que reduzem a fatura).
-
-=== TEXTO DA FATURA PDF (extraído por OCR) ===
-${pdfTexto}
-
-Retorne JSON com esta estrutura EXATA:
-{
-  "total_pdf": <número com o total/valor a pagar da fatura, ou null se não encontrado>,
-  "transacoes": [
-    {"data": "<data como aparece>", "descricao": "<nome do estabelecimento>", "valor": <número positivo>}
-  ]
-}`
-
-  return { system, user }
-}
 
 function buildExcelPrompt(excelTexto: string): { system: string; user: string } {
   const system = `Você é um processador especializado em faturas de cartão de crédito brasileiras exportadas em planilha. Você recebe o conteúdo da planilha em formato de texto tabulado (colunas separadas por tab). Retorne SOMENTE JSON válido, sem markdown, sem texto adicional.`
 
   const user = `Analise esta planilha de fatura de cartão de crédito e extraia os lançamentos de COMPRAS/DÉBITOS.
 
-REGRAS DE EXTRAÇÃO:
-1. A planilha pode ter cabeçalhos, informações do titular e linhas em branco antes dos dados — identifique onde começam os lançamentos.
-2. Extraia SOMENTE transações de DÉBITO. Tipos que DEVEM ser incluídos:
-   - "Compra à vista" → compra normal, inclua
-   - "Parcela sem juros" → compra parcelada, INCLUA (não é pagamento nem crédito)
-   - "Parcela com juros" → compra parcelada, inclua
-   - Tarifas, IOF, anuidade, encargos → inclua
-3. Ignore APENAS: pagamentos de fatura (ex: "Pagamento recebido"), créditos/estornos que reduzem a fatura.
-4. Para estornos de compra: se o estorno E a compra original AMBOS aparecem, exclua os dois. Se só o estorno aparece, ignore-o.
-5. Formato BTG e outros bancos: o tipo da transação ("Compra à vista", "Parcela sem juros") pode aparecer numa coluna separada ou numa linha imediatamente abaixo da descrição — use essa informação apenas para classificar, mas extraia a transação da linha com data e valor.
-6. Cada linha com data + valor é uma transação SEPARADA — não agrupe por estabelecimento.
-7. "valor" deve ser número positivo (converta "R$ 77,08" → 77.08).
-8. Identifique e retorne o total da fatura se houver linha de total/subtotal.
+REGRA PRINCIPAL DE IDENTIFICAÇÃO:
+Uma linha é uma transação SOMENTE se ela contiver OBRIGATORIAMENTE os três elementos na mesma linha:
+  1. Uma DATA (ex: "10/03", "10/03/2026", "2026-03-10")
+  2. Uma DESCRIÇÃO de estabelecimento ou serviço (texto)
+  3. Um VALOR numérico positivo
+
+Linhas que não tenham os três elementos simultaneamente são cabeçalhos, totais, subtotais ou linhas de separação — IGNORE-AS.
+
+REGRAS ADICIONAIS:
+1. Extraia SOMENTE transações de DÉBITO. Inclua:
+   - Compras à vista e parceladas (inclua cada parcela como transação separada)
+   - Tarifas, IOF, anuidade, encargos
+2. Ignore pagamentos de fatura e créditos/estornos que reduzem a fatura.
+3. Para estornos: se a compra original E o estorno aparecem, exclua os dois. Se apenas o estorno aparece, ignore-o.
+4. "valor" deve ser número positivo (converta "R$ 77,08" → 77.08 e "1.234,56" → 1234.56).
+5. "data" deve ser exatamente como aparece na planilha (ex: "10/03" ou "10/03/2026").
+6. Capture o total/valor a pagar da fatura se houver linha específica para isso.
 
 === PLANILHA (texto tabulado, colunas separadas por tab) ===
 ${excelTexto}
 
 Retorne JSON com esta estrutura EXATA:
 {
-  "total_pdf": <número com o total a pagar da fatura, ou null se não encontrado>,
+  "total_fatura": <número com o total a pagar da fatura, ou null se não encontrado>,
   "transacoes": [
-    {"data": "<data como aparece, ex: 10/03>", "descricao": "<estabelecimento ou descrição>", "valor": <número positivo>}
+    {"data": "<data como aparece>", "descricao": "<estabelecimento ou descrição>", "valor": <número positivo>}
   ]
 }`
 
@@ -348,84 +335,63 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------------------
-    // 4. LER BODY — aceita PDF (texto) ou Excel (base64 binário)
+    // 4. LER BODY — aceita somente Excel (base64)
     // -------------------------------------------------------------------------
     const body = await req.json()
-    const { pdf_texto, excel_base64, excel_senha, transacoes, total_app, cartao_nome, periodo } = body as {
-      pdf_texto?: string
-      excel_base64?: string   // raw Excel file encoded as base64
-      excel_senha?: string    // optional password for encrypted files
+    const { excel_base64, excel_senha, transacoes, total_app, cartao_nome, periodo } = body as {
+      excel_base64: string
+      excel_senha?: string
       transacoes: TransacaoSimples[]
       total_app: number
       cartao_nome: string
       periodo: string
     }
 
+    if (!excel_base64) {
+      return jsonResponse({ error: 'Arquivo Excel não enviado (excel_base64 obrigatório)' }, 400)
+    }
+
     if (!transacoes || !Array.isArray(transacoes)) {
       return jsonResponse({ error: 'Lista de transações inválida' }, 400)
     }
 
-    let isExcel = false
+    // -------------------------------------------------------------------------
+    // 5. PARSEAR EXCEL COM SheetJS
+    // -------------------------------------------------------------------------
     let textoLimitado = ''
+    try {
+      const workbook = XLSX.read(excel_base64, {
+        type: 'base64',
+        password: excel_senha || undefined,
+        raw: false,
+        cellDates: false,
+      })
 
-    if (excel_base64) {
-      // -----------------------------------------------------------------------
-      // Excel path: parse binary with SheetJS (Deno has full crypto support)
-      // -----------------------------------------------------------------------
-      isExcel = true
-      try {
-        const workbook = XLSX.read(excel_base64, {
-          type: 'base64',
-          password: excel_senha || undefined,
-          raw: false,
-          cellDates: false,
-        })
-
-        // Pick the sheet with most rows
-        let sheetName = workbook.SheetNames[0]
-        let maxRows = 0
-        for (const name of workbook.SheetNames) {
-          const sheet = workbook.Sheets[name]
-          if (!sheet['!ref']) continue
-          const range = XLSX.utils.decode_range(sheet['!ref'])
-          const rows = range.e.r - range.s.r
-          if (rows > maxRows) { maxRows = rows; sheetName = name }
-        }
-
-        const sheet = workbook.Sheets[sheetName]
-        const csv = XLSX.utils.sheet_to_csv(sheet, { FS: '\t', blankrows: false })
-        textoLimitado = csv.length > 24000 ? csv.substring(0, 24000) + '\n[... truncado ...]' : csv
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message.toLowerCase() : ''
-        if (msg.includes('password') || msg.includes('encrypted') || msg.includes('cfb')) {
-          return jsonResponse({
-            error: 'Arquivo protegido por senha não pôde ser aberto.',
-            code: 'EXCEL_PASSWORD_PROTECTED',
-          }, 400)
-        }
-        console.error('Erro ao parsear Excel:', err)
-        return jsonResponse({ error: 'Não foi possível abrir o arquivo Excel. Verifique se é um .xlsx ou .xls válido.' }, 400)
+      // Pick the sheet with most rows
+      let sheetName = workbook.SheetNames[0]
+      let maxRows = 0
+      for (const name of workbook.SheetNames) {
+        const sheet = workbook.Sheets[name]
+        if (!sheet['!ref']) continue
+        const range = XLSX.utils.decode_range(sheet['!ref'])
+        const rows = range.e.r - range.s.r
+        if (rows > maxRows) { maxRows = rows; sheetName = name }
       }
-    } else if (pdf_texto) {
-      // -----------------------------------------------------------------------
-      // PDF path: text already extracted by pdfjs on the client
-      // -----------------------------------------------------------------------
-      if (pdf_texto.trim().length < 20) {
-        return jsonResponse({ error: 'Texto do PDF inválido ou muito curto' }, 400)
+
+      const sheet = workbook.Sheets[sheetName]
+      const csv = XLSX.utils.sheet_to_csv(sheet, { FS: '\t', blankrows: false })
+      textoLimitado = csv.length > 24000 ? csv.substring(0, 24000) + '\n[... truncado ...]' : csv
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message.toLowerCase() : ''
+      if (msg.includes('password') || msg.includes('encrypted') || msg.includes('cfb')) {
+        return jsonResponse({
+          error: 'Arquivo protegido por senha não pôde ser aberto.',
+          code: 'EXCEL_PASSWORD_PROTECTED',
+        }, 400)
       }
-      textoLimitado = pdf_texto.length > 32000
-        ? pdf_texto.substring(0, 32000) + '\n[... truncado ...]'
-        : pdf_texto
-    } else {
-      return jsonResponse({ error: 'Nenhum arquivo enviado (pdf_texto ou excel_base64 obrigatório)' }, 400)
+      console.error('Erro ao parsear Excel:', err)
+      return jsonResponse({ error: 'Não foi possível abrir o arquivo Excel. Verifique se é um .xlsx ou .xls válido.' }, 400)
     }
-
-    // -------------------------------------------------------------------------
-    // 5. PROMPT — diferente para Excel vs PDF
-    // -------------------------------------------------------------------------
-    const { system: systemPrompt, user: userPrompt } = isExcel
-      ? buildExcelPrompt(textoLimitado)
-      : buildPdfPrompt(textoLimitado)
 
     // -------------------------------------------------------------------------
     // 6. CHAMAR OPENAI
@@ -434,6 +400,8 @@ serve(async (req) => {
     if (!openaiKey) {
       return jsonResponse({ error: 'Configuração de IA incompleta no servidor' }, 500)
     }
+
+    const { system: systemPrompt, user: userPrompt } = buildExcelPrompt(textoLimitado)
 
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -473,6 +441,10 @@ serve(async (req) => {
       if (jsonStart === -1 || jsonEnd === -1 || jsonEnd < jsonStart) throw new Error('no JSON')
       extracao = JSON.parse(content.slice(jsonStart, jsonEnd + 1)) as ExtracaoIA
       if (!Array.isArray(extracao.transacoes)) extracao.transacoes = []
+      // Accept both key names for backward compat with cached responses
+      if ((extracao as any).total_pdf !== undefined && extracao.total_fatura === undefined) {
+        extracao.total_fatura = (extracao as any).total_pdf
+      }
     } catch {
       const finishReason = openaiData.choices?.[0]?.finish_reason
       console.error('Falha ao parsear extração (finish_reason:', finishReason, '):', content.slice(0, 300))
@@ -483,15 +455,14 @@ serve(async (req) => {
     }
 
     // -------------------------------------------------------------------------
-    // 7. MATCHING POR VALOR + DATA (TypeScript, determinístico, 2 passes)
+    // 7. MATCHING POR VALOR + DATA (3 passes, todos requerem data próxima)
     // -------------------------------------------------------------------------
-    // Extrair o ano do período para parsear datas no formato "DD/MM" da fatura
     const anoFaturaMatch = periodo.match(/\b(20\d{2})\b/)
     const anoFatura = anoFaturaMatch ? parseInt(anoFaturaMatch[1]) : new Date().getFullYear()
 
     const { no_ext_nao_no_app, no_app_nao_no_ext } = matchTransacoes(transacoes, extracao.transacoes, anoFatura)
 
-    const totalPdf = extracao.total_pdf ?? null
+    const totalPdf = extracao.total_fatura ?? null
     const diferencaTotal = totalPdf !== null ? totalPdf - total_app : null
 
     const resumo = gerarResumo({
