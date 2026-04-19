@@ -816,6 +816,12 @@ export interface CreateTransacaoCaixinhaInput {
   conta_saida_id?: string | null // Conta não-investimento de onde o dinheiro saiu (depósito de orçamento → investimento)
 }
 
+export interface TransferirEntreCaixinhasInput {
+  source_id: string
+  dest_id: string
+  valor_mercado_transferir: number // valor em termos de mercado a mover
+}
+
 // Input para alocar saldo mensal em múltiplas caixinhas
 export interface AlocarSaldoMensalInput {
   mes_referencia: string // YYYY-MM

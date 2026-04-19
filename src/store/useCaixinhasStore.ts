@@ -10,6 +10,7 @@ import type {
   CreateTransacaoCaixinhaInput,
   AlocarSaldoMensalInput,
   CaixinhasSummary,
+  TransferirEntreCaixinhasInput,
 } from '../types'
 import { caixinhasService, transacoesCaixinhasService } from '../services/caixinhasService'
 import { useContasBancariasStore } from './useContasBancariasStore'
@@ -63,6 +64,7 @@ interface CaixinhasActions {
   createTransacao: (input: CreateTransacaoCaixinhaInput) => Promise<TransacaoCaixinha | null>
   deleteTransacao: (transacaoId: string, caixinhaId: string) => Promise<boolean>
   alocarSaldoMensal: (input: AlocarSaldoMensalInput) => Promise<boolean>
+  transferirCaixinhas: (input: TransferirEntreCaixinhasInput) => Promise<boolean>
 
   // Queries
   getCaixinhaById: (id: string) => CaixinhaComDetalhes | undefined
@@ -579,6 +581,63 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
         return false
       } catch (error) {
         console.error('Erro ao alocar saldo mensal:', error)
+        set({ error: (error as Error).message })
+        return false
+      }
+    },
+
+    transferirCaixinhas: async (input: TransferirEntreCaixinhasInput) => {
+      set({ error: null })
+
+      try {
+        const { data, error } = await caixinhasService.transferirEntreCaixinhas(input)
+
+        if (error) {
+          set({ error: error.message })
+          return false
+        }
+
+        if (data) {
+          // Ajustar contas bancárias se source e dest têm contas DIFERENTES
+          const sourceLocal = get().caixinhas.find((c) => c.id === input.source_id)
+          const destLocal = get().caixinhas.find((c) => c.id === input.dest_id)
+          const sourceContaId = sourceLocal?.conta_investimento_id
+          const destContaId = destLocal?.conta_investimento_id
+
+          if (sourceContaId !== destContaId) {
+            const contasStore = useContasBancariasStore.getState()
+            if (sourceContaId) {
+              const contaSource = contasStore.getContaById(sourceContaId)
+              if (contaSource) {
+                await contasStore.updateConta(contaSource.id, {
+                  saldo_atual: contaSource.saldo_atual - input.valor_mercado_transferir,
+                })
+              }
+            }
+            if (destContaId) {
+              const contaDest = contasStore.getContaById(destContaId)
+              if (contaDest) {
+                await contasStore.updateConta(contaDest.id, {
+                  saldo_atual: contaDest.saldo_atual + input.valor_mercado_transferir,
+                })
+              }
+            }
+            await contasStore.fetchContas()
+          }
+
+          await Promise.all([
+            get().fetchCaixinhas(),
+            get().fetchTransacoes(input.source_id),
+            get().fetchTransacoes(input.dest_id),
+            get().fetchSummary(),
+          ])
+
+          return true
+        }
+
+        return false
+      } catch (error) {
+        console.error('Erro ao transferir entre caixinhas:', error)
         set({ error: (error as Error).message })
         return false
       }

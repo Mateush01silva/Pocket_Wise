@@ -27,6 +27,7 @@ import type {
   CreateTransacaoCaixinhaInput,
   AlocarSaldoMensalInput,
   CaixinhasSummary,
+  TransferirEntreCaixinhasInput,
   DbResult,
   DbListResult,
 } from '../types'
@@ -433,6 +434,146 @@ export const caixinhasService = {
       },
       error: null,
     }
+  },
+
+  /**
+   * Transfere valor de mercado de uma caixinha de investimento para outra,
+   * preservando a rentabilidade proporcional de ambas.
+   *
+   * - cost_basis transferido = valor_mercado_transferir * (saldo_atual_source / valor_mercado_source)
+   * - valor_mercado de ambas é ajustado diretamente, SEM passar por atualizarValorMercado
+   *   (para evitar o delta incorreto na conta bancária vinculada)
+   * - Contas bancárias são ajustadas apenas se source e dest tiverem contas DIFERENTES
+   */
+  async transferirEntreCaixinhas(input: TransferirEntreCaixinhasInput): Promise<DbResult<{ source: Caixinha; dest: Caixinha }>> {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const currentUser = await getCurrentUser()
+    if (!currentUser) {
+      return { data: null, error: new Error('User not authenticated') }
+    }
+
+    const familyId = await getUserFamilyId()
+    if (!familyId) {
+      return { data: null, error: new Error('User has no family') }
+    }
+
+    if (input.source_id === input.dest_id) {
+      return { data: null, error: new Error('Origem e destino devem ser caixinhas diferentes') }
+    }
+
+    // Fetch both caixinhas
+    const { data: source, error: sourceErr } = await supabase
+      // @ts-ignore
+      .from('caixinhas')
+      .select('id, family_id, nome, tipo, saldo_atual, valor_mercado, conta_investimento_id')
+      .eq('id', input.source_id)
+      .eq('family_id', familyId)
+      .single()
+
+    if (sourceErr || !source) {
+      return { data: null, error: sourceErr || new Error('Caixinha de origem não encontrada') }
+    }
+
+    const { data: dest, error: destErr } = await supabase
+      // @ts-ignore
+      .from('caixinhas')
+      .select('id, family_id, nome, tipo, saldo_atual, valor_mercado, conta_investimento_id')
+      .eq('id', input.dest_id)
+      .eq('family_id', familyId)
+      .single()
+
+    if (destErr || !dest) {
+      return { data: null, error: destErr || new Error('Caixinha de destino não encontrada') }
+    }
+
+    if (source.tipo !== 'investimento' || dest.tipo !== 'investimento') {
+      return { data: null, error: new Error('Transferência disponível apenas entre caixinhas de investimento') }
+    }
+
+    const valorMercadoSource = source.valor_mercado ?? source.saldo_atual
+    if (input.valor_mercado_transferir <= 0) {
+      return { data: null, error: new Error('O valor a transferir deve ser maior que zero') }
+    }
+    if (input.valor_mercado_transferir > valorMercadoSource) {
+      return { data: null, error: new Error('Valor excede o valor de mercado disponível na caixinha de origem') }
+    }
+
+    // Proporção: quanto do custo (saldo_atual) corresponde ao valor de mercado transferido
+    const costBasis = valorMercadoSource > 0
+      ? input.valor_mercado_transferir * (source.saldo_atual / valorMercadoSource)
+      : input.valor_mercado_transferir
+
+    if (costBasis > source.saldo_atual + 0.01) {
+      return { data: null, error: new Error('Custo proporcional excede o saldo disponível') }
+    }
+
+    // Retirada na origem (trigger do banco atualiza saldo_atual)
+    const { error: retiradaErr } = await supabase
+      // @ts-ignore
+      .from('transacoes_caixinhas')
+      .insert({
+        caixinha_id: input.source_id,
+        realizado_por: currentUser.id,
+        valor: Math.round(costBasis * 100) / 100,
+        tipo: 'retirada',
+        descricao: `Transferência para ${dest.nome}`,
+      })
+
+    if (retiradaErr) {
+      return { data: null, error: retiradaErr }
+    }
+
+    // Depósito no destino (trigger do banco atualiza saldo_atual)
+    const { error: depositoErr } = await supabase
+      // @ts-ignore
+      .from('transacoes_caixinhas')
+      .insert({
+        caixinha_id: input.dest_id,
+        realizado_por: currentUser.id,
+        valor: Math.round(costBasis * 100) / 100,
+        tipo: 'deposito',
+        descricao: `Transferência de ${source.nome}`,
+      })
+
+    if (depositoErr) {
+      return { data: null, error: depositoErr }
+    }
+
+    // Ajustar valor_mercado diretamente (sem passar por atualizarValorMercado)
+    const novoValorMercadoSource = Math.max(0, valorMercadoSource - input.valor_mercado_transferir)
+    const valorMercadoDest = dest.valor_mercado ?? dest.saldo_atual
+    const novoValorMercadoDest = valorMercadoDest + input.valor_mercado_transferir
+
+    const now = new Date().toISOString()
+
+    const { data: updatedSource, error: updateSourceErr } = await supabase
+      // @ts-ignore
+      .from('caixinhas')
+      .update({ valor_mercado: novoValorMercadoSource, data_valor_mercado: now })
+      .eq('id', input.source_id)
+      .select()
+      .single()
+
+    if (updateSourceErr) {
+      return { data: null, error: updateSourceErr }
+    }
+
+    const { data: updatedDest, error: updateDestErr } = await supabase
+      // @ts-ignore
+      .from('caixinhas')
+      .update({ valor_mercado: novoValorMercadoDest, data_valor_mercado: now })
+      .eq('id', input.dest_id)
+      .select()
+      .single()
+
+    if (updateDestErr) {
+      return { data: null, error: updateDestErr }
+    }
+
+    return { data: { source: updatedSource, dest: updatedDest }, error: null }
   },
 }
 
