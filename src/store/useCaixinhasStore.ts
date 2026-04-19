@@ -322,20 +322,12 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
           // Atualizar summary para refletir nova rentabilidade
           await get().fetchSummary()
 
-          // Sincronizar contas bancárias se havia conta vinculada:
-          // 1. Atualizar otimisticamente no store local (sem depender de race condition do fetch)
-          // 2. Depois buscar do servidor para garantir consistência
+          // Sincronizar conta bancária vinculada buscando valor atualizado do servidor.
+          // Não usamos updateConta aqui pois o serviço já atualizou o DB corretamente;
+          // usar o saldo local (possivelmente stale) + delta sobrescreveria o valor correto.
           const caixinhaAtualizada = get().caixinhas.find((c) => c.id === input.caixinha_id)
-          if (caixinhaAtualizada?.conta_investimento_id && delta !== 0) {
+          if (caixinhaAtualizada?.conta_investimento_id) {
             const contasStore = useContasBancariasStore.getState()
-            const contaLocal = contasStore.getContaById(caixinhaAtualizada.conta_investimento_id)
-            if (contaLocal) {
-              // Atualização otimista local imediata
-              contasStore.updateConta(contaLocal.id, {
-                saldo_atual: contaLocal.saldo_atual + delta,
-              })
-            }
-            // Sync com servidor para garantir valor correto
             await contasStore.fetchContas()
           }
 
@@ -384,14 +376,8 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
           await get().fetchSummary()
 
           const caixinha = get().caixinhas.find((c) => c.id === caixinhaId)
-          if (caixinha?.conta_investimento_id && delta !== 0) {
+          if (caixinha?.conta_investimento_id) {
             const contasStore = useContasBancariasStore.getState()
-            const contaLocal = contasStore.getContaById(caixinha.conta_investimento_id)
-            if (contaLocal) {
-              contasStore.updateConta(contaLocal.id, {
-                saldo_atual: contaLocal.saldo_atual + delta,
-              })
-            }
             await contasStore.fetchContas()
           }
 
