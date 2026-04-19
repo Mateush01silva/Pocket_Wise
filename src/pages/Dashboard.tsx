@@ -452,15 +452,13 @@ export function Dashboard() {
         </LearningTooltip>
       </div>
 
-      {/* Layout: Envelopes (maior) | Metas + Contas (coluna direita) */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
-        <div className="lg:col-span-3">
-          <EnvelopesWidget />
-        </div>
-        <div className="lg:col-span-2 flex flex-col gap-4">
-          <CaixinhasObjetivosWidget />
-          <BankAccountsWidget />
-        </div>
+      {/* Envelopes - largura total */}
+      <EnvelopesWidget />
+
+      {/* Saldo nas Contas | Metas e Sonhos — 50/50 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+        <BankAccountsWidget />
+        <CaixinhasObjetivosWidget />
       </div>
 
       {/* Revenue auto-adjustment alert */}
