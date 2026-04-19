@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
-import { X, Upload, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2, LayoutPanelLeft, TableIcon, Lock, Clock, RotateCcw, Info } from 'lucide-react'
+import { X, Upload, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2, LayoutPanelLeft, TableIcon, Clock, RotateCcw, Info } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { formatCurrency } from '../utils/currency'
@@ -87,7 +87,6 @@ export function VerificarFaturaModal({
     const name = file.name.toLowerCase()
     if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) return
     setArquivoSelecionado(file)
-    setSenha('')
     limpar()
   }, [limpar])
 
