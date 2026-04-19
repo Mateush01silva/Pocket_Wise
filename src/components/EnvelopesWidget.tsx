@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { Info } from 'lucide-react'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { formatCurrency } from '../utils/currency'
-import { LearningTooltip } from './ui/LearningTooltip'
 
 export function EnvelopesWidget() {
   const navigate = useNavigate()
@@ -98,12 +97,11 @@ export function EnvelopesWidget() {
             )}
           </p>
         </div>
-        <LearningTooltip
-          content={tooltipSaldo}
-          position="top"
-        >
-          <Info size={14} className="text-gray-500 hover:text-gray-300 shrink-0 mt-0.5 cursor-help" />
-        </LearningTooltip>
+        <Info
+          size={14}
+          className="text-gray-500 hover:text-gray-300 shrink-0 mt-0.5 cursor-help"
+          title={tooltipSaldo}
+        />
       </div>
     </div>
   )
