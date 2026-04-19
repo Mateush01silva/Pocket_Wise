@@ -1,11 +1,13 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { format, parseISO, addMonths, startOfMonth, setDate } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { X, Calendar, ShoppingBag, FileSearch } from 'lucide-react'
+import { X, Calendar, ShoppingBag, FileSearch, Lock } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useCategoriasStore } from '../store'
 import type { Lancamento } from '../types'
 import { VerificarFaturaModal } from './VerificarFaturaModal'
+import { usePlan } from '../hooks/usePlan'
 
 interface FaturaDetailsModalProps {
   isOpen: boolean
@@ -63,6 +65,9 @@ export function FaturaDetailsModal({
 }: FaturaDetailsModalProps) {
   const categorias = useCategoriasStore((state) => state.categorias)
   const [verificarOpen, setVerificarOpen] = useState(false)
+  const { featureAccess } = usePlan()
+  const navigate = useNavigate()
+  const verificarAccess = featureAccess('verificar_fatura')
 
   if (!isOpen) return null
 
@@ -213,13 +218,78 @@ export function FaturaDetailsModal({
             </span>
           </div>
           {showVerificarButton && (
-            <button
-              onClick={() => setVerificarOpen(true)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-dark-600 text-sm text-gray-300 hover:text-gray-100 hover:bg-dark-700/50 hover:border-dark-500 transition-colors"
-            >
-              <FileSearch size={16} />
-              Verificar fatura (PDF ou Excel)
-            </button>
+            verificarAccess === 'full' ? (
+              /* Mestre: botão destacado com contexto de uso */
+              <button
+                onClick={() => setVerificarOpen(true)}
+                className="w-full flex items-start gap-3 py-3 px-4 rounded-xl border transition-colors text-left"
+                style={{ borderColor: '#7C3AED44', background: '#7C3AED0A' }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = '#7C3AED14'
+                  e.currentTarget.style.borderColor = '#7C3AED66'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = '#7C3AED0A'
+                  e.currentTarget.style.borderColor = '#7C3AED44'
+                }}
+              >
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                  style={{ background: 'linear-gradient(135deg, #7C3AED22, #7C3AED44)', border: '1px solid #7C3AED55' }}
+                >
+                  <FileSearch size={16} className="text-secondary-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-sm font-medium text-gray-200">Verificar Fatura</span>
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                      style={{ background: '#7C3AED22', color: '#a78bfa', border: '1px solid #7C3AED44' }}
+                    >
+                      IA
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 leading-snug">
+                    Encontrou diferença no total? Envie o Excel do banco e encontre os lançamentos divergentes
+                  </p>
+                </div>
+              </button>
+            ) : (
+              /* Explorador / Planejador: CTA de upgrade */
+              <div className="rounded-xl border border-dark-600 overflow-hidden">
+                <div className="flex items-start gap-3 p-3 bg-dark-700/20">
+                  <div
+                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                    style={{ background: '#7C3AED11', border: '1px solid #7C3AED33' }}
+                  >
+                    <Lock size={15} className="text-secondary-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-sm font-medium text-gray-400">Verificar Fatura com IA</span>
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                        style={{ background: '#7C3AED22', color: '#a78bfa', border: '1px solid #7C3AED44' }}
+                      >
+                        Mestre
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 leading-snug">
+                      Envie o Excel da fatura, compare valor a valor e descubra o que está faltando ou errado no app
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate('/app/assinatura')}
+                  className="w-full py-2.5 text-xs font-medium border-t border-dark-600 transition-colors"
+                  style={{ color: '#a78bfa', background: '#7C3AED08' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#7C3AED18')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#7C3AED08')}
+                >
+                  Assinar Mestre para desbloquear →
+                </button>
+              </div>
+            )
           )}
         </div>
       </div>
