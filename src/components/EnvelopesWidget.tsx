@@ -97,11 +97,9 @@ export function EnvelopesWidget() {
             )}
           </p>
         </div>
-        <Info
-          size={14}
-          className="text-gray-500 hover:text-gray-300 shrink-0 mt-0.5 cursor-help"
-          title={tooltipSaldo}
-        />
+        <span title={tooltipSaldo} className="shrink-0 mt-0.5 cursor-help">
+          <Info size={14} className="text-gray-500 hover:text-gray-300" />
+        </span>
       </div>
     </div>
   )
