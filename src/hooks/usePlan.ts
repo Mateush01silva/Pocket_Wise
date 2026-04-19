@@ -20,6 +20,7 @@ export type Feature =
   | 'ai_assistant'
   | 'posso_comprar_ai'
   | 'ai_personalities'
+  | 'verificar_fatura'
 
 export type LimitedResource = 'transactions' | 'cards' | 'accounts' | 'envelopes' | 'caixinhas'
 
@@ -40,6 +41,7 @@ const FEATURE_ACCESS: Record<Feature, Record<Tier, FeatureAccess>> = {
   ai_assistant:      { explorador: 'locked',  planejador: 'locked',  mestre: 'full' },
   posso_comprar_ai:  { explorador: 'locked',  planejador: 'locked',  mestre: 'full' },
   ai_personalities:  { explorador: 'locked',  planejador: 'locked',  mestre: 'full' },
+  verificar_fatura:  { explorador: 'locked',  planejador: 'locked',  mestre: 'full' },
 } as const
 
 const TIER_LIMITS: Record<Tier, Record<LimitedResource, number>> = {

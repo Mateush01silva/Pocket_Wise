@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
-import { X, Upload, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2, LayoutPanelLeft, TableIcon, Lock, Clock, RotateCcw } from 'lucide-react'
+import { X, Upload, AlertTriangle, CheckCircle, TrendingDown, TrendingUp, Loader2, LayoutPanelLeft, TableIcon, Lock, Clock, RotateCcw, Info } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { formatCurrency } from '../utils/currency'
@@ -34,7 +34,6 @@ export function VerificarFaturaModal({
   const [arquivoSelecionado, setArquivoSelecionado] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [splitViewOpen, setSplitViewOpen] = useState(false)
-  const [senha, setSenha] = useState('')
   const [mostrarNovaAnalise, setMostrarNovaAnalise] = useState(false)
   const [resultadoSalvo, setResultadoSalvo] = useState<{
     resultado: ResultadoVerificacao
@@ -72,7 +71,6 @@ export function VerificarFaturaModal({
   const handleClose = useCallback(() => {
     if (!isLoading) {
       setArquivoSelecionado(null)
-      setSenha('')
       setMostrarNovaAnalise(false)
       limpar()
       onClose()
@@ -81,7 +79,6 @@ export function VerificarFaturaModal({
 
   const handleNovaAnalise = useCallback(() => {
     setArquivoSelecionado(null)
-    setSenha('')
     setMostrarNovaAnalise(true)
     limpar()
   }, [limpar])
@@ -110,14 +107,13 @@ export function VerificarFaturaModal({
     if (!arquivoSelecionado) return
     await verificar({
       arquivo: arquivoSelecionado,
-      senha: senha || undefined,
       transacoes,
       totalFatura,
       cartaoNome,
       periodo,
       getCategoryName,
     })
-  }, [arquivoSelecionado, senha, verificar, transacoes, totalFatura, cartaoNome, periodo, getCategoryName])
+  }, [arquivoSelecionado, verificar, transacoes, totalFatura, cartaoNome, periodo, getCategoryName])
 
   if (!isOpen) return null
 
@@ -211,33 +207,19 @@ export function VerificarFaturaModal({
                 )}
               </div>
 
-              {/* Password field + instructions */}
+              {/* Instructions for password-protected files */}
               {arquivoSelecionado && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 p-3 bg-dark-700/40 rounded-xl border border-dark-600">
-                    <Lock size={15} className="text-gray-500 shrink-0" />
-                    <input
-                      type="password"
-                      placeholder="Senha do arquivo (se houver)"
-                      value={senha}
-                      onChange={(e) => setSenha(e.target.value)}
-                      disabled={isLoading}
-                      className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-600 outline-none"
-                    />
+                <div className="p-3 bg-dark-700/40 border border-dark-600 rounded-xl space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Info size={12} className="text-gray-500 shrink-0" />
+                    <p className="text-xs font-medium text-gray-400">Arquivo com senha? Antes de enviar:</p>
                   </div>
-                  {/* Proactive instructions for password-protected files */}
-                  <div className="p-3 bg-amber-500/8 border border-amber-500/20 rounded-xl space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <Lock size={12} className="text-amber-400 shrink-0" />
-                      <p className="text-xs font-medium text-amber-400">Arquivo com senha? Siga estes passos antes de enviar:</p>
-                    </div>
-                    <ol className="text-xs text-gray-400 space-y-1 list-none pl-1">
-                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">1.</span>Abra o Excel normalmente (com a senha)</li>
-                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">2.</span>Clique com o botão direito na aba de lançamentos → <strong>Mover ou Copiar</strong></li>
-                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">3.</span>Selecione <strong>Nova pasta de trabalho</strong> e marque <strong>Criar uma cópia</strong></li>
-                      <li className="flex gap-2"><span className="text-amber-500 font-bold shrink-0">4.</span>Salve o novo arquivo como .xlsx <strong>sem senha</strong> e envie aqui</li>
-                    </ol>
-                  </div>
+                  <ol className="text-xs text-gray-500 space-y-1 list-none pl-1">
+                    <li className="flex gap-2"><span className="text-gray-400 font-bold shrink-0">1.</span>Abra o Excel normalmente (com a senha)</li>
+                    <li className="flex gap-2"><span className="text-gray-400 font-bold shrink-0">2.</span>Botão direito na aba de lançamentos → <strong className="text-gray-400">Mover ou Copiar</strong></li>
+                    <li className="flex gap-2"><span className="text-gray-400 font-bold shrink-0">3.</span>Selecione <strong className="text-gray-400">Nova pasta de trabalho</strong> e marque <strong className="text-gray-400">Criar uma cópia</strong></li>
+                    <li className="flex gap-2"><span className="text-gray-400 font-bold shrink-0">4.</span>Salve como .xlsx <strong className="text-gray-400">sem senha</strong> e envie aqui</li>
+                  </ol>
                 </div>
               )}
 

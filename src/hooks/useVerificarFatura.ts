@@ -39,7 +39,6 @@ interface UseVerificarFaturaState {
 interface UseVerificarFaturaActions {
   verificar: (params: {
     arquivo: File
-    senha?: string
     transacoes: Lancamento[]
     totalFatura: number
     cartaoNome: string
@@ -79,7 +78,6 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
   const verificar = useCallback(
     async ({
       arquivo,
-      senha,
       transacoes,
       totalFatura,
       cartaoNome,
@@ -87,7 +85,6 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
       getCategoryName,
     }: {
       arquivo: File
-      senha?: string
       transacoes: Lancamento[]
       totalFatura: number
       cartaoNome: string
@@ -120,7 +117,6 @@ export function useVerificarFatura(): UseVerificarFaturaReturn {
 
       const body = {
         excel_base64: base64,
-        excel_senha: senha || null,
         transacoes: transacoesSimples,
         total_app: totalFatura,
         cartao_nome: cartaoNome,
