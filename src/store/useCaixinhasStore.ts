@@ -302,8 +302,6 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
         }
 
         if (data) {
-          const delta = input.novo_valor_mercado - valorAnterior
-
           // Atualizar a caixinha no estado local
           set((state) => {
             const index = state.caixinhas.findIndex((c) => c.id === input.caixinha_id)
@@ -346,11 +344,6 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
       set({ error: null })
 
       try {
-        // Capturar valor atual para calcular delta local
-        const caixinhaAtual = get().caixinhas.find((c) => c.id === caixinhaId)
-        const valorAtual = caixinhaAtual?.valor_mercado ?? caixinhaAtual?.saldo_atual ?? 0
-        const delta = valorAnterior - valorAtual
-
         const { data, error } = await caixinhasService.atualizarValorMercado({
           caixinha_id: caixinhaId,
           novo_valor_mercado: valorAnterior,
