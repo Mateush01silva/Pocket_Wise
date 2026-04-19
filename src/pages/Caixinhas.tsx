@@ -4,11 +4,12 @@ import { usePlan } from '../hooks/usePlan'
 import {
   PiggyBank, Plus, Target, TrendingUp, TrendingDown, Wallet,
   Edit2, Trash2, ArrowUpCircle, ArrowDownCircle, History,
-  RefreshCw, AlertCircle, BarChart3, PauseCircle, PlayCircle,
+  RefreshCw, AlertCircle, BarChart3, PauseCircle, PlayCircle, ArrowRightLeft,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CaixinhaModal } from '../components/CaixinhaModal'
 import { MovimentarCaixinhaModal } from '../components/MovimentarCaixinhaModal'
+import { TransferirCaixinhaModal } from '../components/TransferirCaixinhaModal'
 import { HistoricoCaixinhaModal } from '../components/HistoricoCaixinhaModal'
 import { AtualizarCotacaoModal } from '../components/AtualizarCotacaoModal'
 import { MiniTimeline } from '../components/MiniTimeline'
@@ -65,6 +66,7 @@ export function Caixinhas() {
   const [tipoMovimentacao, setTipoMovimentacao] = useState<'deposito' | 'retirada'>('deposito')
   const [historicoCaixinha, setHistoricoCaixinha] = useState<CaixinhaComDetalhes | null>(null)
   const [cotacaoCaixinha, setCotacaoCaixinha] = useState<CaixinhaComDetalhes | null>(null)
+  const [transferirCaixinha, setTransferirCaixinha] = useState<CaixinhaComDetalhes | null>(null)
   const [isConcluindoMeta, setIsConcluindoMeta] = useState(false)
   // Histórico mensal por caixinha: Record<caixinha_id, CaixinhaHistoricoMensal[]>
   const [historicoMensal, setHistoricoMensal] = useState<Record<string, CaixinhaHistoricoMensal[]>>({})
@@ -200,6 +202,9 @@ export function Caixinhas() {
   const handleAtualizarCotacao = (caixinha: CaixinhaComDetalhes) => setCotacaoCaixinha(caixinha)
   const handleCloseCotacao = () => setCotacaoCaixinha(null)
 
+  const handleTransferir = (caixinha: CaixinhaComDetalhes) => setTransferirCaixinha(caixinha)
+  const handleCloseTransferir = () => setTransferirCaixinha(null)
+
   const handlePausar = async (caixinha: CaixinhaComDetalhes) => {
     if (!confirm(`Pausar a caixinha "${caixinha.nome}"?\n\nO saldo é preservado e o prazo será estendido pelos meses pausados.`)) return
     const success = await updateStatus(caixinha.id, 'pausada')
@@ -284,6 +289,14 @@ export function Caixinhas() {
           isOpen={true}
           onClose={handleCloseCotacao}
           caixinha={cotacaoCaixinha}
+        />
+      )}
+
+      {transferirCaixinha && (
+        <TransferirCaixinhaModal
+          isOpen={true}
+          onClose={handleCloseTransferir}
+          caixinha={transferirCaixinha}
         />
       )}
 
@@ -637,6 +650,17 @@ export function Caixinhas() {
                                 </Button>
                               )}
                             </div>
+                            {caixinhasInvestimento.length > 1 && caixinha.saldo_atual > 0 && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="w-full"
+                                onClick={() => handleTransferir(caixinha)}
+                              >
+                                <ArrowRightLeft size={14} className="mr-1" />
+                                Transferir para outra
+                              </Button>
+                            )}
                             <LearningTooltip content={learningContent.investimentoAtualizarCotacao} position="top">
                               <Button
                                 size="sm"
