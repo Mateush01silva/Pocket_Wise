@@ -452,14 +452,16 @@ export function Dashboard() {
         </LearningTooltip>
       </div>
 
-      {/* Envelopes do mês + Metas e Sonhos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <EnvelopesWidget />
-        <CaixinhasObjetivosWidget />
+      {/* Layout: Envelopes (maior) | Metas + Contas (coluna direita) */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+        <div className="lg:col-span-3">
+          <EnvelopesWidget />
+        </div>
+        <div className="lg:col-span-2 flex flex-col gap-4">
+          <CaixinhasObjetivosWidget />
+          <BankAccountsWidget />
+        </div>
       </div>
-
-      {/* Bank Accounts Widget - Saldo em Contas */}
-      <BankAccountsWidget />
 
       {/* Revenue auto-adjustment alert */}
       {canEdit && superouReceitas && !ajusteReceitasDismissed && (
