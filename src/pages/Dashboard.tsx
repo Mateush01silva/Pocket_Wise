@@ -10,6 +10,8 @@ import { TransactionModal } from '../components/TransactionModal'
 import { HealthIndicator } from '../components/HealthIndicator'
 import { DetectorEstouro } from '../components/DetectorEstouro'
 import { BankAccountsWidget } from '../components/BankAccountsWidget'
+import { EnvelopesWidget } from '../components/EnvelopesWidget'
+import { CaixinhasObjetivosWidget } from '../components/CaixinhasObjetivosWidget'
 import { UpcomingBillsWidget } from '../components/UpcomingBillsWidget'
 import { AlocarSaldoModal } from '../components/AlocarSaldoModal'
 import { GastosCategoriaModal } from '../components/GastosCategoriaModal'
@@ -448,6 +450,12 @@ export function Dashboard() {
             </CardContent>
           </Card>
         </LearningTooltip>
+      </div>
+
+      {/* Envelopes do mês + Metas e Sonhos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <EnvelopesWidget />
+        <CaixinhasObjetivosWidget />
       </div>
 
       {/* Bank Accounts Widget - Saldo em Contas */}
