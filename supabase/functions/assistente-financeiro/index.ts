@@ -117,18 +117,38 @@ async function executeConsultarTransacoes(
 
   // Resolve categoria_nome ou subcategoria_nome → ID correto
   // Subcategorias têm categoria_pai_id preenchido e são armazenadas em subcategoria_id
-  const nomeFiltro = (args.categoria_nome || args.subcategoria_nome) as string | undefined
-  if (nomeFiltro) {
-    const nomeBusca = nomeFiltro.toLowerCase()
-    const cat = categorias.find((c) => c.nome.toLowerCase().includes(nomeBusca))
+  const subNome = args.subcategoria_nome as string | undefined
+  const catNome = args.categoria_nome as string | undefined
+
+  if (subNome) {
+    const nomeBusca = subNome.toLowerCase()
+    const cat = categorias.find((c) => c.nome.toLowerCase().includes(nomeBusca) && c.categoria_pai_id)
     if (cat) {
-      if (cat.categoria_pai_id) {
-        // É uma subcategoria → filtrar pelo campo subcategoria_id
-        query = query.eq('subcategoria_id', cat.id)
-      } else {
-        // É categoria raiz → filtrar pelo campo categoria_id
-        query = query.eq('categoria_id', cat.id)
-      }
+      query = query.eq('subcategoria_id', cat.id)
+    } else {
+      // Subcategoria não encontrada — retorna erro claro em vez de todos os dados
+      return JSON.stringify({
+        total_encontradas: 0,
+        total_valor: 0,
+        total_valor_formatado: 'R$ 0,00',
+        erro: `Subcategoria "${subNome}" não encontrada. Categorias disponíveis: ${categorias.filter((c) => c.categoria_pai_id).map((c) => c.nome).join(', ')}`,
+        transacoes: [],
+      })
+    }
+  } else if (catNome) {
+    const nomeBusca = catNome.toLowerCase()
+    const cat = categorias.find((c) => c.nome.toLowerCase().includes(nomeBusca) && !c.categoria_pai_id)
+    if (cat) {
+      query = query.eq('categoria_id', cat.id)
+    } else {
+      // Categoria raiz não encontrada
+      return JSON.stringify({
+        total_encontradas: 0,
+        total_valor: 0,
+        total_valor_formatado: 'R$ 0,00',
+        erro: `Categoria "${catNome}" não encontrada. Categorias disponíveis: ${categorias.filter((c) => !c.categoria_pai_id).map((c) => c.nome).join(', ')}`,
+        transacoes: [],
+      })
     }
   }
 
@@ -658,7 +678,31 @@ serve(async (req) => {
     const contextoFinanceiro = linhas.join('\n')
 
     // -------------------------------------------------------------------------
-    // 7. HISTÓRICO DE MENSAGENS (janela de contexto)
+    // 7. REFERÊNCIAS DE DATA PRÉ-COMPUTADAS
+    // (adicionadas ao system prompt para o AI não precisar calcular datas)
+    // -------------------------------------------------------------------------
+    const hoje = new Date()
+    const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`
+    const mes3atrás = subMonths(mesRef, 2)
+    const mes6atrás = subMonths(mesRef, 5)
+    const mes12atrás = subMonths(mesRef, 11)
+
+    const dataBlocoLinhas = [
+      '',
+      '--- REFERÊNCIAS DE DATA (USE EXATAMENTE ESTES VALORES NO TOOL) ---',
+      `  Hoje: ${hojeStr}`,
+      `  Mês atual (até hoje):     data_inicio=${mesRef}-01  data_fim=${hojeStr}`,
+      `  Mês passado (completo):   data_inicio=${mesM1}-01  data_fim=${getLastDayOfMonth(mesM1)}`,
+      `  2 meses atrás (completo): data_inicio=${mesM2}-01  data_fim=${getLastDayOfMonth(mesM2)}`,
+      `  Últimos 3 meses (${mes3atrás}, ${mesM1}, ${mesRef}): data_inicio=${mes3atrás}-01  data_fim=${hojeStr}`,
+      `  Últimos 6 meses:  data_inicio=${mes6atrás}-01  data_fim=${hojeStr}`,
+      `  Últimos 12 meses: data_inicio=${mes12atrás}-01  data_fim=${hojeStr}`,
+      '  IMPORTANTE: nunca calcule datas — copie exatamente os valores acima.',
+    ]
+    const contextoComDatas = contextoFinanceiro + dataBlocoLinhas.join('\n')
+
+    // -------------------------------------------------------------------------
+    // 8. HISTÓRICO DE MENSAGENS (janela de contexto)
     // -------------------------------------------------------------------------
     const { data: historico } = await supabaseAdmin
       .from('assistente_mensagens')
@@ -672,7 +716,7 @@ serve(async (req) => {
     // -------------------------------------------------------------------------
     // 8. MONTAR MESSAGES PARA OPENAI
     // -------------------------------------------------------------------------
-    const systemPrompt = `${systemBasePrompt}\n\n${contextoFinanceiro}`
+    const systemPrompt = `${systemBasePrompt}\n\n${contextoComDatas}`
 
     const messages = [
       { role: 'system', content: systemPrompt },
