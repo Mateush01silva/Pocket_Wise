@@ -402,6 +402,7 @@ export interface CategoriaBudget {
   orcamento_id: string
   categoria_id: string
   valor_orcado: number
+  valor_orcado_original?: number
   prioridade: CategoriaPrioridade
   created_at: string
   updated_at: string

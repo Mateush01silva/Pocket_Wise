@@ -732,6 +732,30 @@ export const orcamentosService = {
     const { error } = await supabase.from('orcamentos_mensais').delete().eq('id', id)
     return { data: undefined as void, error }
   },
+
+  async fechar(id: string): Promise<DbResult<import('../types').OrcamentoMensal>> {
+    if (useLocalStorage) {
+      const orcamentos = LocalStorageService.get<import('../types').OrcamentoMensal[]>(STORAGE_KEYS.ORCAMENTOS_MENSAIS) || []
+      const index = orcamentos.findIndex((o) => o.id === id)
+      if (index === -1) return { data: null, error: new Error('Orçamento não encontrado') }
+      orcamentos[index] = { ...orcamentos[index], status: 'fechado' as any }
+      LocalStorageService.set(STORAGE_KEYS.ORCAMENTOS_MENSAIS, orcamentos)
+      return { data: orcamentos[index], error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { data, error } = await supabase
+      .from('orcamentos_mensais')
+      .update({ status: 'fechado' } as any)
+      .eq('id', id)
+      .select()
+      .single()
+
+    return { data: data as any, error }
+  },
 }
 
 // =====================================================

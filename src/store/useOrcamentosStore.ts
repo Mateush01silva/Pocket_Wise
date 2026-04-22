@@ -46,6 +46,7 @@ interface OrcamentosActions {
   createOrcamento: (data: CreateOrcamentoInput) => Promise<OrcamentoMensal | null>
   updateOrcamento: (id: string, data: Partial<UpdateOrcamentoInput>) => Promise<void>
   deleteOrcamento: (id: string) => Promise<void>
+  fecharOrcamento: (id: string) => Promise<void>
   setOrcamentoAtual: (orcamento: OrcamentoMensal | null) => void
 
   // CRUD Categorias Budget
@@ -189,6 +190,24 @@ export const useOrcamentosStore = create<OrcamentosStore>()(
           })
         } catch (error) {
           console.error('Erro ao deletar orçamento:', error)
+          set({ error: (error as Error).message, isLoading: false })
+        }
+      },
+
+      fecharOrcamento: async (id) => {
+        set({ isLoading: true, error: null })
+        try {
+          const { data, error } = await db.orcamentos.fechar(id)
+          if (error) throw error
+
+          set((state) => {
+            const index = state.orcamentos.findIndex((o) => o.id === id)
+            if (index !== -1 && data) state.orcamentos[index] = data
+            if (state.orcamentoAtual?.id === id && data) state.orcamentoAtual = data
+            state.isLoading = false
+          })
+        } catch (error) {
+          console.error('Erro ao fechar orçamento:', error)
           set({ error: (error as Error).message, isLoading: false })
         }
       },

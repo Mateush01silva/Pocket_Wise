@@ -101,27 +101,40 @@ function calcBudgetAdherence(
   categoriasBudget: any[],
   totalGasto: number
 ): CriterioScore {
-  const totalOrcado = categoriasBudget
-    .filter((cb: any) => cb.categoria?.tipo === 'despesa')
-    .reduce((sum: number, cb: any) => sum + (cb.valor_orcado || 0), 0)
+  const despesas = categoriasBudget.filter((cb: any) => cb.categoria?.tipo === 'despesa')
 
-  if (totalOrcado === 0) {
+  const totalOrcadoAtual = despesas.reduce((sum: number, cb: any) => sum + (cb.valor_orcado || 0), 0)
+  // Usa valor original (planejado na criação) para score justo.
+  // Fallback para valor atual quando não há dado original (registros anteriores à migration).
+  const totalOrcadoOriginal = despesas.reduce(
+    (sum: number, cb: any) => sum + (cb.valor_orcado_original ?? cb.valor_orcado ?? 0), 0
+  )
+
+  // Só punir inflação do total — rebalanceamentos (total igual) não afetam o score.
+  const totalParaScore = Math.min(totalOrcadoAtual, totalOrcadoOriginal)
+
+  if (totalParaScore === 0) {
     return { score: 0, max: 35, detail: 'Nenhuma categoria de despesa orçada' }
   }
 
-  const folga = totalOrcado - totalGasto
-  const percentAcima = ((totalGasto - totalOrcado) / totalOrcado) * 100
+  const foiInflado = totalOrcadoAtual > totalOrcadoOriginal * 1.001
+  const notaInflacao = foiInflado
+    ? ` — orçamento foi aumentado de ${formatCurrency(totalOrcadoOriginal)} para ${formatCurrency(totalOrcadoAtual)}`
+    : ''
 
-  if (totalGasto <= totalOrcado) {
-    return { score: 35, max: 35, detail: `Dentro do orçamento! (${formatCurrency(folga)} de folga)` }
+  const folga = totalParaScore - totalGasto
+  const percentAcima = ((totalGasto - totalParaScore) / totalParaScore) * 100
+
+  if (totalGasto <= totalParaScore) {
+    return { score: 35, max: 35, detail: `Dentro do orçamento! (${formatCurrency(folga)} de folga real${notaInflacao})` }
   } else if (percentAcima <= 5) {
-    return { score: 25, max: 35, detail: `${percentAcima.toFixed(1)}% acima do orçamento (${formatCurrency(Math.abs(folga))} a mais)` }
+    return { score: 25, max: 35, detail: `${percentAcima.toFixed(1)}% acima do orçamento (${formatCurrency(Math.abs(folga))} a mais${notaInflacao})` }
   } else if (percentAcima <= 10) {
-    return { score: 15, max: 35, detail: `${percentAcima.toFixed(1)}% acima do orçamento (${formatCurrency(Math.abs(folga))} a mais)` }
+    return { score: 15, max: 35, detail: `${percentAcima.toFixed(1)}% acima do orçamento (${formatCurrency(Math.abs(folga))} a mais${notaInflacao})` }
   } else if (percentAcima <= 20) {
-    return { score: 8, max: 35, detail: `${percentAcima.toFixed(1)}% acima do orçamento (${formatCurrency(Math.abs(folga))} a mais)` }
+    return { score: 8, max: 35, detail: `${percentAcima.toFixed(1)}% acima do orçamento (${formatCurrency(Math.abs(folga))} a mais${notaInflacao})` }
   } else {
-    return { score: 0, max: 35, detail: `${percentAcima.toFixed(1)}% acima do orçamento — muito acima do planejado` }
+    return { score: 0, max: 35, detail: `${percentAcima.toFixed(1)}% acima do orçamento — muito acima do planejado${notaInflacao}` }
   }
 }
 
@@ -277,6 +290,7 @@ async function calcularScoreBase(
         created_at,
         categorias_budget(
           valor_orcado,
+          valor_orcado_original,
           categoria_id,
           categoria:categorias(tipo)
         )
