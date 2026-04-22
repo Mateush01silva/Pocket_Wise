@@ -556,7 +556,14 @@ export function Envelopes() {
         <FechamentoMesPassado
           categoriasBudget={getCategoriasBudgetComDados(orcamentoAtual.id)}
           mesReferencia={mesAtual}
+          orcamentoId={orcamentoAtual.id}
+          orcamentoStatus={orcamentoAtual.status}
           onRebalanceado={async () => {
+            if (orcamentoAtual) {
+              await fetchCategoriasBudget(orcamentoAtual.id)
+            }
+          }}
+          onFechado={async () => {
             if (orcamentoAtual) {
               await fetchCategoriasBudget(orcamentoAtual.id)
             }
