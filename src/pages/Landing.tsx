@@ -99,10 +99,10 @@ export function Landing() {
             <span className="text-xl font-bold text-gray-100">Pocket<span className="text-primary-500">Wise</span></span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/suporte')} className="flex items-center">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/suporte')} className="hidden sm:flex items-center">
               <Headphones className="w-4 h-4" />
-              <span className="hidden sm:inline ml-1.5">Suporte</span>
+              <span className="ml-1.5">Suporte</span>
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/login')}>
               Entrar
@@ -624,6 +624,15 @@ export function Landing() {
           </div>
         </div>
       </footer>
+
+      {/* Floating Support Button */}
+      <a
+        href="/suporte"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-dark-800 border border-dark-600 hover:border-primary-500 text-gray-300 hover:text-primary-400 transition-all px-4 py-3 rounded-full shadow-lg backdrop-blur-sm"
+      >
+        <Headphones className="w-4 h-4" />
+        <span className="text-sm font-medium">Suporte</span>
+      </a>
     </div>
   )
 }

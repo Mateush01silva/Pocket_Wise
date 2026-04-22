@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { Button, Input } from '../components/ui'
-import { Eye, EyeOff, AlertCircle } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, Headphones } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from 'sonner'
 
@@ -209,6 +209,17 @@ export function Login() {
             className="text-sm text-gray-400 hover:text-gray-300 transition-colors"
           >
             ← Voltar para home
+          </Link>
+        </div>
+
+        {/* Support Link */}
+        <div className="mt-3 text-center">
+          <Link
+            to="/suporte"
+            className="text-sm text-gray-500 hover:text-primary-400 transition-colors flex items-center justify-center gap-1.5"
+          >
+            <Headphones className="w-3.5 h-3.5" />
+            Precisa de ajuda? Fale com o suporte
           </Link>
         </div>
       </div>
