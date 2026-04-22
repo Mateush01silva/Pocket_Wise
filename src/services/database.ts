@@ -749,6 +749,7 @@ export const orcamentosService = {
 
     const { data, error } = await supabase
       .from('orcamentos_mensais')
+      // @ts-ignore - Supabase types will be generated later
       .update({ status: 'fechado' } as any)
       .eq('id', id)
       .select()
