@@ -41,7 +41,11 @@ const TOOLS = [
           },
           categoria_nome: {
             type: 'string',
-            description: 'Nome (ou parte do nome) da categoria — busca parcial, case-insensitive',
+            description: 'Nome (ou parte do nome) da CATEGORIA PAI — busca parcial, case-insensitive. Use para filtrar pela categoria principal (ex: "Alimentação", "Transporte").',
+          },
+          subcategoria_nome: {
+            type: 'string',
+            description: 'Nome (ou parte do nome) da SUBCATEGORIA — busca parcial, case-insensitive. Use quando o usuário perguntar sobre uma subcategoria específica (ex: "Combustível", "Aluguel", "Mercado"). Tem prioridade sobre categoria_nome.',
           },
           data_inicio: {
             type: 'string',
@@ -93,11 +97,11 @@ async function executeConsultarTransacoes(
   args: Record<string, unknown>,
   familyId: string,
   supabaseAdmin: ReturnType<typeof createClient>,
-  categorias: Array<{ id: string; nome: string; tipo: string }>
+  categorias: Array<{ id: string; nome: string; tipo: string; categoria_pai_id: string | null }>
 ): Promise<string> {
   let query = supabaseAdmin
     .from('lancamentos')
-    .select('data, valor, tipo, observacao, forma_pagamento, status, categoria_id')
+    .select('data, valor, tipo, observacao, forma_pagamento, status, categoria_id, subcategoria_id')
     .eq('family_id', familyId)
 
   if (args.tipo)              query = query.eq('tipo', args.tipo)
@@ -111,11 +115,21 @@ async function executeConsultarTransacoes(
     query = query.ilike('observacao', `%${args.observacao_contem}%`)
   }
 
-  // Resolve categoria_nome → categoria_id (busca parcial, case-insensitive)
-  if (args.categoria_nome) {
-    const nomeBusca = String(args.categoria_nome).toLowerCase()
+  // Resolve categoria_nome ou subcategoria_nome → ID correto
+  // Subcategorias têm categoria_pai_id preenchido e são armazenadas em subcategoria_id
+  const nomeFiltro = (args.categoria_nome || args.subcategoria_nome) as string | undefined
+  if (nomeFiltro) {
+    const nomeBusca = nomeFiltro.toLowerCase()
     const cat = categorias.find((c) => c.nome.toLowerCase().includes(nomeBusca))
-    if (cat) query = query.eq('categoria_id', cat.id)
+    if (cat) {
+      if (cat.categoria_pai_id) {
+        // É uma subcategoria → filtrar pelo campo subcategoria_id
+        query = query.eq('subcategoria_id', cat.id)
+      } else {
+        // É categoria raiz → filtrar pelo campo categoria_id
+        query = query.eq('categoria_id', cat.id)
+      }
+    }
   }
 
   // Ordenação
@@ -147,6 +161,7 @@ async function executeConsultarTransacoes(
       valor_formatado: formatBRL(r.valor),
       tipo: r.tipo,
       categoria: catMap[r.categoria_id] ?? 'Sem categoria',
+      subcategoria: r.subcategoria_id ? (catMap[r.subcategoria_id] ?? null) : null,
       descricao: r.observacao ?? '',
       forma_pagamento: r.forma_pagamento,
       status: r.status,
@@ -422,8 +437,8 @@ serve(async (req) => {
         ? supabaseAdmin.from('categorias_budget').select('categoria_id, valor_orcado').eq('orcamento_id', orcamento.id)
         : Promise.resolve({ data: [] }),
 
-      // Categorias da família (com tipo para filtrar só despesas nos envelopes)
-      supabaseAdmin.from('categorias').select('id, nome, tipo').eq('family_id', familyId),
+      // Categorias da família — inclui categoria_pai_id para distinguir subcategorias
+      supabaseAdmin.from('categorias').select('id, nome, tipo, categoria_pai_id').eq('family_id', familyId),
     ])
 
     const lancAtual    = lancAtualRes.data    ?? []
@@ -568,13 +583,41 @@ serve(async (req) => {
     linhas.push(`  ${mesM1}: Receitas ${formatBRL(receitaM1)} | Despesas ${formatBRL(despesaM1)} | Resultado ${formatBRL(receitaM1 - despesaM1)}`)
     linhas.push(`  ${mesM2}: Receitas ${formatBRL(receitaM2)} | Despesas ${formatBRL(despesaM2)} | Resultado ${formatBRL(receitaM2 - despesaM2)}`)
 
-    // Lista categorias disponíveis para orientar o tool calling
+    // Lista categorias e subcategorias para orientar o tool calling
     linhas.push('')
-    linhas.push('--- CATEGORIAS DISPONÍVEIS ---')
-    const catsDespesa = categorias.filter((c) => c.tipo === 'despesa').map((c) => c.nome).join(', ')
-    const catsReceita = categorias.filter((c) => c.tipo === 'receita').map((c) => c.nome).join(', ')
-    linhas.push(`  Despesas: ${catsDespesa || 'nenhuma'}`)
-    linhas.push(`  Receitas: ${catsReceita || 'nenhuma'}`)
+    linhas.push('--- CATEGORIAS E SUBCATEGORIAS DISPONÍVEIS ---')
+    linhas.push('  (Use subcategoria_nome no tool para filtrar subcategorias específicas)')
+
+    const catsRaizDespesa = (categorias as any[]).filter((c) => c.tipo === 'despesa' && !c.categoria_pai_id)
+    const catsRaizReceita = (categorias as any[]).filter((c) => c.tipo === 'receita' && !c.categoria_pai_id)
+    const subMap = (categorias as any[])
+      .filter((c) => c.categoria_pai_id)
+      .reduce((acc: Record<string, string[]>, c) => {
+        acc[c.categoria_pai_id] = acc[c.categoria_pai_id] ?? []
+        acc[c.categoria_pai_id].push(c.nome)
+        return acc
+      }, {})
+
+    linhas.push('  Despesas:')
+    for (const c of catsRaizDespesa) {
+      const subs = subMap[c.id]
+      if (subs?.length) {
+        linhas.push(`    • ${c.nome} → subcategorias: ${subs.join(', ')}`)
+      } else {
+        linhas.push(`    • ${c.nome}`)
+      }
+    }
+    if (catsRaizReceita.length > 0) {
+      linhas.push('  Receitas:')
+      for (const c of catsRaizReceita) {
+        const subs = subMap[c.id]
+        if (subs?.length) {
+          linhas.push(`    • ${c.nome} → subcategorias: ${subs.join(', ')}`)
+        } else {
+          linhas.push(`    • ${c.nome}`)
+        }
+      }
+    }
 
     const contextoFinanceiro = linhas.join('\n')
 
@@ -676,10 +719,13 @@ serve(async (req) => {
     // 10. SALVAR MENSAGENS E REGISTRAR USO — em try-catch isolado
     // -------------------------------------------------------------------------
     try {
+      const now = new Date()
+      const nowUser = now.toISOString()
+      const nowIA   = new Date(now.getTime() + 1).toISOString() // +1ms garante ordem correta
       await Promise.all([
         supabaseAdmin.from('assistente_mensagens').insert([
-          { family_id: familyId, user_id: user.id, role: 'user',      conteudo: mensagem.trim(), tone: null },
-          { family_id: familyId, user_id: user.id, role: 'assistant', conteudo: finalResposta, tone },
+          { family_id: familyId, user_id: user.id, role: 'user',      conteudo: mensagem.trim(), tone: null, created_at: nowUser },
+          { family_id: familyId, user_id: user.id, role: 'assistant', conteudo: finalResposta, tone,         created_at: nowIA  },
         ]),
         supabaseAdmin.from('ai_usage_log').insert({
           user_id: user.id,
