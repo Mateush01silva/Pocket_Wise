@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '../components/ui'
-import { Check, Loader2, X, Zap, Crown, TrendingUp } from 'lucide-react'
+import { Check, Loader2, X, Zap, Crown, TrendingUp, Headphones } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { createCheckout, openPaymentWindow, redirectToPayment } from '../services/paymentService'
 import type { PlanType } from '../services/paymentService'
@@ -375,6 +375,15 @@ export function Paywall() {
           <p className="text-xs text-gray-500">
             Pagamento via Cartão de Crédito com cobrança automática
           </p>
+          <div className="mt-4 pt-4 border-t border-dark-600">
+            <a
+              href="/suporte"
+              className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-primary-400 transition-colors"
+            >
+              <Headphones className="w-3.5 h-3.5" />
+              Com problemas? Fale com nosso suporte
+            </a>
+          </div>
         </div>
       </div>
 
