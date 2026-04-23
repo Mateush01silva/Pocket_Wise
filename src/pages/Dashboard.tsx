@@ -325,42 +325,42 @@ export function Dashboard() {
   return (
     <div className="space-y-4 md:space-y-8">
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-100 mb-1 md:mb-2">Dashboard</h1>
           <p className="text-sm md:text-base text-gray-400">Visão geral das suas finanças</p>
         </div>
         {canEdit && (
-          <Button onClick={handleOpenModal} className="gap-2">
+          <Button onClick={handleOpenModal} className="gap-2 shrink-0">
             <Plus className="w-5 h-5" />
-            Nova Transação
+            <span className="hidden sm:inline">Nova Transação</span>
           </Button>
         )}
       </div>
 
       {/* Filtro de Período */}
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent>
           <PeriodFilter value={periodFilter} onChange={setPeriodFilter} />
         </CardContent>
       </Card>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-3 md:gap-4">
         {/* Receitas do Período */}
         <LearningTooltip content={learningContent.receitas} position="bottom">
-          <Card hover>
+          <Card hover className="p-3 sm:p-6">
             <CardContent>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
                 <div className="flex-1 min-w-0 overflow-hidden">
-                  <p className="text-sm text-gray-400 mb-1">Receitas</p>
-                  <p className="text-sm md:text-xl font-bold text-gray-100">{formatCurrency(receitas)}</p>
+                  <p className="text-xs text-gray-400 mb-0.5 sm:mb-1">Receitas</p>
+                  <p className="text-xs sm:text-sm md:text-xl font-bold text-gray-100 truncate">{formatCurrency(receitas)}</p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
-                  <TrendingUp className="w-6 h-6 text-green-400" />
+                <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0 ml-1">
+                  <TrendingUp className="w-4 h-4 sm:w-6 sm:h-6 text-green-400" />
                 </div>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 truncate">
                 {receitas > 0 ? 'Recebido e a receber' : 'Nenhuma receita'}
               </p>
             </CardContent>
@@ -369,18 +369,18 @@ export function Dashboard() {
 
         {/* Despesas do Período */}
         <LearningTooltip content={learningContent.despesas} position="bottom">
-          <Card hover>
+          <Card hover className="p-3 sm:p-6">
             <CardContent>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
                 <div className="flex-1 min-w-0 overflow-hidden">
-                  <p className="text-sm text-gray-400 mb-1">Despesas</p>
-                  <p className="text-sm md:text-xl font-bold text-gray-100">{formatCurrency(despesas)}</p>
+                  <p className="text-xs text-gray-400 mb-0.5 sm:mb-1">Despesas</p>
+                  <p className="text-xs sm:text-sm md:text-xl font-bold text-gray-100 truncate">{formatCurrency(despesas)}</p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0">
-                  <TrendingDown className="w-6 h-6 text-red-400" />
+                <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-lg bg-red-500/10 flex items-center justify-center shrink-0 ml-1">
+                  <TrendingDown className="w-4 h-4 sm:w-6 sm:h-6 text-red-400" />
                 </div>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 truncate">
                 {despesas > 0 ? 'Pago e a pagar' : 'Nenhuma despesa'}
               </p>
             </CardContent>
@@ -389,20 +389,20 @@ export function Dashboard() {
 
         {/* Saldo do Período */}
         <LearningTooltip content={learningContent.saldoDoPeriodo} position="bottom">
-          <Card hover className={`ring-2 ${saldo >= 0 ? 'ring-green-500/30' : 'ring-red-500/30'}`}>
+          <Card hover className={`p-3 sm:p-6 ring-2 ${saldo >= 0 ? 'ring-green-500/30' : 'ring-red-500/30'}`}>
             <CardContent>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
                 <div className="flex-1 min-w-0 overflow-hidden">
-                  <p className="text-xs md:text-sm text-gray-400 mb-1">Saldo do Período</p>
-                  <p className={`text-sm md:text-xl font-bold ${saldo >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  <p className="text-xs text-gray-400 mb-0.5 sm:mb-1">Saldo</p>
+                  <p className={`text-xs sm:text-sm md:text-xl font-bold truncate ${saldo >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {formatCurrency(saldo)}
                   </p>
                 </div>
-                <div className={`w-12 h-12 rounded-lg ${saldo >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
-                  <Calculator className={`w-6 h-6 ${saldo >= 0 ? 'text-green-400' : 'text-red-400'}`} />
+                <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-lg ${saldo >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0 ml-1`}>
+                  <Calculator className={`w-4 h-4 sm:w-6 sm:h-6 ${saldo >= 0 ? 'text-green-400' : 'text-red-400'}`} />
                 </div>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 truncate">
                 Receitas - Despesas
               </p>
             </CardContent>
@@ -411,20 +411,20 @@ export function Dashboard() {
 
         {/* Saldo Projetado (baseado no orçamento) */}
         <LearningTooltip content={learningContent.saldoProjetado} position="bottom">
-          <Card hover>
+          <Card hover className="p-3 sm:p-6">
             <CardContent>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
                 <div className="flex-1 min-w-0 overflow-hidden">
-                  <p className="text-xs md:text-sm text-gray-400 mb-1">Saldo Projetado</p>
-                  <p className="text-sm md:text-xl font-bold text-gray-100">
+                  <p className="text-xs text-gray-400 mb-0.5 sm:mb-1">Projetado</p>
+                  <p className="text-xs sm:text-sm md:text-xl font-bold text-gray-100 truncate">
                     {formatCurrency(projecao?.saldo_projetado_fim_mes ?? saldo)}
                   </p>
                 </div>
-                <div className={`w-12 h-12 rounded-lg ${(projecao?.saldo_projetado_fim_mes ?? saldo) >= 0 ? 'bg-primary-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0`}>
-                  <Wallet className={`w-6 h-6 ${(projecao?.saldo_projetado_fim_mes ?? saldo) >= 0 ? 'text-primary-400' : 'text-red-400'}`} />
+                <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-lg ${(projecao?.saldo_projetado_fim_mes ?? saldo) >= 0 ? 'bg-primary-500/10' : 'bg-red-500/10'} flex items-center justify-center shrink-0 ml-1`}>
+                  <Wallet className={`w-4 h-4 sm:w-6 sm:h-6 ${(projecao?.saldo_projetado_fim_mes ?? saldo) >= 0 ? 'text-primary-400' : 'text-red-400'}`} />
                 </div>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 truncate">
                 {projecao ? 'Baseado no orçamento' : 'Receitas - Despesas'}
               </p>
             </CardContent>
@@ -433,18 +433,18 @@ export function Dashboard() {
 
         {/* Próximas Faturas */}
         <LearningTooltip content={learningContent.proximasFaturas} position="bottom">
-          <Card hover>
+          <Card hover className="p-3 sm:p-6">
             <CardContent>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
                 <div className="flex-1 min-w-0 overflow-hidden">
-                  <p className="text-xs md:text-sm text-gray-400 mb-1">Próximas Faturas</p>
-                  <p className="text-sm md:text-xl font-bold text-gray-100">{formatCurrency(faturasCartaoAtuais)}</p>
+                  <p className="text-xs text-gray-400 mb-0.5 sm:mb-1">Faturas</p>
+                  <p className="text-xs sm:text-sm md:text-xl font-bold text-gray-100 truncate">{formatCurrency(faturasCartaoAtuais)}</p>
                 </div>
-                <div className="w-12 h-12 rounded-lg bg-secondary-500/10 flex items-center justify-center shrink-0">
-                  <CreditCard className="w-6 h-6 text-secondary-400" />
+                <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-lg bg-secondary-500/10 flex items-center justify-center shrink-0 ml-1">
+                  <CreditCard className="w-4 h-4 sm:w-6 sm:h-6 text-secondary-400" />
                 </div>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500 truncate">
                 {faturasCartaoAtuais > 0 ? 'Total não pago' : 'Nenhuma fatura'}
               </p>
             </CardContent>

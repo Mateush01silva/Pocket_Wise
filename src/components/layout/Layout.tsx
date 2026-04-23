@@ -69,7 +69,7 @@ export function Layout({ children }: LayoutProps) {
         />
       )}
 
-      <main className={cn("flex-1 p-4 sm:p-6 lg:p-8 transition-all duration-300", isSidebarCollapsed ? "lg:ml-16" : "lg:ml-64")}>
+      <main className={cn("flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8 transition-all duration-300", isSidebarCollapsed ? "lg:ml-16" : "lg:ml-64")}>
         {/* Header fixo com botão hambúrguer e notificações */}
         <div className="fixed top-4 left-4 right-4 z-30 flex items-center justify-between lg:left-auto lg:right-8">
           {/* Botão hambúrguer para mobile */}
@@ -106,7 +106,7 @@ export function Layout({ children }: LayoutProps) {
           <NotificationBell />
         </div>
 
-        <div className="max-w-7xl mx-auto pt-14 lg:pt-0">
+        <div className="max-w-7xl mx-auto pt-14 lg:pt-0 overflow-x-hidden">
           {/* Banner trial Explorador — exibido durante todo o período de trial */}
           {showTrialBanner && (
             <div className={cn(
