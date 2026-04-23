@@ -214,20 +214,20 @@ export function PeriodFilter({ value, onChange, className }: PeriodFilterProps) 
   }
 
   return (
-    <div className={cn('space-y-4', className)}>
+    <div className={cn('space-y-3', className)}>
       {/* Header com período atual */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-primary-400" />
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 shrink-0">
+          <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-primary-400" />
           <span className="text-sm font-medium text-gray-300">Período</span>
         </div>
-        <div className="px-3 py-1.5 bg-dark-700 rounded-lg border border-dark-600 text-sm text-gray-300">
+        <div className="px-2 py-1 sm:px-3 sm:py-1.5 bg-dark-700 rounded-lg border border-dark-600 text-xs sm:text-sm text-gray-300 truncate max-w-[160px] sm:max-w-none">
           {getDisplayPeriod()}
         </div>
       </div>
 
       {/* Filtros rápidos em chips */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {quickFilters.map((filter) => {
           const isActive = activeFilter === filter.id
           const isPersonalizado = filter.id === 'personalizado'
@@ -237,7 +237,7 @@ export function PeriodFilter({ value, onChange, className }: PeriodFilterProps) 
               key={filter.id}
               onClick={() => handleQuickFilterClick(filter.id)}
               className={cn(
-                'px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200',
+                'px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200',
                 'border border-dark-600 hover:border-primary-500/50',
                 'focus:outline-none focus:ring-2 focus:ring-primary-500/50',
                 isActive

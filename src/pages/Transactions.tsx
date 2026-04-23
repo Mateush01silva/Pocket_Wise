@@ -462,9 +462,9 @@ export function Transactions() {
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-100 mb-1 md:mb-2">Transações</h1>
-          <p className="text-sm md:text-base text-gray-400">Gerencie todas as suas receitas e despesas</p>
+          <p className="text-sm md:text-base text-gray-400">Gerencie suas receitas e despesas</p>
         </div>
         {/* Ferramentas de correção de fatura - compacto (apenas admin/editor) */}
         {canEdit && totalTransacoesCredito > 0 && (
@@ -497,17 +497,17 @@ export function Transactions() {
       {filteredLancamentos.length > 0 && (
         <div className="rounded-xl bg-dark-800/50 backdrop-blur-md border border-dark-700/50 shadow-xl overflow-hidden">
           <div className="grid grid-cols-3 divide-x divide-dark-700/50">
-            <div className="py-3 px-3 md:py-4 md:px-4">
-              <p className="text-xs md:text-sm text-gray-400 mb-1">Receitas</p>
-              <p className="text-sm md:text-xl font-bold text-green-400">{formatCurrency(totals.totalReceitas)}</p>
+            <div className="py-2 px-2 sm:py-3 sm:px-3 md:py-4 md:px-4 min-w-0 overflow-hidden">
+              <p className="text-xs text-gray-400 mb-0.5 sm:mb-1 truncate">Receitas</p>
+              <p className="text-xs sm:text-sm md:text-xl font-bold text-green-400 truncate">{formatCurrency(totals.totalReceitas)}</p>
             </div>
-            <div className="py-3 px-3 md:py-4 md:px-4">
-              <p className="text-xs md:text-sm text-gray-400 mb-1">Despesas</p>
-              <p className="text-sm md:text-xl font-bold text-red-400">{formatCurrency(totals.totalDespesas)}</p>
+            <div className="py-2 px-2 sm:py-3 sm:px-3 md:py-4 md:px-4 min-w-0 overflow-hidden">
+              <p className="text-xs text-gray-400 mb-0.5 sm:mb-1 truncate">Despesas</p>
+              <p className="text-xs sm:text-sm md:text-xl font-bold text-red-400 truncate">{formatCurrency(totals.totalDespesas)}</p>
             </div>
-            <div className="py-3 px-3 md:py-4 md:px-4">
-              <p className="text-xs md:text-sm text-gray-400 mb-1">Saldo</p>
-              <p className={`text-sm md:text-xl font-bold ${totals.saldo >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+            <div className="py-2 px-2 sm:py-3 sm:px-3 md:py-4 md:px-4 min-w-0 overflow-hidden">
+              <p className="text-xs text-gray-400 mb-0.5 sm:mb-1 truncate">Saldo</p>
+              <p className={`text-xs sm:text-sm md:text-xl font-bold truncate ${totals.saldo >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {formatCurrency(totals.saldo)}
               </p>
             </div>
@@ -719,27 +719,28 @@ export function Transactions() {
       </Card>
 
       {/* Contador de resultados */}
-      <div className="flex items-center justify-between text-sm text-gray-500">
-        <span>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-500">
+        <span className="text-xs sm:text-sm">
           {filteredLancamentos.length} transação(ões) encontrada(s)
           {filteredLancamentos.length !== lancamentos.length && (
             <span className="text-gray-600"> de {lancamentos.length} total</span>
           )}
         </span>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={() => handleSort('cadastro')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-lg text-xs transition-colors ${
               sortField === 'cadastro'
                 ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30'
                 : 'text-gray-400 hover:text-gray-200 hover:bg-dark-700'
             }`}
           >
             <Clock size={14} />
-            Ordem de Cadastro
+            <span className="hidden xs:inline">Ordem de Cadastro</span>
+            <span className="xs:hidden">Cadastro</span>
             {sortField === 'cadastro' && <SortIcon field="cadastro" />}
           </button>
-          <span className="text-xs">
+          <span className="hidden sm:inline text-xs">
             Clique nas colunas para ordenar • Clique na linha para editar
           </span>
         </div>
