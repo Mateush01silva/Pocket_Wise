@@ -3,12 +3,6 @@ import { useAuth } from '../contexts/AuthContext'
 import { useFamilyStore } from '../store/useFamilyStore'
 import { Users, ArrowRight, Briefcase, ShieldCheck, Eye } from 'lucide-react'
 
-const PROFILE_LABELS: Record<string, string> = {
-  configurador: 'Configurador',
-  acompanhador: 'Acompanhador',
-  custom: 'Personalizado',
-}
-
 export function ConsultorClientes() {
   const { userFamilies, switchFamily, personalFamilyId } = useAuth()
   const refresh = useFamilyStore((state) => state.refresh)

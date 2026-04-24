@@ -33,7 +33,6 @@ import { FamilySwitcher } from '../ui/FamilySwitcher'
 import { useAssistenteIA } from '../../hooks/useAssistenteIA'
 import { usePlan } from '../../hooks/usePlan'
 import { useConsultorPermissions } from '../../hooks/useConsultorPermissions'
-import { useAuth } from '../../contexts/AuthContext'
 
 interface NavItem {
   name: string
