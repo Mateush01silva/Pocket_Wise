@@ -76,6 +76,11 @@ export function MovimentarCaixinhaModal({
   const contasAtivas = contas.filter((c) => c.ativo)
   const contaDestinoSelecionada = contasAtivas.find((c) => c.id === contaDestinoId)
 
+  // Para retirada de caixinha de investimento, o limite é o valor_mercado (não o aportado)
+  const saldoRetiradaDisponivel = ehCaixinhaInvestimento
+    ? (caixinha.valor_mercado ?? caixinha.saldo_atual)
+    : caixinha.saldo_atual
+
   const excedeSaldoDisponivel = isDeposito && origemDeposito === 'orcamento' && valor > saldoDisponivelParaDeposito
   const excedeSaldoConta = isDeposito && origemDeposito === 'conta' && !!contaSelecionada && valor > saldoNaoAlocado
   const excedeSaldoSaida = mostrarContaSaida && !!contaSaidaSelecionada && valor > contaSaidaSelecionada.saldo_atual
@@ -100,7 +105,7 @@ export function MovimentarCaixinhaModal({
       return
     }
 
-    if (!isDeposito && valor > caixinha.saldo_atual) {
+    if (!isDeposito && valor > saldoRetiradaDisponivel) {
       toast.error('Valor maior que o saldo disponível')
       return
     }
@@ -252,10 +257,15 @@ export function MovimentarCaixinhaModal({
           <div className="flex items-center gap-3 p-3 bg-dark-800 rounded-lg">
             <span className="text-2xl">{caixinha.icone}</span>
             <div className="flex-1">
-              <p className="text-sm text-gray-400">Saldo Atual</p>
-              <p className="text-lg font-bold text-primary-400">
-                {formatCurrency(caixinha.saldo_atual)}
+              <p className="text-sm text-gray-400">
+                {!isDeposito && ehCaixinhaInvestimento ? 'Valor de Mercado' : 'Saldo Atual'}
               </p>
+              <p className="text-lg font-bold text-primary-400">
+                {formatCurrency(!isDeposito && ehCaixinhaInvestimento ? saldoRetiradaDisponivel : caixinha.saldo_atual)}
+              </p>
+              {!isDeposito && ehCaixinhaInvestimento && caixinha.valor_mercado !== null && (
+                <p className="text-xs text-gray-500">Aportado: {formatCurrency(caixinha.saldo_atual)}</p>
+              )}
             </div>
             {caixinha.meta_valor && (
               <div className="text-right">
@@ -431,7 +441,7 @@ export function MovimentarCaixinhaModal({
               placeholder="R$ 0,00"
               className="w-full"
             />
-            {!isDeposito && valor > caixinha.saldo_atual && (
+            {!isDeposito && valor > saldoRetiradaDisponivel && (
               <p className="text-xs text-red-400 mt-1">
                 Valor maior que o saldo disponível
               </p>
@@ -535,9 +545,14 @@ export function MovimentarCaixinhaModal({
                 {formatCurrency(
                   isDeposito
                     ? caixinha.saldo_atual + valor
-                    : Math.max(0, caixinha.saldo_atual - valor)
+                    : Math.max(0, saldoRetiradaDisponivel - valor)
                 )}
               </p>
+              {!isDeposito && ehCaixinhaInvestimento && caixinha.valor_mercado !== null && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Aportado após retirada: {formatCurrency(Math.max(0, caixinha.saldo_atual - valor))}
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -552,7 +567,7 @@ export function MovimentarCaixinhaModal({
             disabled={
               valor <= 0 ||
               isLoading ||
-              (!isDeposito && valor > caixinha.saldo_atual) ||
+              (!isDeposito && valor > saldoRetiradaDisponivel) ||
               excedeSaldoDisponivel ||
               excedeSaldoConta ||
               excedeSaldoSaida ||

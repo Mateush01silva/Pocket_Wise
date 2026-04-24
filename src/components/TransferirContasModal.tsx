@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, ArrowLeftRight, AlertTriangle } from 'lucide-react'
 import { useContasBancariasStore } from '../store/useContasBancariasStore'
+import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { Button } from './ui/Button'
 import { CurrencyInput } from './ui/CurrencyInput'
 import { formatCurrency } from '../utils/currency'
@@ -21,6 +22,8 @@ export function TransferirContasModal({ isOpen, onClose, contaOrigem }: Transfer
 
   const contas = useContasBancariasStore((state) => state.contas)
   const transferirEntreContas = useContasBancariasStore((state) => state.transferirEntreContas)
+  const updateCaixinha = useCaixinhasStore((state) => state.updateCaixinha)
+  const caixinhas = useCaixinhasStore((state) => state.caixinhas)
 
   const contasDestino = contas.filter((c) => c.ativo && c.id !== contaOrigem.id)
   const contaDestino = contasDestino.find((c) => c.id === contaDestinoId)
@@ -40,6 +43,30 @@ export function TransferirContasModal({ isOpen, onClose, contaOrigem }: Transfer
     setIsLoading(true)
     try {
       await transferirEntreContas(contaOrigem.id, contaDestinoId, valor)
+
+      // Se a conta de origem é de investimento, atualizar valor_mercado das caixinhas vinculadas
+      if (contaOrigem.tipo === 'investimento') {
+        const caixinhasVinculadas = caixinhas.filter(
+          (c) => c.conta_investimento_id === contaOrigem.id && c.tipo === 'investimento' && c.ativa
+        )
+        if (caixinhasVinculadas.length > 0) {
+          const totalMercado = caixinhasVinculadas.reduce(
+            (sum, c) => sum + (c.valor_mercado ?? c.saldo_atual), 0
+          )
+          for (const caixinha of caixinhasVinculadas) {
+            const mercadoCaixinha = caixinha.valor_mercado ?? caixinha.saldo_atual
+            const proporcao = totalMercado > 0 ? mercadoCaixinha / totalMercado : 1 / caixinhasVinculadas.length
+            const reducao = valor * proporcao
+            const novoValorMercado = Math.max(0, mercadoCaixinha - reducao)
+            await updateCaixinha({
+              id: caixinha.id,
+              valor_mercado: novoValorMercado,
+              data_valor_mercado: new Date().toISOString(),
+            })
+          }
+        }
+      }
+
       toast.success(`${formatCurrency(valor)} transferido com sucesso!`)
       handleClose()
     } catch (error) {
