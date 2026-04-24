@@ -1,19 +1,15 @@
-import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { useFamilyStore } from '../store/useFamilyStore'
-import { Users, ArrowRight, Briefcase, ShieldCheck, Eye } from 'lucide-react'
+import { Users, ArrowRight, Briefcase, Eye } from 'lucide-react'
 
 export function ConsultorClientes() {
-  const { userFamilies, switchFamily, personalFamilyId } = useAuth()
-  const refresh = useFamilyStore((state) => state.refresh)
-  const navigate = useNavigate()
+  const { userFamilies, switchFamily } = useAuth()
 
   const clientFamilies = userFamilies.filter((f) => f.member_type === 'consultor')
 
   const handleAccess = async (familyId: string) => {
     await switchFamily(familyId)
-    await refresh()
-    navigate('/app')
+    // Reload completo para reinicializar todos os stores com os dados do cliente
+    window.location.href = '/app'
   }
 
   return (
@@ -46,7 +42,6 @@ export function ConsultorClientes() {
               key={family.family_id}
               className="rounded-xl border border-dark-700/50 bg-dark-800/30 p-5 flex flex-col gap-4 hover:border-dark-600 transition-colors"
             >
-              {/* Family info */}
               <div className="flex items-start gap-3">
                 <div className="w-9 h-9 rounded-lg bg-primary-500/10 border border-primary-500/20 flex items-center justify-center shrink-0">
                   <Users className="w-4 h-4 text-primary-400" />
@@ -54,17 +49,12 @@ export function ConsultorClientes() {
                 <div className="min-w-0">
                   <p className="font-semibold text-gray-100 truncate">{family.nome}</p>
                   <div className="flex items-center gap-1.5 mt-1">
-                    {family.role === 'admin' || family.role === 'editor' ? (
-                      <ShieldCheck className="w-3 h-3 text-primary-400" />
-                    ) : (
-                      <Eye className="w-3 h-3 text-gray-500" />
-                    )}
-                    <span className="text-xs text-gray-500 capitalize">{family.role}</span>
+                    <Eye className="w-3 h-3 text-gray-500" />
+                    <span className="text-xs text-gray-500 capitalize">Consultor</span>
                   </div>
                 </div>
               </div>
 
-              {/* Acessar button */}
               <button
                 onClick={() => handleAccess(family.family_id)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary-500/10 border border-primary-500/20 text-primary-400 hover:bg-primary-500/20 transition-all text-sm font-medium"
@@ -75,19 +65,6 @@ export function ConsultorClientes() {
             </div>
           ))}
         </div>
-      )}
-
-      {/* Link para voltar à própria família se não estiver nela */}
-      {personalFamilyId && (
-        <p className="text-xs text-gray-600 text-center">
-          Você está visualizando sua própria conta.{' '}
-          <button
-            onClick={() => switchFamily(personalFamilyId).then(() => navigate('/app'))}
-            className="text-primary-500 hover:text-primary-400 underline underline-offset-2"
-          >
-            Ir para o Dashboard
-          </button>
-        </p>
       )}
     </div>
   )
