@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { Users, Mail, Check, X, UserPlus, AlertCircle, Clock, Shield } from 'lucide-react'
+import { Users, Mail, Check, X, UserPlus, AlertCircle, Clock, Shield, Briefcase } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { useFamilyStore } from '../store/useFamilyStore'
 import { familyInvitesService } from '../services/familyService'
+import { consultorService } from '../services/consultorService'
 import { useAuth } from '../contexts/AuthContext'
 import type { FamilyInviteWithDetails } from '../types'
 import { toast } from 'sonner'
@@ -55,27 +56,37 @@ export function AcceptInvite() {
     }
   }
 
+  const isConsultorInvite = invite?.member_type === 'consultor'
+
   const handleAccept = async () => {
     if (!token) return
 
     setIsAccepting(true)
 
     try {
-      const success = await acceptInvite(token)
-
-      if (success) {
-        toast.success('Convite aceito! Bem-vindo à família!')
-        // Reload completo para que o AuthContext recarregue userFamilies
-        // e o FamilySwitcher apareça com as duas famílias disponíveis
+      // Bifurcação: consultor usa RPC próprio, familiar usa fluxo original
+      if (isConsultorInvite) {
+        const { error } = await consultorService.acceptConsultorInvite(token)
+        if (error) {
+          toast.error(`Erro ao aceitar convite: ${error.message}`)
+          return
+        }
+        toast.success('Convite aceito! Você agora é consultor desta conta.')
         setTimeout(() => {
           window.location.href = '/app/familia'
         }, 1500)
       } else {
-        // Lê o erro diretamente do store (não da closure renderizada) para
-        // evitar o bug de stale state onde storeError ainda é null após o await.
-        const msg = useFamilyStore.getState().error || 'Erro ao aceitar convite'
-        console.error('[AcceptInvite] falhou:', msg)
-        toast.error(`Erro ao aceitar convite: ${msg}`)
+        const success = await acceptInvite(token)
+        if (success) {
+          toast.success('Convite aceito! Bem-vindo à família!')
+          setTimeout(() => {
+            window.location.href = '/app/familia'
+          }, 1500)
+        } else {
+          const msg = useFamilyStore.getState().error || 'Erro ao aceitar convite'
+          console.error('[AcceptInvite] falhou:', msg)
+          toast.error(`Erro ao aceitar convite: ${msg}`)
+        }
       }
     } catch (err) {
       console.error('[AcceptInvite] exceção:', err)
@@ -110,28 +121,24 @@ export function AcceptInvite() {
   }
 
   const getRoleLabel = (role: string) => {
+    if (isConsultorInvite) return 'Consultor Financeiro'
     switch (role) {
-      case 'admin':
-        return 'Administrador'
-      case 'editor':
-        return 'Editor'
-      case 'viewer':
-        return 'Visualizador'
-      default:
-        return role
+      case 'admin': return 'Administrador'
+      case 'editor': return 'Editor'
+      case 'viewer': return 'Visualizador'
+      default: return role
     }
   }
 
   const getRoleDescription = (role: string) => {
+    if (isConsultorInvite) {
+      return 'Acesso limitado à conta do cliente com permissões definidas pelo administrador. Transações e histórico do "Posso Comprar?" nunca são expostos.'
+    }
     switch (role) {
-      case 'admin':
-        return 'Controle total da família, incluindo gerenciar membros e convites'
-      case 'editor':
-        return 'Pode criar, editar e deletar transações, categorias e cartões'
-      case 'viewer':
-        return 'Pode visualizar todas as informações, mas não pode editar'
-      default:
-        return ''
+      case 'admin': return 'Controle total da família, incluindo gerenciar membros e convites'
+      case 'editor': return 'Pode criar, editar e deletar transações, categorias e cartões'
+      case 'viewer': return 'Pode visualizar todas as informações, mas não pode editar'
+      default: return ''
     }
   }
 
@@ -186,11 +193,18 @@ export function AcceptInvite() {
           {/* Header */}
           <div className="text-center mb-8">
             <div className="w-16 h-16 mx-auto rounded-full bg-primary-500/10 flex items-center justify-center mb-4">
-              <Users className="w-8 h-8 text-primary-400" />
+              {isConsultorInvite
+                ? <Briefcase className="w-8 h-8 text-primary-400" />
+                : <Users className="w-8 h-8 text-primary-400" />
+              }
             </div>
-            <h1 className="text-2xl font-bold text-gray-100 mb-2">Convite para Família</h1>
+            <h1 className="text-2xl font-bold text-gray-100 mb-2">
+              {isConsultorInvite ? 'Convite de Consultor Financeiro' : 'Convite para Família'}
+            </h1>
             <p className="text-gray-400">
-              Você foi convidado para participar da família financeira
+              {isConsultorInvite
+                ? 'Você foi convidado para ser consultor financeiro desta conta'
+                : 'Você foi convidado para participar da família financeira'}
             </p>
           </div>
 
@@ -285,9 +299,14 @@ export function AcceptInvite() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 mx-auto rounded-full bg-primary-500/10 flex items-center justify-center mb-4">
-            <Users className="w-8 h-8 text-primary-400" />
+            {isConsultorInvite
+              ? <Briefcase className="w-8 h-8 text-primary-400" />
+              : <Users className="w-8 h-8 text-primary-400" />
+            }
           </div>
-          <h1 className="text-2xl font-bold text-gray-100 mb-2">Convite para Família</h1>
+          <h1 className="text-2xl font-bold text-gray-100 mb-2">
+            {isConsultorInvite ? 'Convite de Consultor Financeiro' : 'Convite para Família'}
+          </h1>
           <p className="text-gray-400">Você deseja aceitar este convite?</p>
         </div>
 

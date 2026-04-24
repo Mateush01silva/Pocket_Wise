@@ -68,6 +68,7 @@ interface FamilyActions {
   // Utilities
   clearError: () => void
   reset: () => void
+  refresh: () => Promise<void>
 }
 
 type FamilyStore = FamilyState & FamilyActions
@@ -490,6 +491,11 @@ export const useFamilyStore = create<FamilyStore>()(
 
     reset: () => {
       set(initialState)
+    },
+
+    refresh: async () => {
+      set({ initialized: false })
+      await get().initialize()
     },
   }))
 )

@@ -31,6 +31,7 @@ import { learningContent } from '../../lib/learningContent'
 import { FamilySwitcher } from '../ui/FamilySwitcher'
 import { useAssistenteIA } from '../../hooks/useAssistenteIA'
 import { usePlan } from '../../hooks/usePlan'
+import { useConsultorPermissions } from '../../hooks/useConsultorPermissions'
 
 interface NavItem {
   name: string
@@ -74,6 +75,14 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
   const prefsName = useUserPreferencesStore((state) => state.nome)
   const { mensagensProativasNaoLidas } = useAssistenteIA()
   const { tier } = usePlan()
+  const {
+    isConsultor,
+    canCreateCategories,
+    canManageAccounts,
+    canViewEnvelopes,
+    canViewPocks,
+    canViewCaixinhas,
+  } = useConsultorPermissions()
 
   const userName = userProfile?.full_name || prefsName
   const userAvatar = userProfile?.avatar_url || null
@@ -130,6 +139,29 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
 
             const isAssistente = item.path === '/app/assistente'
             const isPocks = item.path === '/app/pocks'
+
+            // Visibilidade para consultores
+            if (isConsultor) {
+              // Sempre ocultos: transações, fluxo de caixa, relatórios e assistente IA
+              const alwaysHidden = [
+                '/app/transacoes',
+                '/app/fluxo-caixa',
+                '/app/relatorios',
+                '/app/assistente',
+              ]
+              if (alwaysHidden.includes(item.path)) return null
+
+              // Permissão-dependentes
+              if (item.path === '/app/envelopes' && !canViewEnvelopes) return null
+              if (item.path === '/app/pocks' && !canViewPocks) return null
+              if (item.path === '/app/caixinhas' && !canViewCaixinhas) return null
+              if (item.path === '/app/categorias' && !canCreateCategories) return null
+              if (item.path === '/app/cartoes' && !canManageAccounts) return null
+              if (item.path === '/app/contas' && !canManageAccounts) return null
+              // Envelopes page já coberto por canViewEnvelopes; criar é separado no componente
+              // Assistente e Assinatura ficam ocultos para consultores
+              if (item.path === '/app/assinatura') return null
+            }
 
             const iconNode = isAssistente ? (
               <div className="relative shrink-0">
