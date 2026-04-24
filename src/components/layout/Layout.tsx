@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '../../lib/cn'
 import { Sidebar } from './Sidebar'
 import { NotificationBell } from '../NotificationBell'
@@ -9,7 +9,7 @@ import { TrialExpiredModal } from '../TrialExpiredModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { useUserPreferencesStore } from '../../store/useUserPreferencesStore'
 import { usePlan } from '../../hooks/usePlan'
-import { AlertTriangle, Zap, Briefcase } from 'lucide-react'
+import { AlertTriangle, Zap, Briefcase, ChevronLeft } from 'lucide-react'
 import { useFamilyStore } from '../../store/useFamilyStore'
 
 interface LayoutProps {
@@ -29,15 +29,25 @@ export function Layout({ children }: LayoutProps) {
       return next
     })
   }
-  const { user, subscription, daysUntilExpiration, userProfile } = useAuth()
+  const { user, subscription, daysUntilExpiration, userProfile, switchFamily, personalFamilyId } = useAuth()
   const { trialDaysLeft, isTrialExpired } = usePlan()
   const onboardingCompletedInStore = useUserPreferencesStore((s) => s.onboardingCompleted)
+  const navigate = useNavigate()
 
   // Detectar modo consultor
   const familyMembers = useFamilyStore((state) => state.members)
+  const refresh = useFamilyStore((state) => state.refresh)
   const currentMember = familyMembers.find((m) => m.user_id === (user?.id || ''))
   const isConsultorMode = currentMember?.member_type === 'consultor'
   const family = useFamilyStore((state) => state.family)
+
+  const handleBackToClients = async () => {
+    if (personalFamilyId) {
+      await switchFamily(personalFamilyId)
+      await refresh()
+    }
+    navigate('/app/meus-clientes')
+  }
 
   // Onboarding é persistido por usuário em uma chave separada que não é apagada no logout.
   const onboardingCompleted = user
@@ -48,16 +58,14 @@ export function Layout({ children }: LayoutProps) {
   const isAdmin = userProfile?.role === 'admin'
   const isTrial = subscription?.status === 'trial'
 
-  // Banner trial: mostrar para todos os usuários Explorador em trial (não expirado)
-  const showTrialBanner = !isAdmin && isTrial && !isTrialExpired
+  // Consultores usam o plano do cliente — suprimir todos os banners/modais de assinatura
+  const showTrialBanner = !isAdmin && !isConsultorMode && isTrial && !isTrialExpired
 
-  // Banner de expiração de assinatura paga: faltam 7 dias ou menos
-  const showSubscriptionWarning = !isAdmin && !isTrial && days >= 0 && days <= 7 && (
+  const showSubscriptionWarning = !isAdmin && !isConsultorMode && !isTrial && days >= 0 && days <= 7 && (
     subscription?.status === 'active' && subscription?.cancel_at_period_end
   )
 
-  // Modal bloqueante ao expirar trial
-  const showTrialExpiredModal = !isAdmin && isTrial && isTrialExpired
+  const showTrialExpiredModal = !isAdmin && !isConsultorMode && isTrial && isTrialExpired
 
   return (
     <div className="flex min-h-screen bg-dark-900">
@@ -185,13 +193,22 @@ export function Layout({ children }: LayoutProps) {
 
           {/* Banner de modo consultor */}
           {isConsultorMode && (
-            <div className="mb-6 rounded-lg p-3 flex items-center gap-3 bg-primary-500/10 border border-primary-500/20">
-              <Briefcase size={16} className="text-primary-400 shrink-0" />
-              <p className="text-sm text-primary-200">
-                Você está visualizando a conta de{' '}
-                <span className="font-medium text-primary-100">{family?.nome || 'um cliente'}</span>
-                {' '}como consultor financeiro
-              </p>
+            <div className="mb-6 rounded-lg p-3 flex items-center justify-between gap-3 bg-primary-500/10 border border-primary-500/20">
+              <div className="flex items-center gap-3 min-w-0">
+                <Briefcase size={16} className="text-primary-400 shrink-0" />
+                <p className="text-sm text-primary-200 truncate">
+                  Visualizando{' '}
+                  <span className="font-medium text-primary-100">{family?.nome || 'um cliente'}</span>
+                  {' '}como consultor
+                </p>
+              </div>
+              <button
+                onClick={handleBackToClients}
+                className="flex items-center gap-1 text-sm font-medium text-primary-400 hover:text-primary-300 whitespace-nowrap shrink-0 transition-colors"
+              >
+                <ChevronLeft size={14} />
+                Meus Clientes
+              </button>
             </div>
           )}
 

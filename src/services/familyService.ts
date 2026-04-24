@@ -494,6 +494,7 @@ export interface UserFamilyInfo {
   nome: string
   role: 'admin' | 'editor' | 'viewer'
   is_personal: boolean
+  member_type: 'familiar' | 'consultor'
 }
 
 // =====================================================

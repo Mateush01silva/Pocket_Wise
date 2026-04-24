@@ -2,6 +2,7 @@ import { Lock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlan } from '../hooks/usePlan'
 import type { Feature } from '../hooks/usePlan'
+import { useConsultorPermissions } from '../hooks/useConsultorPermissions'
 import type { ReactNode } from 'react'
 
 interface FeaturePreviewProps {
@@ -31,9 +32,11 @@ export function FeaturePreview({
 }: FeaturePreviewProps) {
   const navigate = useNavigate()
   const { featureAccess } = usePlan()
+  const { isConsultor } = useConsultorPermissions()
   const access = featureAccess(feature)
 
-  if (access === 'full' || access === 'limited') {
+  // Consultores accedem com as permissões do plano do cliente — sem paywall próprio
+  if (isConsultor || access === 'full' || access === 'limited') {
     return <>{children}</>
   }
 

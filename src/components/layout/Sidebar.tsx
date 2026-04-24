@@ -21,6 +21,7 @@ import {
   Wallet,
   Headphones,
   ShieldCheck,
+  Briefcase,
 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { useLearningModeStore } from '../../store/useLearningModeStore'
@@ -32,6 +33,7 @@ import { FamilySwitcher } from '../ui/FamilySwitcher'
 import { useAssistenteIA } from '../../hooks/useAssistenteIA'
 import { usePlan } from '../../hooks/usePlan'
 import { useConsultorPermissions } from '../../hooks/useConsultorPermissions'
+import { useAuth } from '../../contexts/AuthContext'
 
 interface NavItem {
   name: string
@@ -69,7 +71,7 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse }: SidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { signOut, userProfile, subscription } = useAuth()
+  const { signOut, userProfile, subscription, userFamilies } = useAuth()
   const isLearningMode = useLearningModeStore((state) => state.isEnabled)
   const toggleLearningMode = useLearningModeStore((state) => state.toggleLearningMode)
   const prefsName = useUserPreferencesStore((state) => state.nome)
@@ -83,6 +85,9 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
     canViewPocks,
     canViewCaixinhas,
   } = useConsultorPermissions()
+
+  // Verdadeiro se o usuário é consultor em pelo menos uma família (mesmo estando na própria)
+  const isConsultorInAnyFamily = userFamilies.some((f) => f.member_type === 'consultor')
 
   const userName = userProfile?.full_name || prefsName
   const userAvatar = userProfile?.avatar_url || null
@@ -132,6 +137,32 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
       {/* Navigation */}
       <nav className="flex-1 p-2 overflow-y-auto">
         <ul className="space-y-1">
+          {/* Meus Clientes — visível somente para consultores */}
+          {isConsultorInAnyFamily && (
+            <>
+              <li>
+                <Link
+                  to="/app/meus-clientes"
+                  onClick={onClose}
+                  title={isCollapsed ? 'Meus Clientes' : undefined}
+                  className={cn(
+                    'flex items-center rounded-lg transition-all duration-200',
+                    isCollapsed ? 'justify-center px-2 py-3' : 'gap-3 px-4 py-3',
+                    location.pathname === '/app/meus-clientes'
+                      ? 'bg-primary-500/10 text-primary-400 shadow-lg shadow-primary-500/20'
+                      : 'text-gray-400 hover:bg-dark-800 hover:text-gray-200'
+                  )}
+                >
+                  <Briefcase className="w-5 h-5 shrink-0" />
+                  {!isCollapsed && <span className="font-medium">Meus Clientes</span>}
+                </Link>
+              </li>
+              <li className="pb-1">
+                <div className="border-t border-dark-700/50 mt-1" />
+              </li>
+            </>
+          )}
+
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = location.pathname === item.path
