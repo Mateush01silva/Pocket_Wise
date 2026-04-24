@@ -17,6 +17,9 @@
 
 -- ─── 1. get_family_members_with_user ─────────────────────────────────────────
 -- Adiciona member_type ao RETURNS TABLE e ao RETURN QUERY SELECT.
+-- DROP necessário porque CREATE OR REPLACE não pode alterar o tipo de retorno.
+
+DROP FUNCTION IF EXISTS get_family_members_with_user(UUID);
 
 CREATE OR REPLACE FUNCTION get_family_members_with_user(p_family_id UUID)
 RETURNS TABLE (
