@@ -35,6 +35,7 @@ import {
 import { Caixinhas } from './pages/Caixinhas'
 import { Assinatura } from './pages/Assinatura'
 import { AcceptInvite } from './pages/AcceptInvite'
+import { ConsultorClientes } from './pages/ConsultorClientes'
 import { AdminRoute } from './components/AdminRoute'
 import { useCategoriasStore, useTransacoesStore, useCartoesStore, useAssinaturasStore } from './store'
 import { useFamilyStore } from './store/useFamilyStore'
@@ -425,6 +426,16 @@ function AppRoutes() {
               <PrivateRoute>
                 <Layout>
                   <Assinatura />
+                </Layout>
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/app/meus-clientes"
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <ConsultorClientes />
                 </Layout>
               </PrivateRoute>
             }
