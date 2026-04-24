@@ -46,6 +46,7 @@ export function MovimentarCaixinhaModal({
   const [origemDeposito, setOrigemDeposito] = useState<'orcamento' | 'conta'>('orcamento')
   const [contaOrigemId, setContaOrigemId] = useState<string>('')
   const [contaSaidaId, setContaSaidaId] = useState<string>('')
+  const [contaDestinoId, setContaDestinoId] = useState<string>('')
 
   const createTransacao = useCaixinhasStore((state) => state.createTransacao)
   const caixinhas = useCaixinhasStore((state) => state.caixinhas)
@@ -70,6 +71,10 @@ export function MovimentarCaixinhaModal({
   const saldoNaoAlocado = contaOrigemId ? getSaldoNaoAlocado(contaOrigemId) : 0
   const ehCaixinhaInvestimento = caixinha.tipo === 'investimento' && !!caixinha.conta_investimento_id
   const mostrarContaSaida = isDeposito && origemDeposito === 'orcamento' && ehCaixinhaInvestimento
+  const mostrarContaDestino = !isDeposito && ehCaixinhaInvestimento
+
+  const contasAtivas = contas.filter((c) => c.ativo)
+  const contaDestinoSelecionada = contasAtivas.find((c) => c.id === contaDestinoId)
 
   const excedeSaldoDisponivel = isDeposito && origemDeposito === 'orcamento' && valor > saldoDisponivelParaDeposito
   const excedeSaldoConta = isDeposito && origemDeposito === 'conta' && !!contaSelecionada && valor > saldoNaoAlocado
@@ -152,6 +157,8 @@ export function MovimentarCaixinhaModal({
         destino_mes_referencia: !isDeposito ? `${mesDestino}-01` : undefined,
         // Conta de saída: apenas para depósito de orçamento em caixinha de investimento
         conta_saida_id: mostrarContaSaida && contaSaidaId ? contaSaidaId : null,
+        // Conta de destino: para retirada de caixinha de investimento
+        conta_destino_id: mostrarContaDestino && contaDestinoId ? contaDestinoId : null,
       })
 
       if (!result) {
@@ -189,6 +196,7 @@ export function MovimentarCaixinhaModal({
     setOrigemDeposito('orcamento')
     setContaOrigemId('')
     setContaSaidaId('')
+    setContaDestinoId('')
     onClose()
   }
 
@@ -471,6 +479,39 @@ export function MovimentarCaixinhaModal({
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+
+          {/* Conta de destino: para retirada de caixinha de investimento */}
+          {mostrarContaDestino && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                <Building2 size={14} className="inline mr-1" />
+                Conta de destino (onde o dinheiro chegará)
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Selecione a conta que receberá este valor. O saldo dessa conta será aumentado.
+              </p>
+              <select
+                value={contaDestinoId}
+                onChange={(e) => setContaDestinoId(e.target.value)}
+                className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500"
+              >
+                <option value="">Não informar (sem crédito em conta)</option>
+                {contasAtivas.map((conta) => (
+                  <option key={conta.id} value={conta.id}>
+                    {conta.icone || '🏦'} {conta.nome}{conta.instituicao ? ` — ${conta.instituicao}` : ''} ({formatCurrency(conta.saldo_atual)})
+                  </option>
+                ))}
+              </select>
+              {contaDestinoSelecionada && (
+                <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                  <p className="text-sm text-gray-400">Novo saldo após receber</p>
+                  <p className="text-lg font-bold text-amber-400">
+                    {formatCurrency(contaDestinoSelecionada.saldo_atual + (valor > 0 ? valor : 0))}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

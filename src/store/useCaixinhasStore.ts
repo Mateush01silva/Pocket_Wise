@@ -494,6 +494,35 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
             }
           }
 
+          // Retirada de caixinha de investimento: auto-ajustar valor_mercado para preservar rentabilidade
+          if (input.tipo === 'retirada') {
+            const caixinhaAtualizada = get().caixinhas.find((c) => c.id === input.caixinha_id)
+            if (
+              caixinhaAtualizada &&
+              caixinhaAtualizada.tipo === 'investimento' &&
+              caixinhaAtualizada.valor_mercado !== null
+            ) {
+              // Subtração simples: preserva o ganho não realizado existente
+              const novoValorMercado = Math.max(0, caixinhaAtualizada.valor_mercado - input.valor)
+              await get().atualizarValorMercado({
+                caixinha_id: input.caixinha_id,
+                novo_valor_mercado: novoValorMercado,
+              })
+            }
+          }
+
+          // Creditar conta de destino ao retirar de caixinha de investimento
+          if (input.tipo === 'retirada' && input.conta_destino_id) {
+            const contasStore = useContasBancariasStore.getState()
+            const contaDestino = contasStore.getContaById(input.conta_destino_id)
+            if (contaDestino) {
+              await contasStore.updateConta(contaDestino.id, {
+                saldo_atual: contaDestino.saldo_atual + input.valor,
+              })
+              await contasStore.fetchContas()
+            }
+          }
+
           return data
         }
 

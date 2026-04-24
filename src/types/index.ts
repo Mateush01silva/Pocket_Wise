@@ -815,6 +815,7 @@ export interface CreateTransacaoCaixinhaInput {
   origem_mes_referencia?: string | null // Para depósitos: de qual mês vem o saldo
   destino_mes_referencia?: string | null // Para retiradas: para qual mês compor orçamento
   conta_saida_id?: string | null // Conta não-investimento de onde o dinheiro saiu (depósito de orçamento → investimento)
+  conta_destino_id?: string | null // Conta de destino ao retirar de caixinha de investimento
 }
 
 export interface TransferirEntreCaixinhasInput {

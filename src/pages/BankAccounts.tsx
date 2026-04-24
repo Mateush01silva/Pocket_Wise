@@ -15,12 +15,14 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
+  ArrowLeftRight,
 } from 'lucide-react'
 import { useContasBancariasStore } from '../store/useContasBancariasStore'
 import { usePermissions } from '../hooks/usePermissions'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { BankAccountModal } from '../components/BankAccountModal'
 import { AdjustBalanceModal } from '../components/AdjustBalanceModal'
+import { TransferirContasModal } from '../components/TransferirContasModal'
 import { formatCurrency } from '../utils/currency'
 import type { ContaBancaria, TipoConta } from '../types'
 
@@ -55,6 +57,7 @@ export function BankAccounts() {
   const [contaToEdit, setContaToEdit] = useState<ContaBancaria | undefined>()
   const [saldosVisiveis, setSaldosVisiveis] = useState(true)
   const [contaToAdjust, setContaToAdjust] = useState<ContaBancaria | undefined>()
+  const [contaToTransfer, setContaToTransfer] = useState<ContaBancaria | undefined>()
 
   // Buscar contas ao carregar
   useEffect(() => {
@@ -117,6 +120,14 @@ export function BankAccounts() {
     setContaToAdjust(undefined)
   }
 
+  const handleTransfer = (conta: ContaBancaria) => {
+    setContaToTransfer(conta)
+  }
+
+  const handleCloseTransferModal = () => {
+    setContaToTransfer(undefined)
+  }
+
   const renderConta = (conta: ContaBancaria) => {
     const saldoPositivo = conta.saldo_atual >= 0
 
@@ -149,6 +160,15 @@ export function BankAccounts() {
             </CardTitle>
             {canEdit && (
               <div className="flex gap-1">
+                {contasAtivas.length >= 2 && (
+                  <button
+                    onClick={() => handleTransfer(conta)}
+                    className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-blue-400"
+                    title="Transferir entre contas"
+                  >
+                    <ArrowLeftRight size={14} />
+                  </button>
+                )}
                 <button
                   onClick={() => handleAdjustBalance(conta)}
                   className="p-1.5 hover:bg-dark-700/50 rounded transition-colors text-gray-400 hover:text-green-400"
@@ -358,6 +378,15 @@ export function BankAccounts() {
           isOpen={!!contaToAdjust}
           onClose={handleCloseAdjustModal}
           conta={contaToAdjust}
+        />
+      )}
+
+      {/* Modal de Transferência entre Contas */}
+      {contaToTransfer && (
+        <TransferirContasModal
+          isOpen={!!contaToTransfer}
+          onClose={handleCloseTransferModal}
+          contaOrigem={contaToTransfer}
         />
       )}
     </div>
