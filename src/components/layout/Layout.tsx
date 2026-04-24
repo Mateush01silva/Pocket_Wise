@@ -9,7 +9,8 @@ import { TrialExpiredModal } from '../TrialExpiredModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { useUserPreferencesStore } from '../../store/useUserPreferencesStore'
 import { usePlan } from '../../hooks/usePlan'
-import { AlertTriangle, Zap } from 'lucide-react'
+import { AlertTriangle, Zap, Briefcase } from 'lucide-react'
+import { useFamilyStore } from '../../store/useFamilyStore'
 
 interface LayoutProps {
   children: ReactNode
@@ -31,6 +32,12 @@ export function Layout({ children }: LayoutProps) {
   const { user, subscription, daysUntilExpiration, userProfile } = useAuth()
   const { trialDaysLeft, isTrialExpired } = usePlan()
   const onboardingCompletedInStore = useUserPreferencesStore((s) => s.onboardingCompleted)
+
+  // Detectar modo consultor
+  const familyMembers = useFamilyStore((state) => state.members)
+  const currentMember = familyMembers.find((m) => m.user_id === (user?.id || ''))
+  const isConsultorMode = currentMember?.member_type === 'consultor'
+  const family = useFamilyStore((state) => state.family)
 
   // Onboarding é persistido por usuário em uma chave separada que não é apagada no logout.
   const onboardingCompleted = user
@@ -173,6 +180,18 @@ export function Layout({ children }: LayoutProps) {
               >
                 Ver planos
               </Link>
+            </div>
+          )}
+
+          {/* Banner de modo consultor */}
+          {isConsultorMode && (
+            <div className="mb-6 rounded-lg p-3 flex items-center gap-3 bg-primary-500/10 border border-primary-500/20">
+              <Briefcase size={16} className="text-primary-400 shrink-0" />
+              <p className="text-sm text-primary-200">
+                Você está visualizando a conta de{' '}
+                <span className="font-medium text-primary-100">{family?.nome || 'um cliente'}</span>
+                {' '}como consultor financeiro
+              </p>
             </div>
           )}
 

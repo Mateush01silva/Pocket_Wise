@@ -603,6 +603,8 @@ export interface ConfiguracaoOrcamento {
 
 export type FamilyRole = 'admin' | 'editor' | 'viewer'
 export type InviteStatus = 'pending' | 'accepted' | 'rejected' | 'expired'
+export type MemberType = 'familiar' | 'consultor'
+export type ConsultorProfile = 'configurador' | 'acompanhador' | 'custom'
 
 // Membro da família com role
 export interface FamilyMember {
@@ -610,6 +612,7 @@ export interface FamilyMember {
   family_id: string
   user_id: string
   role: FamilyRole
+  member_type: MemberType
   joined_at: string
   created_at: string
   updated_at: string
@@ -631,6 +634,8 @@ export interface FamilyInvite {
   token: string
   role: FamilyRole
   status: InviteStatus
+  member_type: MemberType
+  consultant_permissions?: ConsultorPermissionsInput | null
   message?: string | null
   expires_at: string
   accepted_at?: string | null
@@ -996,4 +1001,39 @@ export interface AssinaturasSummary {
     total: number
     quantidade: number
   } | null
+}
+
+// =====================================================
+// CONSULTOR FINANCEIRO
+// =====================================================
+
+export interface ConsultorPermissionsInput {
+  can_create_envelopes: boolean
+  can_create_categories: boolean
+  can_manage_accounts: boolean
+  can_view_envelopes: boolean
+  can_view_pocks: boolean
+  can_view_caixinhas: boolean
+  profile_preset?: ConsultorProfile
+}
+
+export interface ConsultorPermissions extends ConsultorPermissionsInput {
+  id: string
+  family_member_id: string
+  family_id: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ConsultorPermissionsWithDetails extends ConsultorPermissions {
+  consultant_user_id: string
+  consultant_name: string
+}
+
+export interface CreateConsultorInviteInput {
+  family_id: string
+  invited_email: string
+  profile_preset: ConsultorProfile
+  permissions: ConsultorPermissionsInput
+  message?: string
 }

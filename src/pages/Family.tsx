@@ -32,6 +32,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { formatCurrency } from '../utils/currency'
 import { differenceInDays, parseISO } from 'date-fns'
 import { FamilyInviteModal } from '../components/FamilyInviteModal'
+import { ConsultorSection } from '../components/ConsultorSection'
 import { toast } from 'sonner'
 import type { OrcamentoMensal } from '../types'
 
@@ -49,12 +50,16 @@ export function Family() {
     invites,
     isLoadingMembers,
     initialize,
+    refresh,
     deleteInvite,
     removeMember,
     updateMemberRole,
     updateFamily,
     isAdmin,
   } = useFamilyStore()
+
+  const familiarMembers = members.filter((m) => m.member_type !== 'consultor')
+  const familiarInvites = invites.filter((i) => i.member_type !== 'consultor')
 
   // Modal states
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
@@ -392,15 +397,15 @@ export function Family() {
         </div>
       </div>
 
-        {/* Convites Pendentes */}
-        {currentUserIsAdmin && invites.length > 0 && (
+        {/* Convites Pendentes (apenas familiares) */}
+        {currentUserIsAdmin && familiarInvites.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Convites Pendentes</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {invites
+                {familiarInvites
                   .filter((invite) => invite.status === 'pending')
                   .map((invite) => (
                     <div
@@ -465,7 +470,7 @@ export function Family() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
                 <p className="text-gray-400 mt-2">Carregando membros...</p>
               </div>
-            ) : members.length === 0 ? (
+            ) : familiarMembers.length === 0 ? (
               <div className="text-center py-8 text-gray-500 border-2 border-dashed border-dark-700 rounded-lg">
                 <Users className="mx-auto mb-3 text-gray-600" size={32} />
                 <p className="mb-2">Nenhum membro na família</p>
@@ -475,7 +480,7 @@ export function Family() {
               </div>
             ) : (
               <div className="space-y-3">
-                {members.map((member) => {
+                {familiarMembers.map((member) => {
                   const isCurrentUser = member.user_id === user?.id
                   const canRemove = currentUserIsAdmin && !isCurrentUser
 
@@ -544,6 +549,18 @@ export function Family() {
             )}
           </CardContent>
         </Card>
+
+        {/* Separador visual */}
+        <div className="border-t border-dark-700 pt-2">
+          <p className="text-xs text-gray-600 uppercase tracking-wider mb-4">Consultor Externo</p>
+          <ConsultorSection
+            familyId={family?.id || ''}
+            isAdmin={currentUserIsAdmin}
+            members={members}
+            invites={invites}
+            onRefresh={refresh}
+          />
+        </div>
       </div>
     </>
     </FeaturePreview>
