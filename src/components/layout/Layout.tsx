@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { cn } from '../../lib/cn'
 import { Sidebar } from './Sidebar'
 import { NotificationBell } from '../NotificationBell'
@@ -32,11 +32,9 @@ export function Layout({ children }: LayoutProps) {
   const { user, subscription, daysUntilExpiration, userProfile, switchFamily, personalFamilyId } = useAuth()
   const { trialDaysLeft, isTrialExpired } = usePlan()
   const onboardingCompletedInStore = useUserPreferencesStore((s) => s.onboardingCompleted)
-  const navigate = useNavigate()
 
   // Detectar modo consultor
   const familyMembers = useFamilyStore((state) => state.members)
-  const refresh = useFamilyStore((state) => state.refresh)
   const currentMember = familyMembers.find((m) => m.user_id === (user?.id || ''))
   const isConsultorMode = currentMember?.member_type === 'consultor'
   const family = useFamilyStore((state) => state.family)
@@ -44,9 +42,9 @@ export function Layout({ children }: LayoutProps) {
   const handleBackToClients = async () => {
     if (personalFamilyId) {
       await switchFamily(personalFamilyId)
-      await refresh()
     }
-    navigate('/app/meus-clientes')
+    // Reload completo para reinicializar todos os stores com os dados da família pessoal
+    window.location.href = '/app/meus-clientes'
   }
 
   // Onboarding é persistido por usuário em uma chave separada que não é apagada no logout.

@@ -73,7 +73,7 @@ export function AcceptInvite() {
         }
         toast.success('Convite aceito! Você agora é consultor desta conta.')
         setTimeout(() => {
-          window.location.href = '/app/familia'
+          window.location.href = '/app/meus-clientes'
         }, 1500)
       } else {
         const success = await acceptInvite(token)
