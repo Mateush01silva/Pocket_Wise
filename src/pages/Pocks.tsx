@@ -234,18 +234,25 @@ export function Pocks() {
 
   const [dados, setDados] = useState<PocksData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null) // null = mês atual
 
   const carregar = useCallback(async () => {
     if (!activeFamilyId) return
     setIsLoading(true)
+    setLoadError(null)
     try {
-      // Timeout de 20s para evitar loading infinito em caso de query travada
-      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 20_000))
+      // Timeout de 45s para evitar loading infinito em caso de query travada
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 45_000))
       const result = await Promise.race([carregarDadosPocks(activeFamilyId), timeout])
+      if (result === null) {
+        // Timeout ou sem dados — verificar se é timeout
+        setLoadError('timeout')
+      }
       setDados(result)
     } catch (e) {
       console.error('Erro ao carregar Pocks:', e)
+      setLoadError(e instanceof Error ? e.message : 'Erro desconhecido')
     } finally {
       setIsLoading(false)
     }
@@ -331,10 +338,25 @@ export function Pocks() {
       {!isLoading && !dados && (
         <div className="text-center py-16">
           <Trophy className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-          <p className="text-gray-400">Nenhum orçamento encontrado.</p>
-          <p className="text-gray-500 text-sm mt-1">
-            Crie seu primeiro orçamento em Envelopes para começar a pontuar!
-          </p>
+          {loadError ? (
+            <>
+              <p className="text-gray-400">Não foi possível carregar os dados do Pocks.</p>
+              <p className="text-gray-500 text-sm mt-1 font-mono text-xs">{loadError}</p>
+              <button
+                onClick={carregar}
+                className="mt-4 px-4 py-2 rounded-lg bg-primary-500/10 border border-primary-500/20 text-primary-400 hover:bg-primary-500/20 text-sm transition-all"
+              >
+                Tentar novamente
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-400">Nenhum orçamento encontrado.</p>
+              <p className="text-gray-500 text-sm mt-1">
+                Crie seu primeiro orçamento em Envelopes para começar a pontuar!
+              </p>
+            </>
+          )}
         </div>
       )}
 
