@@ -26,6 +26,7 @@ import {
   Tooltip,
 } from 'recharts'
 import { usePlan } from '../hooks/usePlan'
+import { useConsultorPermissions } from '../hooks/useConsultorPermissions'
 import { FeaturePreview } from '../components/FeaturePreview'
 import { FeatureCTA } from '../components/FeatureCTA'
 import { useAuth } from '../contexts/AuthContext'
@@ -228,6 +229,7 @@ function CustomTooltip({ active, payload, label }: any) {
 export function Pocks() {
   const { featureAccess } = usePlan()
   const pocksAccess = featureAccess('pocks')
+  const { isConsultor } = useConsultorPermissions()
   const { activeFamilyId } = useAuth()
 
   const [dados, setDados] = useState<PocksData | null>(null)
@@ -238,7 +240,9 @@ export function Pocks() {
     if (!activeFamilyId) return
     setIsLoading(true)
     try {
-      const result = await carregarDadosPocks(activeFamilyId)
+      // Timeout de 20s para evitar loading infinito em caso de query travada
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 20_000))
+      const result = await Promise.race([carregarDadosPocks(activeFamilyId), timeout])
       setDados(result)
     } catch (e) {
       console.error('Erro ao carregar Pocks:', e)
@@ -247,9 +251,10 @@ export function Pocks() {
     }
   }, [activeFamilyId])
 
+  // Consultores têm acesso aos Pocks do cliente independente do próprio plano
   useEffect(() => {
-    if (pocksAccess === 'full' && activeFamilyId) carregar()
-  }, [pocksAccess, activeFamilyId, carregar])
+    if ((pocksAccess === 'full' || isConsultor) && activeFamilyId) carregar()
+  }, [pocksAccess, isConsultor, activeFamilyId, carregar])
 
   // ---- Derivados ----
 
@@ -276,7 +281,7 @@ export function Pocks() {
 
   // ---- Renderização ----
 
-  if (pocksAccess === 'preview') {
+  if (!isConsultor && pocksAccess === 'preview') {
     return (
       <FeaturePreview
         feature="pocks"
@@ -288,7 +293,7 @@ export function Pocks() {
       </FeaturePreview>
     )
   }
-  if (pocksAccess === 'locked') return <FeatureCTA feature="pocks" />
+  if (!isConsultor && pocksAccess === 'locked') return <FeatureCTA feature="pocks" />
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
