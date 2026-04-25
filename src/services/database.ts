@@ -1040,16 +1040,16 @@ export const assinaturasService = {
       return { data: null, error: new Error('Supabase not configured'), count: null }
     }
 
-    // Para Supabase, usar user_id ao invés de family_id
-    const user = await getCurrentUser()
-    if (!user) {
+    // Usar family_id da família ativa (suporta consultores vendo dados do cliente)
+    const familyId = await getUserFamilyId()
+    if (!familyId) {
       return { data: [], error: null, count: 0 }
     }
 
     let query = (supabase as any)
       .from('assinaturas')
       .select('*', { count: 'exact' })
-      .eq('user_id', user.id)
+      .eq('family_id', familyId)
       .order('nome')
 
     if (filters?.ativa !== undefined) {
@@ -1110,8 +1110,7 @@ export const assinaturasService = {
       return { data: null, error: new Error('Supabase not configured') }
     }
 
-    // Para Supabase, usar user_id ao invés de family_id
-    const user = await getCurrentUser()
+    const [user, familyId] = await Promise.all([getCurrentUser(), getUserFamilyId()])
     if (!user) {
       return { data: null, error: new Error('User not authenticated') }
     }
@@ -1120,6 +1119,7 @@ export const assinaturasService = {
       .from('assinaturas')
       .insert({
         user_id: user.id,
+        family_id: familyId,
         nome: input.nome,
         logo_url: input.logo_url || null,
         valor: input.valor,

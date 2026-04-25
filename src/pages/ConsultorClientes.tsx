@@ -1,25 +1,44 @@
+import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { Users, ArrowRight, Briefcase, Eye, Home, ChevronRight } from 'lucide-react'
+import { Users, ArrowRight, Briefcase, Eye, Home, ChevronRight, Loader2 } from 'lucide-react'
 import { useFamilyStore } from '../store/useFamilyStore'
 import { useConsultorPermissions } from '../hooks/useConsultorPermissions'
+import { toast } from 'sonner'
 
 export function ConsultorClientes() {
   const { userFamilies, switchFamily, personalFamilyId } = useAuth()
   const { isConsultor } = useConsultorPermissions()
   const family = useFamilyStore((state) => state.family)
+  const [loadingFamilyId, setLoadingFamilyId] = useState<string | null>(null)
 
   const clientFamilies = userFamilies.filter((f) => f.member_type === 'consultor')
 
   const handleAccess = async (familyId: string) => {
-    await switchFamily(familyId)
-    window.location.href = '/app'
+    setLoadingFamilyId(familyId)
+    const result = await switchFamily(familyId)
+    if (result.success) {
+      window.location.href = '/app'
+    } else {
+      toast.error(result.error ?? 'Erro ao acessar conta do cliente')
+      setLoadingFamilyId(null)
+    }
   }
 
   const handleBackToPersonal = async () => {
-    if (personalFamilyId) {
-      await switchFamily(personalFamilyId)
+    // personalFamilyId pode ser null em contas antigas; usar is_personal como fallback
+    const targetId = personalFamilyId ?? userFamilies.find((f) => f.is_personal)?.family_id
+    if (!targetId) {
+      toast.error('Não foi possível identificar sua conta pessoal')
+      return
     }
-    window.location.href = '/app'
+    setLoadingFamilyId('personal')
+    const result = await switchFamily(targetId)
+    if (result.success) {
+      window.location.href = '/app'
+    } else {
+      toast.error(result.error ?? 'Erro ao voltar para conta pessoal')
+      setLoadingFamilyId(null)
+    }
   }
 
   return (
@@ -51,9 +70,14 @@ export function ConsultorClientes() {
             </div>
             <button
               onClick={handleBackToPersonal}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-dark-700/50 border border-dark-600 text-gray-300 hover:bg-dark-700 hover:text-white transition-all text-sm font-medium shrink-0"
+              disabled={loadingFamilyId === 'personal'}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-dark-700/50 border border-dark-600 text-gray-300 hover:bg-dark-700 hover:text-white transition-all text-sm font-medium shrink-0 disabled:opacity-60"
             >
-              <Home className="w-4 h-4" />
+              {loadingFamilyId === 'personal' ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Home className="w-4 h-4" />
+              )}
               Minha Conta
             </button>
           </div>
@@ -94,10 +118,17 @@ export function ConsultorClientes() {
 
                 <button
                   onClick={() => handleAccess(family.family_id)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary-500/10 border border-primary-500/20 text-primary-400 hover:bg-primary-500/20 transition-all text-sm font-medium"
+                  disabled={loadingFamilyId === family.family_id}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary-500/10 border border-primary-500/20 text-primary-400 hover:bg-primary-500/20 transition-all text-sm font-medium disabled:opacity-60"
                 >
-                  Acessar
-                  <ArrowRight className="w-4 h-4" />
+                  {loadingFamilyId === family.family_id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      Acessar
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               </div>
             ))}
@@ -110,10 +141,15 @@ export function ConsultorClientes() {
         <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Minha conta</p>
         <button
           onClick={handleBackToPersonal}
-          className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-dark-700/50 transition-colors text-left"
+          disabled={loadingFamilyId === 'personal'}
+          className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-dark-700/50 transition-colors text-left disabled:opacity-60"
         >
           <div className="w-9 h-9 rounded-lg bg-dark-700/50 border border-dark-600 flex items-center justify-center shrink-0">
-            <Home className="w-4 h-4 text-gray-400" />
+            {loadingFamilyId === 'personal' ? (
+              <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+            ) : (
+              <Home className="w-4 h-4 text-gray-400" />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-200">Voltar para minha conta</p>
