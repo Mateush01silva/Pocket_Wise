@@ -47,6 +47,7 @@ interface AuthContextType {
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
   hasAccess: () => boolean
+  isPersonalSubValid: () => boolean
   trialDaysRemaining: () => number
   daysUntilExpiration: () => number
 }
@@ -366,6 +367,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false
   }
 
+  // Verifica se a assinatura pessoal (própria) do usuário ainda é válida.
+  // Não considera acesso via família convidada — usado na troca para conta pessoal.
+  const isPersonalSubValid = (): boolean => {
+    if (!subscription) return false
+    if (subscription.status === 'trial') {
+      if (!subscription.trial_ends_at) return false
+      return new Date(subscription.trial_ends_at) > new Date()
+    }
+    if (subscription.status === 'active') {
+      if (subscription.cancel_at_period_end && subscription.current_period_end) {
+        return new Date(subscription.current_period_end) > new Date()
+      }
+      return true
+    }
+    return false
+  }
+
   const daysUntilExpiration = (): number => {
     // Membros convidados não têm data de expiração própria
     const isInvitedMember = userFamilies.some(f => !f.is_personal) || userFamilies.some(f => f.role !== 'admin')
@@ -420,6 +438,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut,
     resetPassword,
     hasAccess,
+    isPersonalSubValid,
     trialDaysRemaining,
     daysUntilExpiration,
   }
