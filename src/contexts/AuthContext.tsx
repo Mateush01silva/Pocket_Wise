@@ -339,7 +339,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Membros convidados para a família de outra pessoa têm acesso
     // pelo plano do dono da família — não precisam de assinatura própria
-    const isInvitedMember = userFamilies.some(f => !f.is_personal)
+    // Fallback por role: se personal_family_id foi incorretamente definido no DB,
+    // verificar se o usuário não é admin de nenhuma família (é apenas membro)
+    const isInvitedMember = userFamilies.some(f => !f.is_personal) || userFamilies.some(f => f.role !== 'admin')
     if (isInvitedMember) return true
 
     if (!subscription) return false
@@ -366,7 +368,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const daysUntilExpiration = (): number => {
     // Membros convidados não têm data de expiração própria
-    const isInvitedMember = userFamilies.some(f => !f.is_personal)
+    const isInvitedMember = userFamilies.some(f => !f.is_personal) || userFamilies.some(f => f.role !== 'admin')
     if (isInvitedMember) return -1
 
     if (!subscription) return 0

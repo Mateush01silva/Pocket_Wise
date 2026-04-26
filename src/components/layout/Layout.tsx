@@ -29,7 +29,7 @@ export function Layout({ children }: LayoutProps) {
       return next
     })
   }
-  const { user, subscription, daysUntilExpiration, userProfile, switchFamily, personalFamilyId } = useAuth()
+  const { user, subscription, daysUntilExpiration, userProfile, switchFamily, personalFamilyId, userFamilies } = useAuth()
   const { trialDaysLeft, isTrialExpired } = usePlan()
   const onboardingCompletedInStore = useUserPreferencesStore((s) => s.onboardingCompleted)
 
@@ -55,15 +55,17 @@ export function Layout({ children }: LayoutProps) {
   const days = daysUntilExpiration()
   const isAdmin = userProfile?.role === 'admin'
   const isTrial = subscription?.status === 'trial'
+  // Membros convidados (sem família própria ou sem role admin) usam plano do dono
+  const isInvitedMember = userFamilies.some(f => !f.is_personal) || userFamilies.some(f => f.role !== 'admin')
 
-  // Consultores usam o plano do cliente — suprimir todos os banners/modais de assinatura
-  const showTrialBanner = !isAdmin && !isConsultorMode && isTrial && !isTrialExpired
+  // Consultores e membros convidados não precisam de assinatura própria — suprimir banners/modais
+  const showTrialBanner = !isAdmin && !isConsultorMode && !isInvitedMember && isTrial && !isTrialExpired
 
-  const showSubscriptionWarning = !isAdmin && !isConsultorMode && !isTrial && days >= 0 && days <= 7 && (
+  const showSubscriptionWarning = !isAdmin && !isConsultorMode && !isInvitedMember && !isTrial && days >= 0 && days <= 7 && (
     subscription?.status === 'active' && subscription?.cancel_at_period_end
   )
 
-  const showTrialExpiredModal = !isAdmin && !isConsultorMode && isTrial && isTrialExpired
+  const showTrialExpiredModal = !isAdmin && !isConsultorMode && !isInvitedMember && isTrial && isTrialExpired
 
   return (
     <div className="flex min-h-screen bg-dark-900">
