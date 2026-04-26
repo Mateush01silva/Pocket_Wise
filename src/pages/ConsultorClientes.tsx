@@ -25,8 +25,16 @@ export function ConsultorClientes() {
   }
 
   const handleBackToPersonal = async () => {
-    // personalFamilyId pode ser null em contas antigas; usar is_personal como fallback
-    const targetId = personalFamilyId ?? userFamilies.find((f) => f.is_personal)?.family_id
+    // Cadeia de fallbacks para identificar a família pessoal:
+    // 1. personalFamilyId (AuthContext via get_user_families)
+    // 2. família marcada como is_personal (requer personal_family_id no DB)
+    // 3. família onde o usuário é admin e não é consultor (requer migration 062)
+    // 4. qualquer família onde o usuário é admin (mais seguro que nada)
+    const targetId =
+      personalFamilyId ??
+      userFamilies.find((f) => f.is_personal)?.family_id ??
+      userFamilies.find((f) => f.member_type === 'familiar' && f.role === 'admin')?.family_id ??
+      userFamilies.find((f) => f.role === 'admin')?.family_id
     if (!targetId) {
       toast.error('Não foi possível identificar sua conta pessoal')
       return
