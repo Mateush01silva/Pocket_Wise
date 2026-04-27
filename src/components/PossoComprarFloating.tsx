@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { usePlan } from '../hooks/usePlan'
-import { ShoppingCart, AlertCircle, CheckCircle, AlertTriangle, X, GraduationCap, Lightbulb, Target, BookOpen, Sparkles } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ShoppingCart, AlertCircle, CheckCircle, AlertTriangle, X, GraduationCap, Lightbulb, Target, BookOpen, Sparkles, Lock, Check } from 'lucide-react'
 import { CurrencyInput } from './ui/CurrencyInput'
 import { Select } from './ui/Select'
 import { Button } from './ui/Button'
@@ -33,8 +34,10 @@ export function PossoComprarFloating() {
 
   // Hook da IA — instância única no componente pai, props passadas ao modal
   const iaHook = usePossoComprarIA()
-  const { hasAccess: hasIAAccess, isCheckingAccess } = iaHook
+  const { isCheckingAccess } = iaHook
   const { featureAccess } = usePlan()
+  const navigate = useNavigate()
+  // Gate de tier é a fonte de verdade — evita que feature flags legados liberem acesso indevido
   const hasIAAccessByTier = featureAccess('posso_comprar_ai') === 'full'
 
   // Filtrar categorias
@@ -152,7 +155,7 @@ export function PossoComprarFloating() {
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full animate-pulse shadow-lg shadow-amber-500/50 z-10 pointer-events-none" />
         )}
         {/* Badge IA disponível */}
-        {!isCheckingAccess && (hasIAAccess || hasIAAccessByTier) && !isLearningMode && (
+        {!isCheckingAccess && hasIAAccessByTier && !isLearningMode && (
           <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-br from-secondary-400 to-primary-500 rounded-full shadow-lg shadow-secondary-500/50 z-10 pointer-events-none" />
         )}
         <button
@@ -226,35 +229,41 @@ export function PossoComprarFloating() {
               </button>
             </div>
 
-            {/* Tabs — só exibe se o usuário tiver acesso à IA */}
-            {(hasIAAccess || hasIAAccessByTier) && (
-              <div className="flex border-b border-dark-700">
-                <button
-                  onClick={() => setActiveTab('simular')}
-                  className={cn(
-                    'flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors',
-                    activeTab === 'simular'
-                      ? 'text-gray-100 border-b-2 border-secondary-500'
-                      : 'text-gray-500 hover:text-gray-300'
-                  )}
-                >
-                  <ShoppingCart size={14} />
-                  Simular
-                </button>
-                <button
-                  onClick={() => setActiveTab('ia')}
-                  className={cn(
-                    'flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors',
-                    activeTab === 'ia'
-                      ? 'text-gray-100 border-b-2 border-secondary-500'
-                      : 'text-gray-500 hover:text-gray-300'
-                  )}
-                >
-                  <Sparkles size={14} />
-                  Perguntar à IA
-                </button>
-              </div>
-            )}
+            {/* Tabs — sempre visíveis para descoberta do recurso */}
+            <div className="flex border-b border-dark-700">
+              <button
+                onClick={() => setActiveTab('simular')}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors',
+                  activeTab === 'simular'
+                    ? 'text-gray-100 border-b-2 border-secondary-500'
+                    : 'text-gray-500 hover:text-gray-300'
+                )}
+              >
+                <ShoppingCart size={14} />
+                Simular
+              </button>
+              <button
+                onClick={() => setActiveTab('ia')}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-colors',
+                  activeTab === 'ia'
+                    ? 'text-gray-100 border-b-2 border-secondary-500'
+                    : 'text-gray-500 hover:text-gray-300'
+                )}
+              >
+                <Sparkles size={14} />
+                Perguntar à IA
+                {!hasIAAccessByTier && (
+                  <span
+                    className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                    style={{ background: '#7C3AED22', color: '#a78bfa', border: '1px solid #7C3AED44' }}
+                  >
+                    Mestre
+                  </span>
+                )}
+              </button>
+            </div>
 
             {/* Content */}
             <div className="p-4">
@@ -374,20 +383,66 @@ export function PossoComprarFloating() {
                 </div>
               )}
 
-              {/* ABA: IA — recebe props do hook (única instância, sem duplicação de estado) */}
+              {/* ABA: IA */}
               {activeTab === 'ia' && (
-                <PossoComprarIAModal
-                  isLoading={iaHook.isLoading}
-                  resposta={iaHook.resposta}
-                  usosUsados={iaHook.usosUsados}
-                  limite={iaHook.limite}
-                  tone={iaHook.tone}
-                  error={iaHook.error}
-                  limiteAtingido={iaHook.limiteAtingido}
-                  perguntar={iaHook.perguntar}
-                  resetResposta={iaHook.resetResposta}
-                  setTone={iaHook.setTone}
-                />
+                hasIAAccessByTier ? (
+                  <PossoComprarIAModal
+                    isLoading={iaHook.isLoading}
+                    resposta={iaHook.resposta}
+                    usosUsados={iaHook.usosUsados}
+                    limite={iaHook.limite}
+                    tone={iaHook.tone}
+                    error={iaHook.error}
+                    limiteAtingido={iaHook.limiteAtingido}
+                    perguntar={iaHook.perguntar}
+                    resetResposta={iaHook.resetResposta}
+                    setTone={iaHook.setTone}
+                  />
+                ) : (
+                  <div className="py-6 text-center space-y-4">
+                    <div
+                      className="flex items-center justify-center w-14 h-14 rounded-2xl mx-auto"
+                      style={{ background: 'linear-gradient(135deg, #7C3AED22, #7C3AED44)', border: '1px solid #7C3AED55' }}
+                    >
+                      <Lock className="w-7 h-7 text-secondary-400" />
+                    </div>
+                    <div>
+                      <span
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3"
+                        style={{ background: '#7C3AED22', color: '#a78bfa', border: '1px solid #7C3AED44' }}
+                      >
+                        Exclusivo Mestre
+                      </span>
+                      <h3 className="text-base font-bold text-gray-100 mt-2">Posso Comprar? com IA</h3>
+                      <p className="text-sm text-gray-400 mt-1">Pergunte em linguagem natural e receba uma análise baseada nos seus dados reais.</p>
+                    </div>
+                    <ul className="text-left space-y-2 px-2">
+                      {[
+                        '"Posso comprar um tênis de R$300?" — e a IA responde',
+                        'Análise baseada nos seus envelopes e saldo real',
+                        'Personalidades: Conservador, Parceiro, Provocador ou Hype',
+                      ].map((b, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
+                          <Check className="w-4 h-4 text-secondary-400 shrink-0 mt-0.5" />
+                          <span>{b}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <button
+                      onClick={() => { handleClose(); navigate('/app/assinatura') }}
+                      className="w-full py-2.5 px-4 rounded-xl font-semibold text-sm text-white transition-all hover:opacity-90 mt-2"
+                      style={{ background: 'linear-gradient(135deg, #7C3AED, #6D28D9)' }}
+                    >
+                      Assinar Mestre — R$18,90/mês
+                    </button>
+                    <button
+                      onClick={() => { handleClose(); navigate('/app/assinatura?ciclo=anual') }}
+                      className="block w-full text-sm text-secondary-400 hover:text-secondary-300 transition-colors"
+                    >
+                      Ver plano anual (R$14,66/mês)
+                    </button>
+                  </div>
+                )
               )}
             </div>
           </div>

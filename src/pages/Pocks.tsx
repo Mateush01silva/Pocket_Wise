@@ -294,7 +294,13 @@ export function Pocks() {
         feature="pocks"
         title="Pocks — Saúde Financeira"
         subtitle="Seu score de saúde financeira, atualizado todo mês"
-        requiredTier="planejador"
+        requiredTier="mestre"
+        benefits={[
+          'Score mensal de 0 a 100 baseado no seu comportamento real',
+          'Acompanhe sua evolução mês a mês com histórico de 6 meses',
+          'Streaks de meses consecutivos dentro do orçamento com bônus de pontos',
+          'Inclui acesso ao Posso Comprar? com IA e Assistente Financeiro',
+        ]}
       >
         <LoadingState />
       </FeaturePreview>
