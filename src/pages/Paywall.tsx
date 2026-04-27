@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '../components/ui'
-import { Check, Loader2, X, Zap, Crown, TrendingUp, Headphones } from 'lucide-react'
+import { Check, Loader2, X, Zap, Crown, TrendingUp, Headphones, Users, ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { createCheckout, openPaymentWindow, redirectToPayment } from '../services/paymentService'
 import type { PlanType } from '../services/paymentService'
@@ -44,7 +44,7 @@ function getPlanPriceLabel(plan: PlanType): string {
 
 export function Paywall() {
   const navigate = useNavigate()
-  const { refreshSubscription, signOut } = useAuth()
+  const { refreshSubscription, signOut, userFamilies, personalFamilyId, switchFamily } = useAuth()
   const [ciclo, setCiclo] = useState<BillingCycle>('mensal')
   const [loadingPlan, setLoadingPlan] = useState<PlanType | null>(null)
   const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null)
@@ -52,6 +52,29 @@ export function Paywall() {
   const [waitingPayment, setWaitingPayment] = useState(false)
   const [paymentLink, setPaymentLink] = useState<string | null>(null)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const [switchingFamily, setSwitchingFamily] = useState<string | null>(null)
+
+  // Famílias onde o usuário é convidado (não é a família pessoal dele)
+  const invitedFamilies = userFamilies.filter(
+    (f) => f.family_id !== personalFamilyId && (!f.is_personal || f.role !== 'admin')
+  )
+
+  const handleSwitchToFamily = async (familyId: string) => {
+    setSwitchingFamily(familyId)
+    try {
+      const result = await switchFamily(familyId)
+      if (result.success) {
+        window.location.href = '/app'
+      } else {
+        toast.error(result.error ?? 'Erro ao acessar família')
+        setSwitchingFamily(null)
+      }
+    } catch {
+      toast.error('Erro ao acessar família')
+      setSwitchingFamily(null)
+    }
+  }
 
   const planejadorId: PlanType = ciclo === 'anual' ? 'planejador_annual' : 'planejador_monthly'
   const mestreId: PlanType = ciclo === 'anual' ? 'mestre_annual' : 'mestre_monthly'
@@ -364,6 +387,42 @@ export function Paywall() {
             >
               Já paguei, verificar agora
             </button>
+          </div>
+        )}
+
+        {/* Famílias convidadas — voltar sem assinar */}
+        {invitedFamilies.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-dark-700" />
+              <span className="text-xs text-gray-500 uppercase tracking-wider">ou continue em</span>
+              <div className="flex-1 h-px bg-dark-700" />
+            </div>
+            <div className="space-y-3">
+              {invitedFamilies.map((family) => (
+                <button
+                  key={family.family_id}
+                  onClick={() => handleSwitchToFamily(family.family_id)}
+                  disabled={switchingFamily !== null}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-dark-800/50 border border-dark-700 hover:border-primary-500/40 hover:bg-dark-800 transition-all disabled:opacity-60 text-left"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-primary-500/10 border border-primary-500/20 flex items-center justify-center shrink-0">
+                    {switchingFamily === family.family_id ? (
+                      <Loader2 className="w-5 h-5 text-primary-400 animate-spin" />
+                    ) : (
+                      <Users className="w-5 h-5 text-primary-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-100 truncate">{family.nome}</p>
+                    <p className="text-xs text-gray-500 capitalize">
+                      {family.member_type === 'consultor' ? 'Consultor' : 'Membro convidado'}
+                    </p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-gray-500 shrink-0" />
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
