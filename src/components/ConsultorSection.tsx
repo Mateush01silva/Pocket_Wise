@@ -214,14 +214,14 @@ export function ConsultorSection({
           {/* Estado: consultor ativo */}
           {consultorMember && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3 p-4 bg-dark-700/30 rounded-lg border border-dark-600">
-                <div className="flex items-center gap-3 min-w-0">
+              <div className="p-4 bg-dark-700/30 rounded-lg border border-dark-600 space-y-3">
+                <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-primary-500/20 rounded-full flex items-center justify-center shrink-0">
                     <User className="text-primary-400" size={24} />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="font-medium text-gray-200 truncate">{consultorMember.user_name}</h4>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <h4 className="font-medium text-gray-200">{consultorMember.user_name}</h4>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <span className="text-xs px-2 py-0.5 bg-primary-500/10 text-primary-400 rounded-full border border-primary-500/20">
                         Consultor
                       </span>
@@ -237,15 +237,16 @@ export function ConsultorSection({
                   </div>
                 </div>
                 {isAdmin && (
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 pt-1 border-t border-dark-600">
                     <Button
                       variant="secondary"
                       size="sm"
                       onClick={() => setIsPermissionsModalOpen(true)}
                       disabled={isLoadingPermissions || !consultorPermissions}
                       title="Editar permissões"
+                      className="flex-1"
                     >
-                      <Settings size={16} className="mr-1" />
+                      <Settings size={16} className="mr-1.5" />
                       Permissões
                     </Button>
                     <Button
