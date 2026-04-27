@@ -45,7 +45,7 @@ export function HistoricoCaixinhaModal({
 
     setUndoingId(transacao.id)
     try {
-      const success = await deleteTransacao(transacao.id, caixinha.id)
+      const success = await deleteTransacao(transacao.id, caixinha.id, { tipo: transacao.tipo, valor: transacao.valor })
       if (success) {
         toast.success(`${tipoLabel.charAt(0).toUpperCase() + tipoLabel.slice(1)} de ${formatCurrency(transacao.valor)} desfeito com sucesso!`)
       } else {

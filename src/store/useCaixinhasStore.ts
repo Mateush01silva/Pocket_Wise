@@ -62,7 +62,7 @@ interface CaixinhasActions {
   fetchTransacoes: (caixinhaId: string) => Promise<void>
   fetchAllTransacoesFamily: () => Promise<void>
   createTransacao: (input: CreateTransacaoCaixinhaInput) => Promise<TransacaoCaixinha | null>
-  deleteTransacao: (transacaoId: string, caixinhaId: string) => Promise<boolean>
+  deleteTransacao: (transacaoId: string, caixinhaId: string, transacaoInfo?: { tipo: string; valor: number }) => Promise<boolean>
   alocarSaldoMensal: (input: AlocarSaldoMensalInput) => Promise<boolean>
   transferirCaixinhas: (input: TransferirEntreCaixinhasInput) => Promise<boolean>
 
@@ -534,10 +534,15 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
       }
     },
 
-    deleteTransacao: async (transacaoId: string, caixinhaId: string) => {
+    deleteTransacao: async (transacaoId: string, caixinhaId: string, transacaoInfo?: { tipo: string; valor: number }) => {
       set({ error: null })
 
       try {
+        // Resolver dados da transação: usar o que foi passado ou buscar no estado local
+        const infoResolvida = transacaoInfo
+          ?? (get().transacoes[caixinhaId] || []).find((t) => t.id === transacaoId)
+        const caixinha = get().caixinhas.find((c) => c.id === caixinhaId)
+
         const { data, error } = await transacoesCaixinhasService.deleteTransacao(transacaoId)
 
         if (error) {
@@ -546,6 +551,20 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
         }
 
         if (data) {
+          // Se foi uma retirada de caixinha de investimento, restaurar valor_mercado.
+          // O trigger do DB já restaurou saldo_atual; sem isso valor_mercado ficaria menor
+          // que saldo_atual causando rentabilidade negativa incorreta.
+          if (
+            infoResolvida?.tipo === 'retirada' &&
+            caixinha?.tipo === 'investimento' &&
+            caixinha.valor_mercado !== null
+          ) {
+            await get().atualizarValorMercado({
+              caixinha_id: caixinhaId,
+              novo_valor_mercado: caixinha.valor_mercado + infoResolvida.valor,
+            })
+          }
+
           // Recarregar tudo afetado
           await Promise.all([
             get().fetchCaixinhas(),
