@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   Users, Search, RefreshCw, Crown, Clock, Calendar,
   ShieldOff, Loader2, Mail,
@@ -37,6 +37,17 @@ interface Stats {
   trialsAtivos: number
   assinantesAtivos: number
   mestres: number
+  planejadores: number
+}
+
+type FilterType = 'total' | 'trials' | 'assinantes' | 'planejadores' | 'mestres'
+
+const FILTER_LABELS: Record<FilterType, string> = {
+  total: 'Todos os usuários',
+  trials: 'Trials ativos',
+  assinantes: 'Assinantes ativos',
+  planejadores: 'Planejadores',
+  mestres: 'Usuários Mestre',
 }
 
 type PlanAction = 'trial' | 'bloquear'
@@ -121,25 +132,42 @@ function statusDescription(plano: PlanoRow): string {
 
 // ─── StatsCards ───────────────────────────────────────────────────────────────
 
-function StatsCards({ stats, loading }: { stats: Stats | null; loading: boolean }) {
-  const cards = [
-    { label: 'Total de usuários', value: stats?.total ?? 0, icon: <Users className="w-5 h-5 text-primary-400" />, color: 'text-primary-400' },
-    { label: 'Trials ativos', value: stats?.trialsAtivos ?? 0, icon: <Clock className="w-5 h-5 text-yellow-400" />, color: 'text-yellow-400' },
-    { label: 'Assinantes ativos', value: stats?.assinantesAtivos ?? 0, icon: <Crown className="w-5 h-5 text-green-400" />, color: 'text-green-400' },
-    { label: 'Usuários Mestre', value: stats?.mestres ?? 0, icon: <Crown className="w-5 h-5 text-purple-400" />, color: 'text-purple-400' },
+function StatsCards({
+  stats,
+  loading,
+  onFilter,
+  activeFilter,
+}: {
+  stats: Stats | null
+  loading: boolean
+  onFilter: (filter: FilterType) => void
+  activeFilter: FilterType | null
+}) {
+  const cards: Array<{ label: string; value: number; icon: ReactNode; color: string; filter: FilterType }> = [
+    { label: 'Total de usuários', value: stats?.total ?? 0, icon: <Users className="w-5 h-5 text-primary-400" />, color: 'text-primary-400', filter: 'total' },
+    { label: 'Trials ativos', value: stats?.trialsAtivos ?? 0, icon: <Clock className="w-5 h-5 text-yellow-400" />, color: 'text-yellow-400', filter: 'trials' },
+    { label: 'Assinantes ativos', value: stats?.assinantesAtivos ?? 0, icon: <Crown className="w-5 h-5 text-green-400" />, color: 'text-green-400', filter: 'assinantes' },
+    { label: 'Planejadores', value: stats?.planejadores ?? 0, icon: <Crown className="w-5 h-5 text-blue-400" />, color: 'text-blue-400', filter: 'planejadores' },
+    { label: 'Usuários Mestre', value: stats?.mestres ?? 0, icon: <Crown className="w-5 h-5 text-purple-400" />, color: 'text-purple-400', filter: 'mestres' },
   ]
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
       {cards.map(c => (
-        <div key={c.label} className="bg-dark-800 border border-dark-600 rounded-xl p-4">
+        <button
+          key={c.label}
+          onClick={() => onFilter(c.filter)}
+          className={`bg-dark-800 border rounded-xl p-4 text-left transition-colors hover:border-dark-400 ${
+            activeFilter === c.filter ? 'border-primary-500/50 bg-dark-700' : 'border-dark-600'
+          }`}
+        >
           <div className="flex items-center gap-2 mb-2">{c.icon}<span className="text-xs text-gray-400">{c.label}</span></div>
           {loading ? (
             <div className="h-7 w-12 bg-dark-700 rounded animate-pulse" />
           ) : (
             <p className={`text-2xl font-bold ${c.color}`}>{c.value}</p>
           )}
-        </div>
+        </button>
       ))}
     </div>
   )
@@ -466,6 +494,9 @@ export function AdminUsuarios() {
   const [searching, setSearching] = useState(false)
   const [stats, setStats] = useState<Stats | null>(null)
   const [loadingStats, setLoadingStats] = useState(true)
+  const [activeFilter, setActiveFilter] = useState<FilterType | null>(null)
+  const [filteredUsers, setFilteredUsers] = useState<UserRow[]>([])
+  const [loadingFilter, setLoadingFilter] = useState(false)
 
   const fetchStats = async () => {
     if (!supabase) return
@@ -484,8 +515,11 @@ export function AdminUsuarios() {
       const mestres = (planos ?? []).filter(
         (p: PlanoRow) => p.tier === 'mestre' && p.status === 'active'
       ).length
+      const planejadores = (planos ?? []).filter(
+        (p: PlanoRow) => p.tier === 'planejador' && p.status === 'active'
+      ).length
 
-      setStats({ total: total ?? 0, trialsAtivos, assinantesAtivos, mestres })
+      setStats({ total: total ?? 0, trialsAtivos, assinantesAtivos, mestres, planejadores })
     } catch (err) {
       console.error(err)
     } finally {
@@ -494,6 +528,48 @@ export function AdminUsuarios() {
   }
 
   useEffect(() => { fetchStats() }, [])
+
+  const loadFilteredUsers = async (filter: FilterType) => {
+    if (!supabase) return
+    if (activeFilter === filter) {
+      setActiveFilter(null)
+      setFilteredUsers([])
+      return
+    }
+    setActiveFilter(filter)
+    setLoadingFilter(true)
+    setFilteredUsers([])
+    try {
+      if (filter === 'total') {
+        const { data } = await db
+          .from('users')
+          .select('id, full_name, email, created_at')
+          .order('full_name')
+          .limit(100)
+        setFilteredUsers(data ?? [])
+      } else {
+        let query = db.from('plano_usuario').select('user_id')
+        if (filter === 'trials') query = query.eq('status', 'trial').gt('trial_ends_at', new Date().toISOString())
+        else if (filter === 'assinantes') query = query.eq('status', 'active')
+        else if (filter === 'mestres') query = query.eq('tier', 'mestre').eq('status', 'active')
+        else if (filter === 'planejadores') query = query.eq('tier', 'planejador').eq('status', 'active')
+        const { data: planos } = await query
+        const userIds = (planos ?? []).map((p: { user_id: string }) => p.user_id)
+        if (!userIds.length) { setFilteredUsers([]); setLoadingFilter(false); return }
+        const { data: users } = await db
+          .from('users')
+          .select('id, full_name, email, created_at')
+          .in('id', userIds)
+          .order('full_name')
+        setFilteredUsers(users ?? [])
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao carregar usuários.')
+    } finally {
+      setLoadingFilter(false)
+    }
+  }
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -537,7 +613,35 @@ export function AdminUsuarios() {
       </div>
 
       {/* Stats */}
-      <StatsCards stats={stats} loading={loadingStats} />
+      <StatsCards stats={stats} loading={loadingStats} onFilter={loadFilteredUsers} activeFilter={activeFilter} />
+
+      {/* Filtered users by card click */}
+      {activeFilter && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">
+              {FILTER_LABELS[activeFilter]}{!loadingFilter && ` — ${filteredUsers.length} usuário${filteredUsers.length !== 1 ? 's' : ''}`}
+            </p>
+            <button
+              onClick={() => { setActiveFilter(null); setFilteredUsers([]) }}
+              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              Fechar
+            </button>
+          </div>
+          {loadingFilter ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-gray-500" />
+            </div>
+          ) : filteredUsers.length > 0 ? (
+            filteredUsers.map(user => (
+              <UserCard key={user.id} user={user} onActionDone={fetchStats} />
+            ))
+          ) : (
+            <p className="text-sm text-gray-500 text-center py-4">Nenhum usuário encontrado.</p>
+          )}
+        </div>
+      )}
 
       {/* Search */}
       <div className="bg-dark-800 border border-dark-600 rounded-xl p-5 space-y-4">
