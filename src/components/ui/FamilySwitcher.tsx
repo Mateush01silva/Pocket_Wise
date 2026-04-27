@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
 
 export function FamilySwitcher() {
-  const { userFamilies, activeFamilyId, personalFamilyId, switchFamily } = useAuth()
+  const { userFamilies, activeFamilyId, personalFamilyId, switchFamily, isPersonalSubValid } = useAuth()
   const [open, setOpen] = useState(false)
   const [switching, setSwitching] = useState(false)
 
@@ -17,6 +17,14 @@ export function FamilySwitcher() {
 
   const handleSwitch = async (familyId: string) => {
     if (familyId === activeFamilyId || switching) return
+
+    // Ao voltar para conta pessoal, verificar se assinatura própria ainda é válida
+    if (familyId === personalFamilyId && !isPersonalSubValid()) {
+      setOpen(false)
+      window.location.href = '/app/assinar'
+      return
+    }
+
     setOpen(false)
     setSwitching(true)
     try {

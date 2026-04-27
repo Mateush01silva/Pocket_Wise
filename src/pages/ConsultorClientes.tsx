@@ -6,7 +6,7 @@ import { useConsultorPermissions } from '../hooks/useConsultorPermissions'
 import { toast } from 'sonner'
 
 export function ConsultorClientes() {
-  const { userFamilies, switchFamily, personalFamilyId } = useAuth()
+  const { userFamilies, switchFamily, personalFamilyId, isPersonalSubValid } = useAuth()
   const { isConsultor } = useConsultorPermissions()
   const family = useFamilyStore((state) => state.family)
   const [loadingFamilyId, setLoadingFamilyId] = useState<string | null>(null)
@@ -25,11 +25,6 @@ export function ConsultorClientes() {
   }
 
   const handleBackToPersonal = async () => {
-    // Cadeia de fallbacks para identificar a família pessoal:
-    // 1. personalFamilyId (AuthContext via get_user_families)
-    // 2. família marcada como is_personal (requer personal_family_id no DB)
-    // 3. família onde o usuário é admin e não é consultor (requer migration 062)
-    // 4. qualquer família onde o usuário é admin (mais seguro que nada)
     const targetId =
       personalFamilyId ??
       userFamilies.find((f) => f.is_personal)?.family_id ??
@@ -37,6 +32,11 @@ export function ConsultorClientes() {
       userFamilies.find((f) => f.role === 'admin')?.family_id
     if (!targetId) {
       toast.error('Não foi possível identificar sua conta pessoal')
+      return
+    }
+    // Se assinatura pessoal expirou, enviar para o paywall em vez de trocar
+    if (!isPersonalSubValid()) {
+      window.location.href = '/app/assinar'
       return
     }
     setLoadingFamilyId('personal')
