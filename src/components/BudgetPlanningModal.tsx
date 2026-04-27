@@ -501,7 +501,7 @@ export function BudgetPlanningModal({
                         <button
                           onClick={async () => {
                             if (!confirm(`Remover aporte de ${formatCurrency(retirada.valor)} da ${retirada.caixinha_nome} deste orçamento? O valor voltará para a caixinha.`)) return
-                            await deleteTransacaoCaixinha(retirada.id, retirada.caixinha_id)
+                            await deleteTransacaoCaixinha(retirada.id, retirada.caixinha_id, { tipo: 'retirada', valor: retirada.valor })
                           }}
                           className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
                           title="Remover do orçamento"
