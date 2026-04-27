@@ -1,4 +1,4 @@
-import { Lock } from 'lucide-react'
+import { Lock, Check } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { usePlan } from '../hooks/usePlan'
 import type { Feature } from '../hooks/usePlan'
@@ -10,6 +10,7 @@ interface FeaturePreviewProps {
   title: string
   subtitle: string
   requiredTier: 'planejador' | 'mestre'
+  benefits?: string[]
   children: ReactNode
 }
 
@@ -28,6 +29,7 @@ export function FeaturePreview({
   title,
   subtitle,
   requiredTier,
+  benefits,
   children,
 }: FeaturePreviewProps) {
   const navigate = useNavigate()
@@ -67,7 +69,19 @@ export function FeaturePreview({
           </h3>
 
           {/* Subtítulo */}
-          <p className="text-sm text-gray-400 mb-6">{subtitle}</p>
+          <p className="text-sm text-gray-400 mb-4">{subtitle}</p>
+
+          {/* Benefícios */}
+          {benefits && benefits.length > 0 && (
+            <ul className="text-left space-y-2 mb-6">
+              {benefits.map((benefit, i) => (
+                <li key={i} className="flex items-start gap-2 text-gray-300 text-sm">
+                  <Check className="w-4 h-4 text-secondary-400 shrink-0 mt-0.5" />
+                  <span>{benefit}</span>
+                </li>
+              ))}
+            </ul>
+          )}
 
           {/* Botão primário */}
           <button

@@ -246,8 +246,14 @@ export function CashFlow() {
     <FeaturePreview
       feature="cashflow"
       title="Fluxo de Caixa"
-      subtitle="Veja para onde seu dinheiro vai nos próximos meses"
+      subtitle="Antecipe o futuro do seu dinheiro e evite surpresas no fim do mês."
       requiredTier="planejador"
+      benefits={[
+        'Visualize entradas e saídas previstas para os próximos meses',
+        'Descubra em quais dias do mês seu saldo fica mais apertado',
+        'Planeje pagamentos grandes sem ser pego de surpresa',
+        'Gráfico diário de evolução do saldo ao longo do mês',
+      ]}
     >
     <div className="space-y-6">
       {/* Header */}

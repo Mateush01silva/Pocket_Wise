@@ -200,8 +200,14 @@ export function ComparativeReports() {
     <FeaturePreview
       feature="reports"
       title="Relatórios Comparativos"
-      subtitle="Análises detalhadas dos seus gastos por categoria"
+      subtitle="Entenda de verdade como você gasta e evolua mês a mês."
       requiredTier="planejador"
+      benefits={[
+        'Compare seus gastos por categoria entre diferentes meses',
+        'Identifique onde você mais gasta e ajuste suas metas',
+        'Gráficos visuais de evolução do seu comportamento financeiro',
+        'Filtre por categoria, período e tipo de gasto',
+      ]}
     >
     <div className="space-y-6">
       {/* Header */}
