@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, RefreshCw, AlertCircle } from 'lucide-react'
 import { useContasBancariasStore } from '../store/useContasBancariasStore'
+import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { Button, Input } from './ui'
 import { formatCurrency } from '../utils/currency'
 import type { ContaBancaria } from '../types'
@@ -15,6 +16,8 @@ export function AdjustBalanceModal({ isOpen, onClose, conta }: AdjustBalanceModa
   const [novoSaldo, setNovoSaldo] = useState(conta.saldo_atual.toString())
   const [isLoading, setIsLoading] = useState(false)
   const updateConta = useContasBancariasStore((state) => state.updateConta)
+  const caixinhas = useCaixinhasStore((state) => state.caixinhas)
+  const updateCaixinha = useCaixinhasStore((state) => state.updateCaixinha)
 
   if (!isOpen) return null
 
@@ -31,6 +34,30 @@ export function AdjustBalanceModal({ isOpen, onClose, conta }: AdjustBalanceModa
       }
 
       await updateConta(conta.id, { saldo_atual: valorNumerico })
+
+      // Se é conta de investimento, distribuir o delta proporcionalmente nas caixinhas vinculadas
+      const delta = valorNumerico - conta.saldo_atual
+      if (conta.tipo === 'investimento' && delta !== 0) {
+        const caixinhasVinculadas = caixinhas.filter(
+          (c) => c.conta_investimento_id === conta.id && c.tipo === 'investimento' && c.ativa
+        )
+        if (caixinhasVinculadas.length > 0) {
+          const totalMercado = caixinhasVinculadas.reduce(
+            (sum, c) => sum + (c.valor_mercado ?? c.saldo_atual), 0
+          )
+          for (const caixinha of caixinhasVinculadas) {
+            const mercadoCaixinha = caixinha.valor_mercado ?? caixinha.saldo_atual
+            const proporcao = totalMercado > 0 ? mercadoCaixinha / totalMercado : 1 / caixinhasVinculadas.length
+            const novoValorMercado = Math.max(0, mercadoCaixinha + delta * proporcao)
+            await updateCaixinha({
+              id: caixinha.id,
+              valor_mercado: novoValorMercado,
+              data_valor_mercado: new Date().toISOString(),
+            })
+          }
+        }
+      }
+
       alert('Saldo atualizado com sucesso!')
       onClose()
     } catch (error) {
