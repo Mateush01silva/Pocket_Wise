@@ -17,7 +17,7 @@ export function AdjustBalanceModal({ isOpen, onClose, conta }: AdjustBalanceModa
   const [isLoading, setIsLoading] = useState(false)
   const updateConta = useContasBancariasStore((state) => state.updateConta)
   const caixinhas = useCaixinhasStore((state) => state.caixinhas)
-  const updateCaixinha = useCaixinhasStore((state) => state.updateCaixinha)
+  const atualizarValorMercado = useCaixinhasStore((state) => state.atualizarValorMercado)
 
   if (!isOpen) return null
 
@@ -33,10 +33,10 @@ export function AdjustBalanceModal({ isOpen, onClose, conta }: AdjustBalanceModa
         return
       }
 
-      await updateConta(conta.id, { saldo_atual: valorNumerico })
-
-      // Se é conta de investimento, distribuir o delta proporcionalmente nas caixinhas vinculadas
       const delta = valorNumerico - conta.saldo_atual
+
+      // Para conta de investimento com caixinhas vinculadas:
+      // usar atualizarValorMercado que atualiza caixinha E conta em uma única operação
       if (conta.tipo === 'investimento' && delta !== 0) {
         const caixinhasVinculadas = caixinhas.filter(
           (c) => c.conta_investimento_id === conta.id && c.tipo === 'investimento' && c.ativa
@@ -49,15 +49,19 @@ export function AdjustBalanceModal({ isOpen, onClose, conta }: AdjustBalanceModa
             const mercadoCaixinha = caixinha.valor_mercado ?? caixinha.saldo_atual
             const proporcao = totalMercado > 0 ? mercadoCaixinha / totalMercado : 1 / caixinhasVinculadas.length
             const novoValorMercado = Math.max(0, mercadoCaixinha + delta * proporcao)
-            await updateCaixinha({
-              id: caixinha.id,
-              valor_mercado: novoValorMercado,
-              data_valor_mercado: new Date().toISOString(),
+            await atualizarValorMercado({
+              caixinha_id: caixinha.id,
+              novo_valor_mercado: novoValorMercado,
             })
           }
+          alert('Saldo atualizado com sucesso!')
+          onClose()
+          return
         }
       }
 
+      // Fallback: conta não é investimento ou não tem caixinhas vinculadas
+      await updateConta(conta.id, { saldo_atual: valorNumerico })
       alert('Saldo atualizado com sucesso!')
       onClose()
     } catch (error) {

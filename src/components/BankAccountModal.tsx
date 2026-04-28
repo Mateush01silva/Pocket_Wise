@@ -48,7 +48,7 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
   const updateConta = useContasBancariasStore((state) => state.updateConta)
   const familyId = useFamilyStore((state: any) => state.family?.id)
   const caixinhas = useCaixinhasStore((state) => state.caixinhas)
-  const updateCaixinha = useCaixinhasStore((state) => state.updateCaixinha)
+  const atualizarValorMercado = useCaixinhasStore((state) => state.atualizarValorMercado)
 
   const [formData, setFormData] = useState<Partial<CreateContaBancariaInput>>({
     nome: '',
@@ -125,11 +125,20 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
       }
 
       if (isEditMode && conta) {
-        // Atualizar conta existente
+        const novoSaldo = formData.saldo_inicial ?? 0
+        const delta = novoSaldo - conta.saldo_atual
+
+        // Verificar se há caixinhas vinculadas que precisam de sincronização
+        const caixinhasVinculadas = conta.tipo === 'investimento' && delta !== 0
+          ? caixinhas.filter((c) => c.conta_investimento_id === conta.id && c.tipo === 'investimento' && c.ativa)
+          : []
+
+        // Atualizar campos da conta; se houver caixinhas vinculadas, o saldo_atual será
+        // gerenciado por atualizarValorMercado para evitar dupla atualização
         await updateConta(conta.id, {
           nome: formData.nome,
           tipo: formData.tipo,
-          saldo_atual: formData.saldo_inicial, // Permite ajustar saldo atual
+          saldo_atual: caixinhasVinculadas.length > 0 ? conta.saldo_atual : novoSaldo,
           cor: formData.cor,
           icone: formData.icone,
           ativo: formData.ativo ?? true,
@@ -138,27 +147,20 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
           numero_conta: formData.numero_conta || null,
         })
 
-        // Se é conta de investimento e o saldo mudou, distribuir o delta nas caixinhas vinculadas
-        const novoSaldo = formData.saldo_inicial ?? 0
-        const delta = novoSaldo - conta.saldo_atual
-        if (conta.tipo === 'investimento' && delta !== 0) {
-          const caixinhasVinculadas = caixinhas.filter(
-            (c) => c.conta_investimento_id === conta.id && c.tipo === 'investimento' && c.ativa
+        // Distribuir o delta nas caixinhas vinculadas via atualizarValorMercado,
+        // que atualiza caixinha E conta em uma única operação sem dupla contagem
+        if (caixinhasVinculadas.length > 0) {
+          const totalMercado = caixinhasVinculadas.reduce(
+            (sum, c) => sum + (c.valor_mercado ?? c.saldo_atual), 0
           )
-          if (caixinhasVinculadas.length > 0) {
-            const totalMercado = caixinhasVinculadas.reduce(
-              (sum, c) => sum + (c.valor_mercado ?? c.saldo_atual), 0
-            )
-            for (const caixinha of caixinhasVinculadas) {
-              const mercadoCaixinha = caixinha.valor_mercado ?? caixinha.saldo_atual
-              const proporcao = totalMercado > 0 ? mercadoCaixinha / totalMercado : 1 / caixinhasVinculadas.length
-              const novoValorMercado = Math.max(0, mercadoCaixinha + delta * proporcao)
-              await updateCaixinha({
-                id: caixinha.id,
-                valor_mercado: novoValorMercado,
-                data_valor_mercado: new Date().toISOString(),
-              })
-            }
+          for (const caixinha of caixinhasVinculadas) {
+            const mercadoCaixinha = caixinha.valor_mercado ?? caixinha.saldo_atual
+            const proporcao = totalMercado > 0 ? mercadoCaixinha / totalMercado : 1 / caixinhasVinculadas.length
+            const novoValorMercado = Math.max(0, mercadoCaixinha + delta * proporcao)
+            await atualizarValorMercado({
+              caixinha_id: caixinha.id,
+              novo_valor_mercado: novoValorMercado,
+            })
           }
         }
 
