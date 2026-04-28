@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Modal } from './ui/Modal'
 import { Button, Input, CurrencyInput } from './ui'
 import { useContasBancariasStore, useFamilyStore } from '../store'
+import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import type { CreateContaBancariaInput, ContaBancaria, TipoConta } from '../types'
 import { Landmark, Wallet, Smartphone, DollarSign, TrendingUp, HelpCircle } from 'lucide-react'
 
@@ -46,6 +47,8 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
   const createConta = useContasBancariasStore((state) => state.createConta)
   const updateConta = useContasBancariasStore((state) => state.updateConta)
   const familyId = useFamilyStore((state: any) => state.family?.id)
+  const caixinhas = useCaixinhasStore((state) => state.caixinhas)
+  const updateCaixinha = useCaixinhasStore((state) => state.updateCaixinha)
 
   const [formData, setFormData] = useState<Partial<CreateContaBancariaInput>>({
     nome: '',
@@ -134,6 +137,31 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
           agencia: formData.agencia || null,
           numero_conta: formData.numero_conta || null,
         })
+
+        // Se é conta de investimento e o saldo mudou, distribuir o delta nas caixinhas vinculadas
+        const novoSaldo = formData.saldo_inicial ?? 0
+        const delta = novoSaldo - conta.saldo_atual
+        if (conta.tipo === 'investimento' && delta !== 0) {
+          const caixinhasVinculadas = caixinhas.filter(
+            (c) => c.conta_investimento_id === conta.id && c.tipo === 'investimento' && c.ativa
+          )
+          if (caixinhasVinculadas.length > 0) {
+            const totalMercado = caixinhasVinculadas.reduce(
+              (sum, c) => sum + (c.valor_mercado ?? c.saldo_atual), 0
+            )
+            for (const caixinha of caixinhasVinculadas) {
+              const mercadoCaixinha = caixinha.valor_mercado ?? caixinha.saldo_atual
+              const proporcao = totalMercado > 0 ? mercadoCaixinha / totalMercado : 1 / caixinhasVinculadas.length
+              const novoValorMercado = Math.max(0, mercadoCaixinha + delta * proporcao)
+              await updateCaixinha({
+                id: caixinha.id,
+                valor_mercado: novoValorMercado,
+                data_valor_mercado: new Date().toISOString(),
+              })
+            }
+          }
+        }
+
         alert('Conta atualizada com sucesso!')
       } else {
         // Criar nova conta
