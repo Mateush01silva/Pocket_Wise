@@ -4,7 +4,7 @@ import { usePlan } from '../hooks/usePlan'
 import {
   PiggyBank, Plus, Target, TrendingUp, TrendingDown, Wallet,
   Edit2, Trash2, ArrowUpCircle, ArrowDownCircle, History,
-  RefreshCw, AlertCircle, BarChart3, PauseCircle, PlayCircle, ArrowRightLeft,
+  RefreshCw, AlertCircle, BarChart3, PauseCircle, PlayCircle, ArrowRightLeft, SlidersHorizontal,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CaixinhaModal } from '../components/CaixinhaModal'
@@ -12,6 +12,7 @@ import { MovimentarCaixinhaModal } from '../components/MovimentarCaixinhaModal'
 import { TransferirCaixinhaModal } from '../components/TransferirCaixinhaModal'
 import { HistoricoCaixinhaModal } from '../components/HistoricoCaixinhaModal'
 import { AtualizarCotacaoModal } from '../components/AtualizarCotacaoModal'
+import { AjustarSaldoCaixinhaModal } from '../components/AjustarSaldoCaixinhaModal'
 import { MiniTimeline } from '../components/MiniTimeline'
 import { MetasDashboard } from '../components/MetasDashboard'
 import { useMetasDashboardAccess } from '../hooks/useMetasDashboardAccess'
@@ -67,6 +68,7 @@ export function Caixinhas() {
   const [historicoCaixinha, setHistoricoCaixinha] = useState<CaixinhaComDetalhes | null>(null)
   const [cotacaoCaixinha, setCotacaoCaixinha] = useState<CaixinhaComDetalhes | null>(null)
   const [transferirCaixinha, setTransferirCaixinha] = useState<CaixinhaComDetalhes | null>(null)
+  const [ajustarSaldoCaixinha, setAjustarSaldoCaixinha] = useState<CaixinhaComDetalhes | null>(null)
   const [isConcluindoMeta, setIsConcluindoMeta] = useState(false)
   // Histórico mensal por caixinha: Record<caixinha_id, CaixinhaHistoricoMensal[]>
   const [historicoMensal, setHistoricoMensal] = useState<Record<string, CaixinhaHistoricoMensal[]>>({})
@@ -205,6 +207,9 @@ export function Caixinhas() {
   const handleTransferir = (caixinha: CaixinhaComDetalhes) => setTransferirCaixinha(caixinha)
   const handleCloseTransferir = () => setTransferirCaixinha(null)
 
+  const handleAjustarSaldo = (caixinha: CaixinhaComDetalhes) => setAjustarSaldoCaixinha(caixinha)
+  const handleCloseAjustarSaldo = () => setAjustarSaldoCaixinha(null)
+
   const handlePausar = async (caixinha: CaixinhaComDetalhes) => {
     if (!confirm(`Pausar a caixinha "${caixinha.nome}"?\n\nO saldo é preservado e o prazo será estendido pelos meses pausados.`)) return
     const success = await updateStatus(caixinha.id, 'pausada')
@@ -297,6 +302,14 @@ export function Caixinhas() {
           isOpen={true}
           onClose={handleCloseTransferir}
           caixinha={transferirCaixinha}
+        />
+      )}
+
+      {ajustarSaldoCaixinha && (
+        <AjustarSaldoCaixinhaModal
+          isOpen={true}
+          onClose={handleCloseAjustarSaldo}
+          caixinha={ajustarSaldoCaixinha}
         />
       )}
 
@@ -672,6 +685,15 @@ export function Caixinhas() {
                                 Atualizar Cotação
                               </Button>
                             </LearningTooltip>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="w-full"
+                              onClick={() => handleAjustarSaldo(caixinha)}
+                            >
+                              <SlidersHorizontal size={14} className="mr-1" />
+                              Ajustar Saldo
+                            </Button>
                           </div>
                         )}
 
