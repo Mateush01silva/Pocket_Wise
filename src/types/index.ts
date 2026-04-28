@@ -802,6 +802,7 @@ export interface CreateCaixinhaInput {
 export interface UpdateCaixinhaInput extends Partial<CreateCaixinhaInput> {
   id: string
   ativa?: boolean
+  saldo_atual?: number
   valor_mercado?: number | null
   data_valor_mercado?: string | null
   ordem_exibicao?: number | null
