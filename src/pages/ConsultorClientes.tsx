@@ -31,12 +31,14 @@ import { cn } from '../lib/cn'
 function formatRelativeDate(dateStr: string | null): string {
   if (!dateStr) return 'Nenhuma movimentação registrada'
 
-  const date = new Date(dateStr + 'T00:00:00')
+  // DATE vinda do Postgres é YYYY-MM-DD — parsear sem fuso para evitar off-by-one
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const diffDays = Math.round((today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
 
-  if (diffDays === 0) return 'Última atividade hoje'
+  if (diffDays <= 0) return 'Última atividade hoje'
   if (diffDays === 1) return 'Última atividade ontem'
   if (diffDays < 30) return `Última atividade há ${diffDays} dias`
   return 'Sem atividade nos últimos 30 dias'
