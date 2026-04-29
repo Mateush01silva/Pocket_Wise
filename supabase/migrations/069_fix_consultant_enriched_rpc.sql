@@ -1,8 +1,19 @@
 -- ============================================================================
--- MIGRATION 068: RPC get_consultant_clients_enriched
--- Retorna dados enriquecidos de todos os clientes de um consultor em uma
--- única chamada, contornando as RLS policies via SECURITY DEFINER.
--- Estritamente aditiva — somente CREATE OR REPLACE FUNCTION.
+-- MIGRATION 069: Corrige get_consultant_clients_enriched
+--
+-- Problema 1 — Duplicação de cards:
+--   O JOIN direto em family_members para encontrar o admin da família
+--   retornava uma linha por admin. Famílias com dois membros admin (ex: casal
+--   onde ambos têm role = 'admin') geravam dois cards para o mesmo cliente,
+--   cada um com o tier do respectivo usuário.
+--   Fix: subquery LATERAL com LIMIT 1, ordenada por created_at ASC (admin
+--   original), para garantir exatamente uma linha por família.
+--
+-- Problema 2 — Data de última atividade muito antiga / negativa:
+--   MAX(l.data) incluía lançamentos com status = 'projetado', que podem ter
+--   datas futuras (ex: parcelas projetadas para anos à frente). O resultado
+--   no frontend aparecia como "há -XXXX dias".
+--   Fix: filtrar para status IN ('pago', 'pendente') E data <= CURRENT_DATE.
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION get_consultant_clients_enriched()
@@ -22,8 +33,8 @@ BEGIN
       f.id                        AS family_id,
       f.nome                      AS nome,
 
-      -- ── Plano da família (tier do admin original) ─────────────────────────
-      -- LATERAL com LIMIT 1 evita duplicar linhas quando há mais de um admin
+      -- ── Plano da família ──────────────────────────────────────────────────
+      -- LATERAL com LIMIT 1 evita multiplicar linhas quando há mais de um admin
       COALESCE(family_plan.tier, 'explorador') AS plan_tier,
 
       -- ── Permissão de Pocks ────────────────────────────────────────────────
@@ -36,7 +47,7 @@ BEGIN
         ELSE pms.total_score
       END AS pocks_score,
 
-      -- ── Status do Pocks ────────────────────────────────────────────────────
+      -- ── Status do Pocks ───────────────────────────────────────────────────
       CASE
         WHEN COALESCE(cp.can_view_pocks, true) = false            THEN 'no_access'
         WHEN COALESCE(family_plan.tier, 'explorador') <> 'mestre' THEN 'no_access'
@@ -44,13 +55,13 @@ BEGIN
         ELSE 'calculated'
       END AS pocks_status,
 
-      -- ── Última transação (pagas/pendentes, nunca futuras) ─────────────────
+      -- ── Última transação (apenas pagas/pendentes, nunca futuras) ─────────
       last_tx.last_date AS last_transaction_date,
 
-      -- ── Alerta de inatividade: sem lançamento nos últimos 7 dias ──────────
+      -- ── Alerta de inatividade ─────────────────────────────────────────────
       CASE
-        WHEN last_tx.last_date IS NULL                               THEN true
-        WHEN last_tx.last_date < (CURRENT_DATE - INTERVAL '7 days') THEN true
+        WHEN last_tx.last_date IS NULL                                      THEN true
+        WHEN last_tx.last_date < (CURRENT_DATE - INTERVAL '7 days')        THEN true
         ELSE false
       END AS has_inactivity_alert,
 
@@ -127,5 +138,5 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION get_consultant_clients_enriched() TO authenticated;
 
 -- ============================================================================
--- FIM DA MIGRATION 068
+-- FIM DA MIGRATION 069
 -- ============================================================================
