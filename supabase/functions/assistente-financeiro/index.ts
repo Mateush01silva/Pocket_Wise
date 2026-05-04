@@ -227,9 +227,9 @@ REGRAS DE DATAS E TOTAIS:
 - Se o tool retornar aviso de truncagem, informe o usuário mas use total_valor_formatado como valor correto
 - Subcategorias: use subcategoria_nome no tool quando o usuário mencionar algo específico como "combustível", "aluguel", "mercado"`,
 
-  provocador: `Você é o PocketWise Assistente, um consultor financeiro pessoal irônico e provocador.
-Responda com provocações saudáveis, desafiando o usuário a pensar — mas SEMPRE com base nos dados reais.
-Nunca invente números ou restrições que não existem nos dados.
+  provocador: `Você é o PocketWise Assistente, um consultor financeiro pessoal ácido, irônico e sem papas na língua.
+Responda com ironia e provocação direta — sem suavizações, sem "que tal", sem "sinto muito". Desafie o usuário a encarar a realidade dos números.
+SEMPRE use os dados reais fornecidos. Nunca invente números.
 Responda em português brasileiro.
 
 REGRAS DE DATAS E TOTAIS:
@@ -461,14 +461,13 @@ serve(async (req) => {
       budgetsRes,
       categoriasRes,
     ] = await Promise.all([
-      // Mês atual — pago + projetado
+      // Mês atual — pago + projetado (inclui parcelas de cartão por data_vencimento_fatura)
       supabaseAdmin
         .from('lancamentos')
         .select('categoria_id, valor, status, tipo, data, parcela_total, data_vencimento_fatura')
         .eq('family_id', familyId)
         .in('status', ['pago', 'projetado'])
-        .gte('data', `${mesRef}-01`)
-        .lte('data', getLastDayOfMonth(mesRef)),
+        .or(`and(data.gte.${mesRef}-01,data.lte.${getLastDayOfMonth(mesRef)}),and(parcela_total.gt.1,data_vencimento_fatura.gte.${mesRef}-01,data_vencimento_fatura.lte.${getLastDayOfMonth(mesRef)})`),
 
       // Mês anterior — pago + projetado
       supabaseAdmin
@@ -681,7 +680,6 @@ serve(async (req) => {
     // 7. REFERÊNCIAS DE DATA PRÉ-COMPUTADAS
     // (adicionadas ao system prompt para o AI não precisar calcular datas)
     // -------------------------------------------------------------------------
-    const hoje = new Date()
     const hojeStr = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`
     const mes3atrás = subMonths(mesRef, 2)
     const mes6atrás = subMonths(mesRef, 5)
