@@ -2,11 +2,16 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // ============================================================================
-// notify-daily-push — Daily cron for financial + trial push notifications
+// notify-daily-push — Cron for financial + trial push notifications
 //
-// Runs daily at ~8h BRT via pg_cron.
-// Checks all users with active push subscriptions and sends relevant alerts:
+// Runs in two windows via pg_cron:
+//   - morning (08:00 BRT / 11:00 UTC): alertas financeiros (13 checks)
+//   - evening (20:00 BRT / 23:00 UTC): engajamento diário  (3 checks)
 //
+// The window is selected via the `window` field in the request body.
+// Defaults to 'morning' when omitted (backward-compatible).
+//
+// MORNING checks:
 //   1. Envelope estourado          (cooldown: 24h per envelope)
 //   2. Despesas vencidas           (cooldown: 24h global, consolidated)
 //   3. Cartão no limite (≥90%)     (cooldown: 24h per card)
@@ -20,6 +25,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 //  11. 7 dias sem lançamento       (cooldown: 7 days, non-AI users only)
 //  12. Check-in do novo mês        (once per month, day 1, non-AI users only)
 //  13. Mês perfeito                (once per month, day 1, non-AI users only)
+//
+// EVENING checks:
+//  14. Sem lançamentos hoje        (cooldown: 24h, opt-in)
+//  15. Resumo semanal              (toda segunda-feira, cooldown: 7 days)
+//  16. Orçamento do fim de semana  (toda sexta-feira, cooldown: 7 days)
 //
 // Respects `push_notification_preferences` opt-in per user.
 // ============================================================================
@@ -776,6 +786,207 @@ async function checkPerfectMonth(
 }
 
 // ----------------------------------------------------------------------------
+// 14. No transactions today — evening nudge (opt-in, cooldown 24h)
+// ----------------------------------------------------------------------------
+
+async function checkNoTransactionsToday(
+  supabase   : SupabaseAdmin,
+  supabaseUrl: string,
+  serviceKey : string,
+  userId     : string,
+  familyId   : string,
+  prefs      : Record<string, boolean>
+): Promise<void> {
+  if (!prefs.no_transactions_today) return
+
+  const onCooldown = await hasCooldown(supabase, userId, 'no_transactions_today', null, 24)
+  if (onCooldown) return
+
+  const today = new Date().toISOString().substring(0, 10)
+
+  const { count } = await supabase
+    .from('lancamentos')
+    .select('id', { count: 'exact', head: true })
+    .eq('family_id', familyId)
+    .eq('data', today)
+
+  if ((count ?? 0) > 0) return
+
+  await sendPush(supabaseUrl, serviceKey, userId, {
+    title  : '📝 Lembrou de registrar hoje?',
+    body   : 'Nenhum lançamento por aqui. Anote seus gastos antes de dormir!',
+    url    : '/app/transacoes',
+    tag    : 'no_transactions_today',
+    urgent : false,
+  }, 'no_transactions_today')
+}
+
+// ----------------------------------------------------------------------------
+// 15. Weekly summary — every Monday evening (cooldown 7 days)
+// ----------------------------------------------------------------------------
+
+async function checkWeeklySummary(
+  supabase   : SupabaseAdmin,
+  supabaseUrl: string,
+  serviceKey : string,
+  userId     : string,
+  familyId   : string,
+  prefs      : Record<string, boolean>
+): Promise<void> {
+  if (!prefs.weekly_summary) return
+
+  // Only on Mondays
+  if (new Date().getDay() !== 1) return
+
+  const onCooldown = await hasCooldown(supabase, userId, 'weekly_summary', null, 24 * 7)
+  if (onCooldown) return
+
+  // Sum last week (Mon–Sun)
+  const hoje         = new Date()
+  const inicioSemana = new Date(hoje)
+  inicioSemana.setDate(hoje.getDate() - 7) // last Monday
+  const fimSemana    = new Date(hoje)
+  fimSemana.setDate(hoje.getDate() - 1)   // last Sunday
+
+  const { data: lancamentos } = await supabase
+    .from('lancamentos')
+    .select('categoria_id, valor')
+    .eq('family_id', familyId)
+    .eq('tipo', 'despesa')
+    .eq('status', 'pago')
+    .gte('data', inicioSemana.toISOString().substring(0, 10))
+    .lte('data', fimSemana.toISOString().substring(0, 10))
+
+  if (!lancamentos?.length) return
+
+  const total = lancamentos.reduce((s, l) => s + (l.valor as number), 0)
+  if (total <= 0) return
+
+  // Find top category
+  const porCategoria: Record<string, number> = {}
+  for (const l of lancamentos) {
+    if (!l.categoria_id) continue
+    porCategoria[l.categoria_id as string] = (porCategoria[l.categoria_id as string] ?? 0) + (l.valor as number)
+  }
+
+  const topCatId = Object.entries(porCategoria).sort((a, b) => b[1] - a[1])[0]?.[0]
+  let topCatNome = ''
+  if (topCatId) {
+    const { data: cat } = await supabase.from('categorias').select('nome').eq('id', topCatId).maybeSingle()
+    topCatNome = cat?.nome as string ?? ''
+  }
+
+  const body = topCatNome
+    ? `Você gastou ${formatBRL(total)} na semana passada. Maior gasto: ${topCatNome}.`
+    : `Você gastou ${formatBRL(total)} na semana passada.`
+
+  await sendPush(supabaseUrl, serviceKey, userId, {
+    title  : '📊 Resumo da semana',
+    body,
+    url    : '/app/relatorios',
+    tag    : 'weekly_summary',
+    urgent : false,
+  }, 'weekly_summary')
+}
+
+// ----------------------------------------------------------------------------
+// 16. Weekend budget — every Friday evening, shows leisure envelope balance
+//     (cooldown 7 days)
+// ----------------------------------------------------------------------------
+
+const LAZER_KEYWORDS = ['lazer', 'entretenimento', 'diversão', 'restaurante', 'viagem', 'hobby']
+
+async function checkWeekendBudget(
+  supabase   : SupabaseAdmin,
+  supabaseUrl: string,
+  serviceKey : string,
+  userId     : string,
+  familyId   : string,
+  prefs      : Record<string, boolean>
+): Promise<void> {
+  if (!prefs.weekend_budget) return
+
+  // Only on Fridays
+  if (new Date().getDay() !== 5) return
+
+  const onCooldown = await hasCooldown(supabase, userId, 'weekend_budget', null, 24 * 7)
+  if (onCooldown) return
+
+  const mesAtual = getMesAtual()
+  const mesStart = `${mesAtual}-01`
+  const mesEnd   = `${mesAtual}-31`
+
+  // Find leisure-related categories in the budget
+  const { data: orcamento } = await supabase
+    .from('orcamentos_mensais')
+    .select('id')
+    .eq('family_id', familyId)
+    .eq('mes_referencia', mesStart)
+    .maybeSingle()
+
+  if (!orcamento) return
+
+  const { data: categorias } = await supabase
+    .from('categorias')
+    .select('id, nome')
+    .eq('family_id', familyId)
+
+  const lazerCats = (categorias ?? []).filter((c) =>
+    LAZER_KEYWORDS.some((kw) => (c.nome as string).toLowerCase().includes(kw))
+  )
+
+  if (!lazerCats.length) return
+
+  const { data: budgets } = await supabase
+    .from('categorias_budget')
+    .select('categoria_id, valor_orcado')
+    .eq('orcamento_id', orcamento.id)
+    .in('categoria_id', lazerCats.map((c) => c.id))
+
+  if (!budgets?.length) return
+
+  const { data: lancamentos } = await supabase
+    .from('lancamentos')
+    .select('categoria_id, valor, data, parcela_total, data_vencimento_fatura')
+    .eq('family_id', familyId)
+    .eq('tipo', 'despesa')
+    .in('status', ['pago', 'projetado'])
+    .in('categoria_id', lazerCats.map((c) => c.id))
+    .gte('data', mesStart)
+    .lte('data', mesEnd)
+
+  const gastos: Record<string, number> = {}
+  for (const l of lancamentos ?? []) {
+    const mesEnv = (l.parcela_total > 1 && l.data_vencimento_fatura)
+      ? (l.data_vencimento_fatura as string).substring(0, 7)
+      : (l.data as string).substring(0, 7)
+    if (mesEnv === mesAtual) {
+      gastos[l.categoria_id as string] = (gastos[l.categoria_id as string] ?? 0) + (l.valor as number)
+    }
+  }
+
+  let totalOrcado = 0
+  let totalGasto  = 0
+  for (const b of budgets) {
+    totalOrcado += b.valor_orcado as number
+    totalGasto  += gastos[b.categoria_id as string] ?? 0
+  }
+
+  const disponivel = totalOrcado - totalGasto
+  if (disponivel <= 0) return
+
+  const catNome = lazerCats[0].nome as string
+
+  await sendPush(supabaseUrl, serviceKey, userId, {
+    title  : '🎉 Fim de semana chegando!',
+    body   : `Você tem ${formatBRL(disponivel)} disponível em ${catNome} este mês. Aproveite com consciência!`,
+    url    : '/app/envelopes',
+    tag    : 'weekend_budget',
+    urgent : false,
+  }, 'weekend_budget')
+}
+
+// ----------------------------------------------------------------------------
 // Process a single user
 // ----------------------------------------------------------------------------
 
@@ -783,7 +994,8 @@ async function processUser(
   supabase   : SupabaseAdmin,
   supabaseUrl: string,
   serviceKey : string,
-  userId     : string
+  userId     : string,
+  window     : 'morning' | 'evening'
 ): Promise<{ skipped?: string; processed?: boolean }> {
   // Get family
   const { data: userData } = await supabase
@@ -814,22 +1026,34 @@ async function processUser(
     no_transactions_reminder : prefsRow?.no_transactions_reminder  ?? false,
     month_start_checkin      : prefsRow?.month_start_checkin       ?? true,
     perfect_month            : prefsRow?.perfect_month             ?? true,
+    // evening-only preferences
+    no_transactions_today    : prefsRow?.no_transactions_today     ?? false,
+    weekly_summary           : prefsRow?.weekly_summary            ?? true,
+    weekend_budget           : prefsRow?.weekend_budget            ?? true,
   }
 
-  // Run all checks in parallel (independent — safe to do so)
-  await Promise.allSettled([
-    checkEnvelopes(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
-    checkExpensesOverdue(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
-    checkCreditCards(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
-    checkTrial(supabase, supabaseUrl, serviceKey, userId, prefs),
-    checkMonthEnd(supabase, supabaseUrl, serviceKey, userId, prefs),
-    checkSavingsGoals(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
-    checkCreditCardDueDate(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
-    checkUnusualSpending(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
-    checkSemLancamentos(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
-    checkMonthStart(supabase, supabaseUrl, serviceKey, userId, prefs),
-    checkPerfectMonth(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
-  ])
+  if (window === 'evening') {
+    await Promise.allSettled([
+      checkNoTransactionsToday(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
+      checkWeeklySummary(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
+      checkWeekendBudget(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
+    ])
+  } else {
+    // morning (default): all 13 original checks
+    await Promise.allSettled([
+      checkEnvelopes(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
+      checkExpensesOverdue(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
+      checkCreditCards(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
+      checkTrial(supabase, supabaseUrl, serviceKey, userId, prefs),
+      checkMonthEnd(supabase, supabaseUrl, serviceKey, userId, prefs),
+      checkSavingsGoals(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
+      checkCreditCardDueDate(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
+      checkUnusualSpending(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
+      checkSemLancamentos(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
+      checkMonthStart(supabase, supabaseUrl, serviceKey, userId, prefs),
+      checkPerfectMonth(supabase, supabaseUrl, serviceKey, userId, familyId, prefs),
+    ])
+  }
 
   return { processed: true }
 }
@@ -849,7 +1073,14 @@ serve(async (req) => {
 
   const supabase = createClient(supabaseUrl, serviceKey)
 
-  console.log(`[notify-daily-push] iniciando — ${new Date().toISOString()}`)
+  // Determine time window ('morning' default for backward-compat)
+  let window: 'morning' | 'evening' = 'morning'
+  try {
+    const body = await req.json().catch(() => ({}))
+    if (body?.window === 'evening') window = 'evening'
+  } catch { /* no body */ }
+
+  console.log(`[notify-daily-push] iniciando window=${window} — ${new Date().toISOString()}`)
 
   // Fetch all users with at least one active push subscription
   const { data: rows, error } = await supabase
@@ -870,7 +1101,7 @@ serve(async (req) => {
 
   for (const userId of userIds) {
     try {
-      const result = await processUser(supabase, supabaseUrl, serviceKey, userId)
+      const result = await processUser(supabase, supabaseUrl, serviceKey, userId, window)
       resultados.push({ user_id: userId, ...result })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -886,7 +1117,7 @@ serve(async (req) => {
   console.log(`[notify-daily-push] concluído — processados=${processados} pulados=${pulados} erros=${erros}`)
 
   return new Response(
-    JSON.stringify({ ok: true, total: userIds.length, processados, pulados, erros }),
+    JSON.stringify({ ok: true, window, total: userIds.length, processados, pulados, erros }),
     { headers: { 'Content-Type': 'application/json' } }
   )
 })
