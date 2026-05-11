@@ -33,12 +33,12 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
         !assinatura.ativa && 'opacity-60'
       )}
     >
-      <div className="flex items-start justify-between">
-        {/* Logo e Info */}
-        <div className="flex items-start gap-3 md:gap-4 flex-1 min-w-0">
+      <div className="flex flex-col gap-3">
+        {/* Linha superior: Logo + Info */}
+        <div className="flex items-start gap-3">
           {/* Logo */}
           <div
-            className="w-16 h-16 rounded-xl flex items-center justify-center text-3xl shrink-0"
+            className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-2xl md:text-3xl shrink-0"
             style={{ backgroundColor: `${assinatura.categoria_cor || '#6B7280'}20` }}
           >
             {assinatura.logo_url || '📱'}
@@ -46,19 +46,19 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
 
           {/* Informações */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-lg font-semibold text-gray-100 truncate">
+            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+              <h3 className="text-base md:text-lg font-semibold text-gray-100 break-words leading-tight">
                 {assinatura.nome}
               </h3>
               {!assinatura.ativa && (
-                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-500/20 text-red-400">
+                <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-500/20 text-red-400 shrink-0">
                   Cancelada
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-3 mb-3 flex-wrap">
-              <p className="text-sm text-gray-400">{assinatura.categoria_nome}</p>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <p className="text-xs md:text-sm text-gray-400">{assinatura.categoria_nome}</p>
               {cartaoVinculado && (
                 <span className="flex items-center gap-1 text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">
                   <CreditCard className="w-3 h-3" />
@@ -67,28 +67,27 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
               )}
             </div>
 
-            {/* Próxima cobrança */}
+            {/* Próxima / última cobrança */}
             {assinatura.ativa && (
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <Calendar className="w-4 h-4" />
+              <div className="flex items-center gap-1.5 text-xs md:text-sm text-gray-400">
+                <Calendar className="w-3.5 h-3.5 shrink-0" />
                 <span>
-                  Próxima cobrança: {format(parseISO(assinatura.proxima_cobranca), 'dd/MM/yyyy', { locale: ptBR })}
+                  Próxima: {format(parseISO(assinatura.proxima_cobranca), 'dd/MM/yyyy', { locale: ptBR })}
                 </span>
               </div>
             )}
 
             {!assinatura.ativa && assinatura.ultima_cobranca && (
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <Ban className="w-4 h-4" />
+              <div className="flex items-center gap-1.5 text-xs md:text-sm text-gray-400">
+                <Ban className="w-3.5 h-3.5 shrink-0" />
                 <span>
-                  Última cobrança: {format(parseISO(assinatura.ultima_cobranca), 'dd/MM/yyyy', { locale: ptBR })}
+                  Última: {format(parseISO(assinatura.ultima_cobranca), 'dd/MM/yyyy', { locale: ptBR })}
                 </span>
               </div>
             )}
 
-            {/* Data de cadastro */}
-            <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-              <Clock className="w-3 h-3" />
+            <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1">
+              <Clock className="w-3 h-3 shrink-0" />
               <span>
                 Cadastrada em {format(parseISO(assinatura.created_at), 'dd/MM/yyyy', { locale: ptBR })}
               </span>
@@ -96,28 +95,29 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
           </div>
         </div>
 
-        {/* Valores e Ações */}
-        <div className="text-right ml-3 md:ml-4 shrink-0">
-          <div className="mb-3">
-            <p className="text-sm md:text-xl font-bold text-gray-100">
-              {formatCurrency(valorMensal)}
-            </p>
-            <p className="text-xs text-gray-500">por mês</p>
+        {/* Linha inferior: Valores + Ações */}
+        <div className="flex items-center justify-between border-t border-dark-700 pt-3 gap-2">
+          {/* Valores */}
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-baseline gap-1.5">
+              <p className="text-base md:text-xl font-bold text-gray-100 whitespace-nowrap">
+                {formatCurrency(valorMensal)}
+              </p>
+              <p className="text-xs text-gray-500">/ mês</p>
+            </div>
             {assinatura.frequencia === 'anual' && (
-              <p className="text-xs text-gray-400 mt-1">
-                {formatCurrency(assinatura.valor)}/ano
+              <p className="text-xs text-gray-400 whitespace-nowrap">
+                {formatCurrency(assinatura.valor)} / ano
               </p>
             )}
-          </div>
-
-          {/* Total pago no ano */}
-          <div className="flex items-center gap-1 text-xs text-gray-400 mb-3">
-            <TrendingUp className="w-3 h-3" />
-            <span>{formatCurrency(assinatura.total_pago_ano)} no ano</span>
+            <div className="flex items-center gap-1 text-xs text-gray-400">
+              <TrendingUp className="w-3 h-3 shrink-0" />
+              <span className="whitespace-nowrap">{formatCurrency(assinatura.total_pago_ano)} no ano</span>
+            </div>
           </div>
 
           {/* Ações */}
-          <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {assinatura.ativa && onEdit && onCancel && (
               <>
                 <Button
@@ -126,7 +126,7 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
                   onClick={() => onEdit(assinatura)}
                   className="text-xs"
                 >
-                  <Edit2 className="w-3 h-3 mr-1.5" />
+                  <Edit2 className="w-3 h-3 mr-1" />
                   Editar
                 </Button>
                 <Button
@@ -135,7 +135,7 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
                   onClick={() => onCancel(assinatura)}
                   className="text-xs text-yellow-500 hover:text-yellow-400 hover:bg-yellow-500/10"
                 >
-                  <Ban className="w-3 h-3 mr-1.5" />
+                  <Ban className="w-3 h-3 mr-1" />
                   Cancelar
                 </Button>
               </>
@@ -147,7 +147,7 @@ export function SubscriptionCard({ assinatura, onEdit, onCancel, onDelete }: Sub
                 onClick={() => onDelete(assinatura)}
                 className="text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10"
               >
-                <Trash2 className="w-3 h-3 mr-1.5" />
+                <Trash2 className="w-3 h-3 mr-1" />
                 Excluir
               </Button>
             )}
