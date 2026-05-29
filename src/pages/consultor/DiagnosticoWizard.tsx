@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, ChevronRight, ChevronLeft, CheckCircle2, Loader2, AlertCircle, Clock, DollarSign, Target, TrendingDown, RefreshCw } from 'lucide-react'
+import { Plus, Trash2, ChevronRight, ChevronLeft, CheckCircle2, Loader2, Clock, DollarSign, Target, TrendingDown, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../contexts/AuthContext'
 import {

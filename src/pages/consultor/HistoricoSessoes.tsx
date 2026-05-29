@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Edit3, Trash2, Check, X, Loader2, FileText, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Edit3, Trash2, Check, Loader2, FileText, ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../contexts/AuthContext'
 import {

@@ -187,7 +187,6 @@ export function PainelEvolucao({ familyId }: PainelEvolucaoProps) {
           const current = mesAtual.criteria_breakdown[key]
           const prev = prevMonth?.criteria_breakdown[key]
           const delta = prev ? current.score - prev.score : 0
-          const pct = current.max_score > 0 ? Math.round((current.score / current.max_score) * 100) : 0
 
           return (
             <div key={key} className="space-y-1.5">
@@ -199,11 +198,11 @@ export function PainelEvolucao({ familyId }: PainelEvolucaoProps) {
                 <div className="flex items-center gap-2 shrink-0">
                   <DeltaBadge delta={delta} />
                   <span className="text-sm font-semibold font-mono text-gray-200 tabular-nums w-14 text-right">
-                    {current.score}/{current.max_score}
+                    {current.score}/{current.max}
                   </span>
                 </div>
               </div>
-              <ScoreBar value={current.score} max={current.max_score} />
+              <ScoreBar value={current.score} max={current.max} />
             </div>
           )
         })}

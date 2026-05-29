@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Edit3, Check, X, Loader2, CreditCard, TrendingDown, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Plus, Trash2, Edit3, Check, Loader2, CreditCard, TrendingDown, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   consultorModuleService,
