@@ -218,7 +218,7 @@ export function Subscriptions() {
               <button
                 onClick={handleRegenerateLancamentos}
                 disabled={isRegenerating || isSyncing}
-                title="Corrigir datas de fatura de todas as assinaturas"
+                title="Corrigir datas de fatura de todas as assinaturas" aria-label="Corrigir datas de fatura de todas as assinaturas"
                 className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded transition-colors disabled:opacity-50"
               >
                 <RotateCcw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />

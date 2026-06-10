@@ -505,7 +505,7 @@ export function Transactions() {
             <button
               onClick={handleRecalcularTodasFaturas}
               disabled={isUpdatingOldTransactions}
-              title="Recalcular datas de fatura de todas as transações de crédito"
+              title="Recalcular datas de fatura de todas as transações de crédito" aria-label="Recalcular datas de fatura de todas as transações de crédito"
               className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isUpdatingOldTransactions ? 'animate-spin' : ''}`} />

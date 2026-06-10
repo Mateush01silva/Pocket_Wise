@@ -250,14 +250,14 @@ export function Family() {
                   <button
                     onClick={handleSaveEditName}
                     className="text-green-400 hover:text-green-300 transition-colors"
-                    title="Salvar"
+                    title="Salvar" aria-label="Salvar"
                   >
                     <Check className="w-4 h-4" />
                   </button>
                   <button
                     onClick={handleCancelEditName}
                     className="text-red-400 hover:text-red-300 transition-colors"
-                    title="Cancelar"
+                    title="Cancelar" aria-label="Cancelar"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -269,7 +269,7 @@ export function Family() {
                     <button
                       onClick={handleStartEditName}
                       className="text-gray-400 hover:text-primary-400 transition-colors"
-                      title="Editar nome da família"
+                      title="Editar nome da família" aria-label="Editar nome da família"
                     >
                       <Pencil className="w-3 h-3" />
                     </button>
