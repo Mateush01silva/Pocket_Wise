@@ -720,6 +720,7 @@ export interface Caixinha {
   // Status expandido para Objetivos & Reservas (migration 051)
   status: CaixinhaStatus // 'ativa' | 'pausada' | 'concluida'
   meses_pausados: number // Quantidade de meses pausados (para extensão do prazo)
+  pausada_em?: string | null // Quando entrou em pausa (migration 078); usado na retomada para incrementar meses_pausados
   ordem_exibicao: number | null // Posição de exibição para drag-to-reorder
   cor: string
   descricao: string | null
