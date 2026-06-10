@@ -14,6 +14,7 @@ import type {
 } from '../types'
 import { caixinhasService, transacoesCaixinhasService } from '../services/caixinhasService'
 import { useContasBancariasStore } from './useContasBancariasStore'
+import { db } from '../services/database'
 
 interface CaixinhasState {
   // Caixinhas
@@ -464,63 +465,65 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
             get().fetchAllTransacoesFamily(),
           ])
 
-          // Depósito de orçamento em caixinha de investimento: atualizar saldos das contas
+          // Depósito de orçamento em caixinha de investimento: atualizar saldos das contas.
+          // Sempre via delta atômico (RPC) — nunca gravar saldo absoluto calculado
+          // de estado local, que pode estar desatualizado.
           const ehDepositoDeOrcamento = input.tipo === 'deposito' && !!input.origem_mes_referencia
           if (ehDepositoDeOrcamento) {
             const caixinhaDeposito = get().caixinhas.find((c) => c.id === input.caixinha_id)
             if (caixinhaDeposito?.tipo === 'investimento' && caixinhaDeposito.conta_investimento_id) {
-              const contasStore = useContasBancariasStore.getState()
-
-              // 1. Aumentar saldo da conta de investimento vinculada
-              const contaInvestimento = contasStore.getContaById(caixinhaDeposito.conta_investimento_id)
-              if (contaInvestimento) {
-                await contasStore.updateConta(contaInvestimento.id, {
-                  saldo_atual: contaInvestimento.saldo_atual + input.valor,
-                })
+              // 1. Diminuir saldo da conta de saída (se informada pelo usuário)
+              if (input.conta_saida_id) {
+                await db.contas.ajustarSaldoDelta(input.conta_saida_id, -input.valor)
               }
 
-              // 2. Diminuir saldo da conta de saída (se informada pelo usuário)
-              if (input.conta_saida_id) {
-                const contaSaida = contasStore.getContaById(input.conta_saida_id)
-                if (contaSaida) {
-                  await contasStore.updateConta(contaSaida.id, {
-                    saldo_atual: contaSaida.saldo_atual - input.valor,
-                  })
-                }
+              // 2. Creditar a conta de investimento vinculada:
+              //    - Com cotação definida, via atualizarValorMercado, que incrementa
+              //      valor_mercado junto com o saldo da conta. Sem isso, a próxima
+              //      atualização de cotação re-aplicaria o aporte como "delta" na
+              //      conta, contando-o duas vezes.
+              //    - Sem cotação, delta direto na conta (a baseline de mercado
+              //      continua sendo saldo_atual, que o trigger já incrementou).
+              if (caixinhaDeposito.valor_mercado !== null && caixinhaDeposito.valor_mercado !== undefined) {
+                await caixinhasService.atualizarValorMercado({
+                  caixinha_id: input.caixinha_id,
+                  novo_valor_mercado: caixinhaDeposito.valor_mercado + input.valor,
+                })
+                await get().fetchCaixinhas()
+              } else {
+                await db.contas.ajustarSaldoDelta(caixinhaDeposito.conta_investimento_id, input.valor)
               }
 
               // 3. Refrescar contas do servidor para garantir consistência
-              await contasStore.fetchContas()
+              await useContasBancariasStore.getState().fetchContas()
             }
           }
 
           // Retirada de caixinha de investimento: auto-ajustar valor_mercado para preservar rentabilidade
           if (input.tipo === 'retirada') {
             const caixinhaAtualizada = get().caixinhas.find((c) => c.id === input.caixinha_id)
-            if (
-              caixinhaAtualizada &&
-              caixinhaAtualizada.tipo === 'investimento' &&
-              caixinhaAtualizada.valor_mercado !== null
-            ) {
-              // Subtração simples: preserva o ganho não realizado existente
-              const novoValorMercado = Math.max(0, caixinhaAtualizada.valor_mercado - input.valor)
-              await get().atualizarValorMercado({
-                caixinha_id: input.caixinha_id,
-                novo_valor_mercado: novoValorMercado,
-              })
+            if (caixinhaAtualizada && caixinhaAtualizada.tipo === 'investimento') {
+              if (caixinhaAtualizada.valor_mercado !== null && caixinhaAtualizada.valor_mercado !== undefined) {
+                // Subtração simples: preserva o ganho não realizado existente.
+                // O serviço debita a conta de investimento vinculada pelo delta.
+                const novoValorMercado = Math.max(0, caixinhaAtualizada.valor_mercado - input.valor)
+                await get().atualizarValorMercado({
+                  caixinha_id: input.caixinha_id,
+                  novo_valor_mercado: novoValorMercado,
+                })
+              } else if (caixinhaAtualizada.conta_investimento_id) {
+                // Sem cotação definida: debitar a conta de investimento diretamente.
+                // Antes este caso era pulado e a retirada creditava o destino sem
+                // debitar o investimento (dinheiro duplicado no patrimônio).
+                await db.contas.ajustarSaldoDelta(caixinhaAtualizada.conta_investimento_id, -input.valor)
+              }
             }
           }
 
           // Creditar conta de destino ao retirar de caixinha de investimento
           if (input.tipo === 'retirada' && input.conta_destino_id) {
-            const contasStore = useContasBancariasStore.getState()
-            const contaDestino = contasStore.getContaById(input.conta_destino_id)
-            if (contaDestino) {
-              await contasStore.updateConta(contaDestino.id, {
-                saldo_atual: contaDestino.saldo_atual + input.valor,
-              })
-              await contasStore.fetchContas()
-            }
+            await db.contas.ajustarSaldoDelta(input.conta_destino_id, input.valor)
+            await useContasBancariasStore.getState().fetchContas()
           }
 
           return data
@@ -632,24 +635,14 @@ export const useCaixinhasStore = create<CaixinhasStore>()(
           const destContaId = destLocal?.conta_investimento_id
 
           if (sourceContaId !== destContaId) {
-            const contasStore = useContasBancariasStore.getState()
+            // Deltas atômicos via RPC — nunca gravar saldo absoluto de estado local
             if (sourceContaId) {
-              const contaSource = contasStore.getContaById(sourceContaId)
-              if (contaSource) {
-                await contasStore.updateConta(contaSource.id, {
-                  saldo_atual: contaSource.saldo_atual - input.valor_mercado_transferir,
-                })
-              }
+              await db.contas.ajustarSaldoDelta(sourceContaId, -input.valor_mercado_transferir)
             }
             if (destContaId) {
-              const contaDest = contasStore.getContaById(destContaId)
-              if (contaDest) {
-                await contasStore.updateConta(contaDest.id, {
-                  saldo_atual: contaDest.saldo_atual + input.valor_mercado_transferir,
-                })
-              }
+              await db.contas.ajustarSaldoDelta(destContaId, input.valor_mercado_transferir)
             }
-            await contasStore.fetchContas()
+            await useContasBancariasStore.getState().fetchContas()
           }
 
           await Promise.all([

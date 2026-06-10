@@ -223,30 +223,17 @@ export const caixinhasService = {
       return { data: null, error: updateError }
     }
 
-    // Se há conta vinculada e houve variação, atualizar o saldo da conta
+    // Se há conta vinculada e houve variação, aplicar o delta no saldo da
+    // conta de forma atômica (RPC) — sem janela entre leitura e escrita.
+    // Sem Math.max(0): investimentos podem ter valor de mercado abaixo do aportado.
     if (caixinha.conta_investimento_id && delta !== 0) {
-      const { data: conta, error: contaError } = await supabase
-        // @ts-ignore
-        .from('contas_bancarias')
-        .select('id, saldo_atual')
-        .eq('id', caixinha.conta_investimento_id)
-        .single()
+      const { error: updateContaError } = await (supabase as any).rpc('ajustar_saldo_conta_delta', {
+        p_conta_id: caixinha.conta_investimento_id,
+        p_delta: delta,
+      })
 
-      if (!contaError && conta) {
-        // Sem Math.max(0): investimentos podem ter valor de mercado abaixo do aportado
-        const novoSaldoConta = conta.saldo_atual + delta
-        const { error: updateContaError } = await supabase
-          // @ts-ignore
-          .from('contas_bancarias')
-          .update({ saldo_atual: novoSaldoConta })
-          .eq('id', caixinha.conta_investimento_id)
-          .select()
-
-        if (updateContaError) {
-          console.error('Erro ao atualizar saldo da conta vinculada:', updateContaError)
-        }
-      } else if (contaError) {
-        console.error('Erro ao buscar conta vinculada:', contaError)
+      if (updateContaError) {
+        console.error('Erro ao atualizar saldo da conta vinculada:', updateContaError)
       }
     }
 
