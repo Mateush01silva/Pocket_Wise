@@ -7,6 +7,7 @@
 
 import { supabase, useLocalStorage, getUserFamilyId, getCurrentUser } from '../lib/supabase'
 import { LocalStorageService, STORAGE_KEYS } from './localStorage'
+import { initializeDefaultCategories } from '../lib/defaultCategories'
 import type {
   Lancamento,
   CreateLancamentoInput,
@@ -566,6 +567,27 @@ export const categoriasService = {
       .order('nome')
 
     return { data: data as Categoria[] | null, error, count }
+  },
+
+  // Garante as categorias padrão da família ativa via RPC idempotente no
+  // banco (protegida por índice UNIQUE). Substitui o antigo loop de inserts
+  // no cliente, que duplicava categorias quando o family_id mudava no meio
+  // (ex.: aceite de convite de família durante o seed).
+  async ensureDefaults(): Promise<DbResult<void>> {
+    if (useLocalStorage) {
+      const categorias = LocalStorageService.get<Categoria[]>(STORAGE_KEYS.CATEGORIAS) || []
+      if (categorias.length === 0) {
+        LocalStorageService.set(STORAGE_KEYS.CATEGORIAS, initializeDefaultCategories())
+      }
+      return { data: undefined as void, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { error } = await (supabase as any).rpc('ensure_default_categories')
+    return { data: undefined as void, error }
   },
 
   async create(input: CreateCategoriaInput): Promise<DbResult<Categoria>> {
