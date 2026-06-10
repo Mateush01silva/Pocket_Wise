@@ -45,6 +45,7 @@ const ICONES_DISPONIVEIS = ['💳', '🏦', '💰', '💵', '💸', '🪙', '�
 export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalProps) {
   const createConta = useContasBancariasStore((state) => state.createConta)
   const updateConta = useContasBancariasStore((state) => state.updateConta)
+  const atualizarSaldo = useContasBancariasStore((state) => state.atualizarSaldo)
   const familyId = useFamilyStore((state: any) => state.family?.id)
   const [formData, setFormData] = useState<Partial<CreateContaBancariaInput>>({
     nome: '',
@@ -121,11 +122,11 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
       }
 
       if (isEditMode && conta) {
-        // Atualizar conta existente
+        // Atualizar conta existente (sem saldo_atual: gravar saldo absoluto
+        // a partir do estado local sobrescreveria deltas dos triggers)
         await updateConta(conta.id, {
           nome: formData.nome,
           tipo: formData.tipo,
-          saldo_atual: formData.saldo_inicial,
           cor: formData.cor,
           icone: formData.icone,
           ativo: formData.ativo ?? true,
@@ -133,6 +134,11 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
           agencia: formData.agencia || null,
           numero_conta: formData.numero_conta || null,
         })
+
+        // Só ajusta o saldo se o usuário realmente alterou o valor no form
+        if (formData.saldo_inicial !== undefined && formData.saldo_inicial !== conta.saldo_atual) {
+          await atualizarSaldo(conta.id, formData.saldo_inicial)
+        }
         alert('Conta atualizada com sucesso!')
       } else {
         // Criar nova conta

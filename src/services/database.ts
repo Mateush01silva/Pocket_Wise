@@ -465,6 +465,82 @@ export const contasBancariasService = {
 
     return { data: undefined as void, error }
   },
+
+  // Transferência atômica entre contas (RPC).
+  // Validação de saldo e os dois deltas acontecem no servidor, na mesma
+  // transação — o cliente nunca grava saldo_atual absoluto.
+  async transferir(contaOrigemId: string, contaDestinoId: string, valor: number): Promise<DbResult<void>> {
+    if (useLocalStorage) {
+      const contas = LocalStorageService.get<ContaBancaria[]>(STORAGE_KEYS.BANK_ACCOUNTS) || []
+      const origem = contas.find((c) => c.id === contaOrigemId)
+      const destino = contas.find((c) => c.id === contaDestinoId)
+      if (!origem || !destino) return { data: null, error: new Error('Conta não encontrada') }
+      if (origem.saldo_atual < valor) return { data: null, error: new Error('Saldo insuficiente na conta de origem') }
+      origem.saldo_atual -= valor
+      destino.saldo_atual += valor
+      LocalStorageService.set(STORAGE_KEYS.BANK_ACCOUNTS, contas)
+      return { data: undefined as void, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { error } = await (supabase as any).rpc('transferir_entre_contas', {
+      p_conta_origem: contaOrigemId,
+      p_conta_destino: contaDestinoId,
+      p_valor: valor,
+    })
+
+    return { data: undefined as void, error }
+  },
+
+  // Ajuste manual de saldo (reconciliação com o banco real) via RPC.
+  async ajustarSaldo(contaId: string, novoSaldo: number): Promise<DbResult<void>> {
+    if (useLocalStorage) {
+      const contas = LocalStorageService.get<ContaBancaria[]>(STORAGE_KEYS.BANK_ACCOUNTS) || []
+      const conta = contas.find((c) => c.id === contaId)
+      if (!conta) return { data: null, error: new Error('Conta não encontrada') }
+      conta.saldo_atual = novoSaldo
+      LocalStorageService.set(STORAGE_KEYS.BANK_ACCOUNTS, contas)
+      return { data: undefined as void, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { error } = await (supabase as any).rpc('ajustar_saldo_conta', {
+      p_conta_id: contaId,
+      p_novo_saldo: novoSaldo,
+    })
+
+    return { data: undefined as void, error }
+  },
+
+  // Ajuste relativo (delta) via RPC — para fluxos programáticos
+  // (ex.: caixinhas de investimento).
+  async ajustarSaldoDelta(contaId: string, delta: number): Promise<DbResult<void>> {
+    if (useLocalStorage) {
+      const contas = LocalStorageService.get<ContaBancaria[]>(STORAGE_KEYS.BANK_ACCOUNTS) || []
+      const conta = contas.find((c) => c.id === contaId)
+      if (!conta) return { data: null, error: new Error('Conta não encontrada') }
+      conta.saldo_atual += delta
+      LocalStorageService.set(STORAGE_KEYS.BANK_ACCOUNTS, contas)
+      return { data: undefined as void, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { error } = await (supabase as any).rpc('ajustar_saldo_conta_delta', {
+      p_conta_id: contaId,
+      p_delta: delta,
+    })
+
+    return { data: undefined as void, error }
+  },
 }
 
 // =====================================================

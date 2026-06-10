@@ -14,7 +14,7 @@ interface AdjustBalanceModalProps {
 export function AdjustBalanceModal({ isOpen, onClose, conta }: AdjustBalanceModalProps) {
   const [novoSaldo, setNovoSaldo] = useState(conta.saldo_atual.toString())
   const [isLoading, setIsLoading] = useState(false)
-  const updateConta = useContasBancariasStore((state) => state.updateConta)
+  const atualizarSaldo = useContasBancariasStore((state) => state.atualizarSaldo)
 
   if (!isOpen) return null
 
@@ -30,7 +30,7 @@ export function AdjustBalanceModal({ isOpen, onClose, conta }: AdjustBalanceModa
         return
       }
 
-      await updateConta(conta.id, { saldo_atual: valorNumerico })
+      await atualizarSaldo(conta.id, valorNumerico)
       alert('Saldo atualizado com sucesso!')
       onClose()
     } catch (error) {
