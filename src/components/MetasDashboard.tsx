@@ -173,7 +173,7 @@ function MetaCaixinhaCard({
                 <button
                   onClick={onEdit}
                   className="text-gray-600 hover:text-gray-400 p-1"
-                  title="Editar"
+                  title="Editar" aria-label="Editar"
                 >
                   ✏️
                 </button>

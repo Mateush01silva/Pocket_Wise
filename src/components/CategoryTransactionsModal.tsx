@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { toast } from 'sonner'
 import { Modal } from './ui/Modal'
 import { Button } from './ui/Button'
 import { CurrencyInput } from './ui/CurrencyInput'
@@ -117,7 +118,7 @@ export function CategoryTransactionsModal({
       setIsEditingBudget(false)
     } catch (error) {
       console.error('Erro ao atualizar orçamento:', error)
-      alert('Erro ao atualizar o orçamento. Tente novamente.')
+      toast.error('Erro ao atualizar o orçamento. Tente novamente.')
     } finally {
       setIsSaving(false)
     }
@@ -131,7 +132,7 @@ export function CategoryTransactionsModal({
       setNovaPrioridade(newPrioridade)
     } catch (error) {
       console.error('Erro ao atualizar prioridade:', error)
-      alert('Erro ao atualizar a classificação. Tente novamente.')
+      toast.error('Erro ao atualizar a classificação. Tente novamente.')
     } finally {
       setIsSavingPrioridade(false)
     }

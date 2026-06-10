@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Calendar, ChevronDown } from 'lucide-react'
 import {
   format,
@@ -176,17 +177,17 @@ export function PeriodFilter({ value, onChange, className }: PeriodFilterProps) 
 
     // Verificar se as datas são válidas (não NaN)
     if (isNaN(dataInicio.getTime())) {
-      alert('Data de início inválida. Por favor, selecione uma data válida.')
+      toast.error('Data de início inválida. Por favor, selecione uma data válida.')
       return
     }
     if (isNaN(dataFim.getTime())) {
-      alert('Data de fim inválida. Por favor, selecione uma data válida.')
+      toast.error('Data de fim inválida. Por favor, selecione uma data válida.')
       return
     }
 
     // Verificar se a data de início não é maior que a de fim
     if (dataInicio > dataFim) {
-      alert('A data de início não pode ser maior que a data de fim.')
+      toast.error('A data de início não pode ser maior que a data de fim.')
       return
     }
 

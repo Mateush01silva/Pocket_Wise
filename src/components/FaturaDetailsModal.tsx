@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { format, parseISO, addMonths, startOfMonth, setDate } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { getMesFaturaLancamento, getPeriodoCiclo, somarFatura, type CicloCartao } from '../lib/faturaUtils'
 import { X, Calendar, ShoppingBag, FileSearch, Lock } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useCategoriasStore } from '../store'
@@ -17,40 +18,8 @@ interface FaturaDetailsModalProps {
   transacoes: Lancamento[]
   totalFatura: number
   diaFechamento: number
+  diaVencimento: number
   showVerificarButton?: boolean
-}
-
-/**
- * Calcula o mês da fatura baseado na data da compra e dia de fechamento
- *
- * Exemplo com fechamento dia 13:
- * - Compra em 10/jan (dia 10 <= 13) → Fatura de janeiro
- * - Compra em 15/jan (dia 15 > 13) → Fatura de fevereiro
- */
-function calcularMesFatura(dataCompra: string, diaFechamento: number): Date {
-  const data = parseISO(dataCompra)
-  const diaCompra = data.getDate()
-
-  // Se comprou depois do fechamento, vai para o próximo mês
-  if (diaCompra > diaFechamento) {
-    return addMonths(startOfMonth(data), 1)
-  }
-
-  return startOfMonth(data)
-}
-
-/**
- * Retorna o período do ciclo de faturamento
- * Exemplo com fechamento dia 13 para fatura de Janeiro:
- * - Início: 14 de dezembro
- * - Fim: 13 de janeiro
- */
-function getPeriodoCiclo(mesFatura: Date, diaFechamento: number): { inicio: Date; fim: Date } {
-  const mesAnterior = addMonths(mesFatura, -1)
-  const inicio = setDate(mesAnterior, diaFechamento + 1)
-  const fim = setDate(mesFatura, diaFechamento)
-
-  return { inicio, fim }
 }
 
 export function FaturaDetailsModal({
@@ -61,6 +30,7 @@ export function FaturaDetailsModal({
   transacoes,
   totalFatura,
   diaFechamento,
+  diaVencimento,
   showVerificarButton = false,
 }: FaturaDetailsModalProps) {
   const categorias = useCategoriasStore((state) => state.categorias)
@@ -77,14 +47,11 @@ export function FaturaDetailsModal({
     return categoria?.nome || 'Categoria desconhecida'
   }
 
-  // Agrupar por ciclo de faturamento
-  // Para parcelas com data_vencimento_fatura, usar esse campo para determinar o mês da fatura
-  // Para transações normais, calcular baseado na data de compra e dia de fechamento
+  // Agrupar por ciclo de faturamento (lógica centralizada em lib/faturaUtils)
+  const cartaoCiclo: CicloCartao = { dia_fechamento: diaFechamento, dia_vencimento: diaVencimento }
   const transacoesPorMes = transacoes.reduce((acc, t) => {
-    const mesFatura = t.data_vencimento_fatura
-      ? startOfMonth(parseISO(t.data_vencimento_fatura))
-      : calcularMesFatura(t.data, diaFechamento)
-    const { inicio, fim } = getPeriodoCiclo(mesFatura, diaFechamento)
+    const mesFatura = getMesFaturaLancamento(t, cartaoCiclo)
+    const { inicio, fim } = getPeriodoCiclo(mesFatura, cartaoCiclo)
 
     // Chave: "Janeiro 2026 (14/dez - 13/jan)"
     const mesLabel = format(mesFatura, "MMMM 'de' yyyy", { locale: ptBR })
@@ -134,7 +101,8 @@ export function FaturaDetailsModal({
         <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 min-h-0">
           {mesesOrdenados.map(([chave, transacoesDoMes]) => {
             const [mesLabel, periodoLabel] = chave.split('|')
-            const totalMes = transacoesDoMes.reduce((sum, t) => sum + t.valor, 0)
+            // Receitas no cartão (estorno/cashback) abatem o total do ciclo
+            const totalMes = somarFatura(transacoesDoMes)
 
             return (
               <div key={chave} className="mb-6 last:mb-0">

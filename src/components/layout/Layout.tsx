@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar'
 import { NotificationBell } from '../NotificationBell'
 import { OnboardingModal } from '../OnboardingModal'
 import { PushPermissionBanner } from '../PushPermissionBanner'
+import { AvisoCorrecoesBanner } from '../AvisoCorrecoesBanner'
 import { TrialExpiredModal } from '../TrialExpiredModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { useUserPreferencesStore } from '../../store/useUserPreferencesStore'
@@ -124,6 +125,10 @@ export function Layout({ children }: LayoutProps) {
         </div>
 
         <div className="max-w-7xl mx-auto pt-14 lg:pt-0 overflow-x-hidden">
+          {/* Aviso temporário sobre as correções de consistência (jun/2026) —
+              some sozinho após a data embutida no componente */}
+          <AvisoCorrecoesBanner />
+
           {/* Banner trial Explorador — exibido durante todo o período de trial */}
           {showTrialBanner && (
             <div className={cn(

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { addMonths, format, parseISO, setDate, isBefore, isAfter } from 'date-fns'
+import { calcularDataVencimentoFatura } from '../lib/faturaUtils'
 import type {
   Assinatura,
   AssinaturaComDetalhes,
@@ -435,25 +436,10 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
 
         while (count < mesesFuturos) {
           // Calcular data de vencimento da fatura se for cartão de crédito
+          // (fonte única: lib/faturaUtils)
           let dataVencimentoFatura: string | null = null
           if (cartao) {
-            // Se a compra é antes do fechamento, vence no mesmo mês
-            // Se é depois do fechamento, vence no próximo mês
-            const diaCompra = dataCobranca.getDate()
-            let mesVencimento = dataCobranca.getMonth()
-            let anoVencimento = dataCobranca.getFullYear()
-
-            if (diaCompra > cartao.dia_fechamento) {
-              // Compra após fechamento, vai para próxima fatura
-              mesVencimento += 1
-              if (mesVencimento > 11) {
-                mesVencimento = 0
-                anoVencimento += 1
-              }
-            }
-
-            const dataVenc = new Date(anoVencimento, mesVencimento, cartao.dia_vencimento)
-            dataVencimentoFatura = format(dataVenc, 'yyyy-MM-dd')
+            dataVencimentoFatura = calcularDataVencimentoFatura(dataCobranca, cartao)
           }
 
           // Criar lançamento como pendente (assinaturas ficam pendentes até o usuário confirmar/pagar)
@@ -561,23 +547,10 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
 
         for (const lancamento of lancamentosParaAtualizar) {
           // Calcular data de vencimento da fatura se for cartão de crédito
+          // (fonte única: lib/faturaUtils)
           let dataVencimentoFatura: string | null = null
           if (cartao) {
-            const dataLancamento = parseISO(lancamento.data)
-            const diaCompra = dataLancamento.getDate()
-            let mesVencimento = dataLancamento.getMonth()
-            let anoVencimento = dataLancamento.getFullYear()
-
-            if (diaCompra > cartao.dia_fechamento) {
-              mesVencimento += 1
-              if (mesVencimento > 11) {
-                mesVencimento = 0
-                anoVencimento += 1
-              }
-            }
-
-            const dataVenc = new Date(anoVencimento, mesVencimento, cartao.dia_vencimento)
-            dataVencimentoFatura = format(dataVenc, 'yyyy-MM-dd')
+            dataVencimentoFatura = calcularDataVencimentoFatura(lancamento.data, cartao)
           }
 
           await updateLancamento(lancamento.id, {
@@ -629,11 +602,21 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
             continue
           }
 
-          // Verificar se já existe lançamento para esta assinatura neste mês
-          const jaExiste = lancamentos.some(l =>
-            l.assinatura_id === assinatura.id &&
-            l.data.startsWith(format(mesReferencia, 'yyyy-MM'))
+          // Verificar NO BANCO se já existe lançamento desta assinatura neste
+          // mês — a lista em memória pode estar desatualizada (ex.: segundo
+          // dispositivo do casal) e gerava lançamentos duplicados. O índice
+          // UNIQUE (assinatura_id, mês) no banco é a última linha de defesa.
+          const anoMes = format(mesReferencia, 'yyyy-MM')
+          const { data: jaExisteNoBanco, error: erroChecagem } = await db.lancamentos.existsByAssinaturaNoMes(
+            assinatura.id,
+            anoMes
           )
+
+          const jaExiste = erroChecagem
+            ? lancamentos.some(
+                (l) => l.assinatura_id === assinatura.id && l.data.startsWith(anoMes)
+              )
+            : jaExisteNoBanco
 
           if (jaExiste) {
             console.log(`✓ ${assinatura.nome}: Já existe lançamento para este mês`)
@@ -646,22 +629,10 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
           const formaPagamento = temCartao ? 'credito' : 'debito'
 
           // Calcular data de vencimento da fatura se for cartão de crédito
+          // (fonte única: lib/faturaUtils)
           let dataVencimentoFatura: string | null = null
           if (cartao) {
-            const diaCompra = dataCobranca.getDate()
-            let mesVencimento = dataCobranca.getMonth()
-            let anoVencimento = dataCobranca.getFullYear()
-
-            if (diaCompra > cartao.dia_fechamento) {
-              mesVencimento += 1
-              if (mesVencimento > 11) {
-                mesVencimento = 0
-                anoVencimento += 1
-              }
-            }
-
-            const dataVenc = new Date(anoVencimento, mesVencimento, cartao.dia_vencimento)
-            dataVencimentoFatura = format(dataVenc, 'yyyy-MM-dd')
+            dataVencimentoFatura = calcularDataVencimentoFatura(dataCobranca, cartao)
           }
 
           // Assinaturas sempre são criadas como 'pendente' (usuário confirma/paga manualmente)

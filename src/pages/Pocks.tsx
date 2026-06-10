@@ -331,7 +331,7 @@ export function Pocks() {
           onClick={carregar}
           disabled={isLoading}
           className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-dark-800 transition-colors disabled:opacity-50"
-          title="Recalcular"
+          title="Recalcular" aria-label="Recalcular"
         >
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
         </button>

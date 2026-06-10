@@ -3,7 +3,6 @@ import { persist } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import type { Categoria } from '../types'
 import { db } from '../services/database'
-import { initializeDefaultCategories } from '../lib/defaultCategories'
 
 interface CategoriasState {
   categorias: Categoria[]
@@ -54,17 +53,16 @@ export const useCategoriasStore = create<CategoriasStore>()(
           if (data && data.length > 0) {
             set({ categorias: data, initialized: true, isLoading: false })
           } else {
-            // Se não tem dados, criar categorias padrão
-            const defaultCategorias = initializeDefaultCategories()
+            // Sem categorias: o seed é responsabilidade do banco (RPC
+            // idempotente protegida por UNIQUE). O antigo loop de inserts no
+            // cliente resolvia o family_id a cada insert e duplicava as
+            // categorias quando o usuário aceitava um convite de família no
+            // meio do processo.
+            const { error: seedError } = await db.categorias.ensureDefaults()
+            if (seedError) throw seedError
 
-            // Salvar no banco
-            for (const categoria of defaultCategorias) {
-              await db.categorias.create(categoria)
-            }
-
-            // Buscar novamente para pegar com IDs corretos
             const { data: newData } = await db.categorias.getAll()
-            set({ categorias: newData || defaultCategorias, initialized: true, isLoading: false })
+            set({ categorias: newData || [], initialized: true, isLoading: false })
           }
         } catch (error) {
           console.error('Erro ao inicializar categorias:', error)

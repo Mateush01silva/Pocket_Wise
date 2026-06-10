@@ -26,6 +26,7 @@ import { calcularStreak } from '../lib/caixinhasCalculations'
 import type { CaixinhaHistoricoMensal } from '../types'
 import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
+import { confirmDialog } from '../components/ui/ConfirmDialog'
 import { LearningTooltip } from '../components/ui/LearningTooltip'
 import { learningContent } from '../lib/learningContent'
 import { calcularSaldoAcumuladoNaoAlocado } from '../lib/financialCalculations'
@@ -148,7 +149,13 @@ export function Caixinhas() {
       toast.error(`Não é possível deletar. Caixinha possui saldo de ${formatCurrency(caixinha.saldo_atual)}`)
       return
     }
-    if (!confirm(`Deseja realmente deletar a caixinha "${caixinha.nome}"?`)) return
+    const okDeletar = await confirmDialog({
+      title: `Deletar a caixinha "${caixinha.nome}"?`,
+      message: 'O histórico de movimentações desta caixinha será perdido. Esta ação não pode ser desfeita.',
+      confirmLabel: 'Deletar',
+      danger: true,
+    })
+    if (!okDeletar) return
     const success = await deleteCaixinha(caixinha.id)
     if (success) {
       toast.success('Caixinha deletada com sucesso')
@@ -172,8 +179,13 @@ export function Caixinhas() {
     setTipoMovimentacao('retirada')
   }
 
-  const handleConcluirMeta = (caixinha: CaixinhaComDetalhes) => {
-    if (!confirm(`🎉 Parabéns! Sua meta "${caixinha.nome}" foi concluída!\n\nPara arquivar esta caixinha, retire o saldo disponível (${formatCurrency(caixinha.saldo_atual)}) no próximo passo.`)) return
+  const handleConcluirMeta = async (caixinha: CaixinhaComDetalhes) => {
+    const ok = await confirmDialog({
+      title: `🎉 Parabéns! Meta "${caixinha.nome}" atingida!`,
+      message: `Para arquivar esta caixinha, retire o saldo disponível (${formatCurrency(caixinha.saldo_atual)}) no próximo passo. Se você fechar a retirada sem confirmar, a caixinha continua ativa.`,
+      confirmLabel: 'Retirar e concluir',
+    })
+    if (!ok) return
     setIsConcluindoMeta(true)
     setMovimentarCaixinha(caixinha)
     setTipoMovimentacao('retirada')
@@ -211,7 +223,12 @@ export function Caixinhas() {
   const handleCloseAjustarSaldo = () => setAjustarSaldoCaixinha(null)
 
   const handlePausar = async (caixinha: CaixinhaComDetalhes) => {
-    if (!confirm(`Pausar a caixinha "${caixinha.nome}"?\n\nO saldo é preservado e o prazo será estendido pelos meses pausados.`)) return
+    const okPausar = await confirmDialog({
+      title: `Pausar a caixinha "${caixinha.nome}"?`,
+      message: 'O saldo é preservado e novos depósitos ficam bloqueados. Ao retomar, o prazo é estendido pelos meses em que ficou pausada (o streak não é quebrado).',
+      confirmLabel: 'Pausar',
+    })
+    if (!okPausar) return
     const success = await updateStatus(caixinha.id, 'pausada')
     if (success) {
       toast.success(`Caixinha "${caixinha.nome}" pausada. Retome quando quiser.`)

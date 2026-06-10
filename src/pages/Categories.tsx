@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { Plus, Pencil, Trash2, FolderPlus, ListPlus } from 'lucide-react'
 import { useCategoriasStore } from '../store'
 import { usePermissions } from '../hooks/usePermissions'
-import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
+import { Card, CardContent, CardHeader, CardTitle, Button, confirmDialog } from '../components/ui'
+import { toast } from 'sonner'
 import { CategoryModal } from '../components/CategoryModal'
 import type { Categoria } from '../types'
 import { cn } from '../lib/cn'
@@ -55,18 +56,23 @@ export function Categories() {
   const handleDelete = async (categoria: Categoria) => {
     const subcategorias = getSubcategorias(categoria.id)
 
-    let confirmMessage = `Tem certeza que deseja excluir a categoria "${categoria.nome}"?`
-    if (subcategorias.length > 0) {
-      confirmMessage += `\n\nEsta categoria possui ${subcategorias.length} subcategoria(s) que também serão excluídas.`
-    }
+    const ok = await confirmDialog({
+      title: `Excluir a categoria "${categoria.nome}"?`,
+      message:
+        subcategorias.length > 0
+          ? `Esta categoria possui ${subcategorias.length} subcategoria(s) que também serão excluídas.`
+          : 'Esta ação não pode ser desfeita.',
+      confirmLabel: 'Excluir',
+      danger: true,
+    })
+    if (!ok) return
 
-    if (window.confirm(confirmMessage)) {
-      try {
-        await deleteCategoria(categoria.id)
-      } catch (error) {
-        console.error('Erro ao deletar categoria:', error)
-        alert('Erro ao deletar categoria. Verifique se não há lançamentos associados.')
-      }
+    try {
+      await deleteCategoria(categoria.id)
+      toast.success('Categoria excluída')
+    } catch (error) {
+      console.error('Erro ao deletar categoria:', error)
+      toast.error('Não foi possível excluir a categoria. Verifique se não há lançamentos associados a ela.')
     }
   }
 

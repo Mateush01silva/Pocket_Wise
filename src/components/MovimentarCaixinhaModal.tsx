@@ -106,7 +106,16 @@ export function MovimentarCaixinhaModal({
     }
 
     if (!isDeposito && valor > saldoRetiradaDisponivel) {
-      toast.error('Valor maior que o saldo disponível')
+      // Investimento com rentabilidade negativa: o limite de retirada é o
+      // VALOR DE MERCADO, menor que o total aportado — sem essa explicação o
+      // usuário acha que é bug ("tenho X aportado, por que não posso retirar?")
+      if (ehCaixinhaInvestimento && caixinha.valor_mercado !== null && caixinha.valor_mercado < caixinha.saldo_atual) {
+        toast.error(
+          `O limite de retirada é o valor de mercado atual (${formatCurrency(saldoRetiradaDisponivel)}). Você aportou ${formatCurrency(caixinha.saldo_atual)}, mas o investimento está valendo menos no momento.`
+        )
+      } else {
+        toast.error(`Valor maior que o saldo disponível (${formatCurrency(saldoRetiradaDisponivel)})`)
+      }
       return
     }
 

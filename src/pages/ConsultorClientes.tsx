@@ -327,7 +327,7 @@ export function ConsultorClientes() {
         {!isLoadingClients && clients.length > 0 && (
           <button
             onClick={refresh}
-            title="Atualizar dados"
+            title="Atualizar dados" aria-label="Atualizar dados"
             className="p-2 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-dark-800 transition-all"
           >
             <RefreshCw className="w-4 h-4" />

@@ -338,6 +338,51 @@ export function Dashboard() {
         )}
       </div>
 
+      {/* Primeiro acesso: guia de primeiros passos em vez de cards zerados */}
+      {lancamentos.length === 0 && (
+        <Card className="border-primary-500/30 bg-primary-500/5">
+          <CardContent className="py-6">
+            <h2 className="text-lg font-semibold text-gray-100 mb-1">👋 Comece por aqui</h2>
+            <p className="text-sm text-gray-400 mb-4">
+              Seu painel ainda está vazio. Em três passos você já tem uma visão real das suas
+              finanças:
+            </p>
+            <div className="grid sm:grid-cols-3 gap-3">
+              <button
+                onClick={() => navigate('/app/contas')}
+                className="flex flex-col items-start gap-2 p-4 bg-dark-800 border border-dark-700 rounded-xl text-left hover:border-primary-500/50 transition-colors min-h-[44px]"
+              >
+                <span className="text-xs font-semibold text-primary-400">PASSO 1</span>
+                <span className="text-sm font-medium text-gray-200">Cadastre suas contas</span>
+                <span className="text-xs text-gray-500">
+                  Informe o saldo atual de cada conta bancária
+                </span>
+              </button>
+              <button
+                onClick={() => navigate('/app/cartoes')}
+                className="flex flex-col items-start gap-2 p-4 bg-dark-800 border border-dark-700 rounded-xl text-left hover:border-primary-500/50 transition-colors min-h-[44px]"
+              >
+                <span className="text-xs font-semibold text-primary-400">PASSO 2</span>
+                <span className="text-sm font-medium text-gray-200">Adicione seus cartões</span>
+                <span className="text-xs text-gray-500">
+                  Dia de fechamento e vencimento para controlar faturas
+                </span>
+              </button>
+              <button
+                onClick={handleOpenModal}
+                className="flex flex-col items-start gap-2 p-4 bg-dark-800 border border-dark-700 rounded-xl text-left hover:border-primary-500/50 transition-colors min-h-[44px]"
+              >
+                <span className="text-xs font-semibold text-primary-400">PASSO 3</span>
+                <span className="text-sm font-medium text-gray-200">Registre uma transação</span>
+                <span className="text-xs text-gray-500">
+                  Lance seu primeiro gasto ou receita do mês
+                </span>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filtro de Período */}
       <Card className="overflow-hidden">
         <CardContent>
