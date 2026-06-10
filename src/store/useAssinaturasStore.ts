@@ -602,11 +602,21 @@ export const useAssinaturasStore = create<AssinaturasStore>()(
             continue
           }
 
-          // Verificar se já existe lançamento para esta assinatura neste mês
-          const jaExiste = lancamentos.some(l =>
-            l.assinatura_id === assinatura.id &&
-            l.data.startsWith(format(mesReferencia, 'yyyy-MM'))
+          // Verificar NO BANCO se já existe lançamento desta assinatura neste
+          // mês — a lista em memória pode estar desatualizada (ex.: segundo
+          // dispositivo do casal) e gerava lançamentos duplicados. O índice
+          // UNIQUE (assinatura_id, mês) no banco é a última linha de defesa.
+          const anoMes = format(mesReferencia, 'yyyy-MM')
+          const { data: jaExisteNoBanco, error: erroChecagem } = await db.lancamentos.existsByAssinaturaNoMes(
+            assinatura.id,
+            anoMes
           )
+
+          const jaExiste = erroChecagem
+            ? lancamentos.some(
+                (l) => l.assinatura_id === assinatura.id && l.data.startsWith(anoMes)
+              )
+            : jaExisteNoBanco
 
           if (jaExiste) {
             console.log(`✓ ${assinatura.nome}: Já existe lançamento para este mês`)

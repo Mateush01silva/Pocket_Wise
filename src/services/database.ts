@@ -125,6 +125,44 @@ export const lancamentosService = {
   },
 
   /**
+   * Verifica NO BANCO se já existe lançamento de uma assinatura no mês.
+   * A checagem contra a lista em memória do cliente gerava duplicatas em
+   * segundo dispositivo/estado desatualizado (há também índice UNIQUE no
+   * banco como última linha de defesa).
+   */
+  async existsByAssinaturaNoMes(assinaturaId: string, anoMes: string): Promise<DbResult<boolean>> {
+    if (useLocalStorage) {
+      const lancamentos = LocalStorageService.get<Lancamento[]>(STORAGE_KEYS.TRANSACTIONS) || []
+      const existe = lancamentos.some(
+        (l) => l.assinatura_id === assinaturaId && l.data.startsWith(anoMes)
+      )
+      return { data: existe, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const inicio = `${anoMes}-01`
+    const [ano, mes] = anoMes.split('-').map(Number)
+    const proximoMes = mes === 12 ? `${ano + 1}-01-01` : `${ano}-${String(mes + 1).padStart(2, '0')}-01`
+
+    const { data, error } = await (supabase as any)
+      .from('lancamentos')
+      .select('id')
+      .eq('assinatura_id', assinaturaId)
+      .gte('data', inicio)
+      .lt('data', proximoMes)
+      .limit(1)
+
+    if (error) {
+      return { data: null, error }
+    }
+
+    return { data: (data?.length ?? 0) > 0, error: null }
+  },
+
+  /**
    * Create a new lancamento
    */
   async create(input: CreateLancamentoInput): Promise<DbResult<Lancamento>> {
