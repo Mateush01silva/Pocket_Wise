@@ -31,6 +31,7 @@ import {
   calcularFaturaAtual,
   getMesFaturaLancamento,
   isFaturaFechada,
+  somarFatura,
   type CicloCartao,
 } from '../lib/faturaUtils'
 
@@ -112,7 +113,8 @@ function getFaturaFechadaPendente(
       faturasFechadasPendentes.push({
         mesFatura,
         transacoes,
-        total: transacoes.reduce((sum, t) => sum + t.valor, 0),
+        // Receitas no cartão (estorno/cashback) abatem o total da fatura
+        total: somarFatura(transacoes),
         dataVencimento,
       })
     }
@@ -164,11 +166,12 @@ export function CreditCards() {
           l.status === 'projetado'
       )
 
-      const totalUsandoLimite = comprasUsandoLimite.reduce((sum, f) => sum + f.valor, 0)
+      // Receitas no cartão (estorno/cashback) liberam limite e abatem fatura
+      const totalUsandoLimite = somarFatura(comprasUsandoLimite)
 
       // Fatura em aberto (ciclo atual - ainda não fechou)
       const transacoesFaturaEmAberto = getTransacoesFaturaAtual(lancamentos, cartao.id, cartao)
-      const totalFaturaEmAberto = transacoesFaturaEmAberto.reduce((sum, f) => sum + f.valor, 0)
+      const totalFaturaEmAberto = somarFatura(transacoesFaturaEmAberto)
 
       // Fatura fechada pendente de pagamento (já fechou, precisa pagar)
       const faturaFechadaPendente = getFaturaFechadaPendente(lancamentos, cartao.id, cartao)

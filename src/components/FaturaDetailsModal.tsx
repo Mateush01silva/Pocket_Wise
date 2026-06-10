@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { getMesFaturaLancamento, getPeriodoCiclo, type CicloCartao } from '../lib/faturaUtils'
+import { getMesFaturaLancamento, getPeriodoCiclo, somarFatura, type CicloCartao } from '../lib/faturaUtils'
 import { X, Calendar, ShoppingBag, FileSearch, Lock } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useCategoriasStore } from '../store'
@@ -101,7 +101,8 @@ export function FaturaDetailsModal({
         <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 min-h-0">
           {mesesOrdenados.map(([chave, transacoesDoMes]) => {
             const [mesLabel, periodoLabel] = chave.split('|')
-            const totalMes = transacoesDoMes.reduce((sum, t) => sum + t.valor, 0)
+            // Receitas no cartão (estorno/cashback) abatem o total do ciclo
+            const totalMes = somarFatura(transacoesDoMes)
 
             return (
               <div key={chave} className="mb-6 last:mb-0">

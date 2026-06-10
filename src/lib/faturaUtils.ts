@@ -94,6 +94,24 @@ export function getMesFaturaLancamento(
 }
 
 /**
+ * Valor com sinal para totais de fatura: receitas no cartão
+ * (estorno/cashback) ABATEM o total em vez de somar. Ao pagar a fatura, o
+ * trigger de saldo credita receitas e debita despesas — o débito líquido na
+ * conta é exatamente esta soma com sinal.
+ */
+export function valorAssinadoFatura(lancamento: { tipo: string; valor: number }): number {
+  return lancamento.tipo === 'receita' ? -lancamento.valor : lancamento.valor
+}
+
+/**
+ * Soma de lançamentos de uma fatura considerando o sinal
+ * (despesas somam, receitas/estornos abatem).
+ */
+export function somarFatura(lancamentos: Array<{ tipo: string; valor: number }>): number {
+  return lancamentos.reduce((sum, l) => sum + valorAssinadoFatura(l), 0)
+}
+
+/**
  * Período de compras coberto por uma fatura (dia seguinte ao fechamento
  * anterior até o dia do fechamento).
  */

@@ -7,6 +7,7 @@ import { useContasBancariasStore } from '../store/useContasBancariasStore'
 import { useTransacoesStore } from '../store/useTransacoesStore'
 import { formatCurrency } from '../utils/currency'
 import { cn } from '../lib/cn'
+import { somarFatura } from '../lib/faturaUtils'
 import type { Lancamento } from '../types'
 
 interface FaturaInfo {
@@ -52,8 +53,10 @@ export function PagarFaturaModal({
     () => fatura.transacoes.filter((t) => t.status !== 'pago'),
     [fatura.transacoes]
   )
+  // Soma com sinal: receitas no cartão (estorno/cashback) abatem o débito —
+  // o trigger de saldo credita receitas e debita despesas ao pagar
   const valorADebitar = useMemo(
-    () => transacoesPendentes.reduce((sum, t) => sum + t.valor, 0),
+    () => somarFatura(transacoesPendentes),
     [transacoesPendentes]
   )
 
