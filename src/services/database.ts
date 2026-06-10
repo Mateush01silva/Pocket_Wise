@@ -163,6 +163,113 @@ export const lancamentosService = {
   },
 
   /**
+   * Cria (ou recria) um grupo de parcelas ATOMICAMENTE via RPC.
+   * Com grupoIdParaRecriar, o grupo antigo é apagado e o novo inserido na
+   * mesma transação — o loop antigo de deletes/creates no cliente deixava
+   * parcelas órfãs/perdidas em falha parcial.
+   */
+  async createGrupoParcelas(
+    parcelas: CreateLancamentoInput[],
+    grupoIdParaRecriar?: string
+  ): Promise<DbListResult<Lancamento>> {
+    if (useLocalStorage) {
+      let lancamentos = LocalStorageService.get<Lancamento[]>(STORAGE_KEYS.TRANSACTIONS) || []
+      if (grupoIdParaRecriar) {
+        lancamentos = lancamentos.filter((l) => l.grupo_parcelas_id !== grupoIdParaRecriar)
+      }
+      const criados: Lancamento[] = parcelas.map((input) => ({
+        id: crypto.randomUUID(),
+        ...input,
+        subcategoria_id: input.subcategoria_id || null,
+        observacao: input.observacao || null,
+        cartao_id: input.cartao_id || null,
+        conta_id: input.conta_id || null,
+        parcela_atual: input.parcela_atual || null,
+        parcela_total: input.parcela_total || null,
+        grupo_parcelas_id: input.grupo_parcelas_id || null,
+        data_vencimento_fatura: input.data_vencimento_fatura || null,
+        assinatura_id: input.assinatura_id || null,
+        criado_por: null,
+        status: input.status || 'pendente',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }))
+      LocalStorageService.set(STORAGE_KEYS.TRANSACTIONS, [...lancamentos, ...criados])
+      return { data: criados, error: null, count: criados.length }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured'), count: null }
+    }
+
+    // family_id e criado_por são resolvidos no servidor
+    const payload = parcelas.map(({ family_id: _family, ...rest }) => rest)
+
+    const { data, error } = grupoIdParaRecriar
+      ? await (supabase as any).rpc('recriar_grupo_parcelas', {
+          p_grupo_id: grupoIdParaRecriar,
+          p_parcelas: payload,
+        })
+      : await (supabase as any).rpc('criar_grupo_parcelas', { p_parcelas: payload })
+
+    return { data: data as Lancamento[] | null, error, count: data?.length ?? null }
+  },
+
+  /**
+   * Exclui um grupo de parcelas atomicamente via RPC.
+   */
+  async deleteGrupoParcelas(grupoParcelasId: string): Promise<DbResult<number>> {
+    if (useLocalStorage) {
+      const lancamentos = LocalStorageService.get<Lancamento[]>(STORAGE_KEYS.TRANSACTIONS) || []
+      const restantes = lancamentos.filter((l) => l.grupo_parcelas_id !== grupoParcelasId)
+      LocalStorageService.set(STORAGE_KEYS.TRANSACTIONS, restantes)
+      return { data: lancamentos.length - restantes.length, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { data, error } = await (supabase as any).rpc('delete_grupo_parcelas', {
+      p_grupo_id: grupoParcelasId,
+    })
+
+    return { data: data as number | null, error }
+  },
+
+  /**
+   * Paga uma fatura atomicamente via RPC: marca como pagos (com a conta de
+   * débito) todos os lançamentos informados que ainda não estão pagos.
+   */
+  async pagarFatura(lancamentoIds: string[], contaId: string): Promise<DbResult<number>> {
+    if (useLocalStorage) {
+      const lancamentos = LocalStorageService.get<Lancamento[]>(STORAGE_KEYS.TRANSACTIONS) || []
+      let atualizados = 0
+      for (const l of lancamentos) {
+        if (lancamentoIds.includes(l.id) && l.status !== 'pago') {
+          l.status = 'pago'
+          l.conta_id = contaId
+          l.updated_at = new Date().toISOString()
+          atualizados++
+        }
+      }
+      LocalStorageService.set(STORAGE_KEYS.TRANSACTIONS, lancamentos)
+      return { data: atualizados, error: null }
+    }
+
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') }
+    }
+
+    const { data, error } = await (supabase as any).rpc('pagar_fatura_lancamentos', {
+      p_lancamento_ids: lancamentoIds,
+      p_conta_id: contaId,
+    })
+
+    return { data: data as number | null, error }
+  },
+
+  /**
    * Create a new lancamento
    */
   async create(input: CreateLancamentoInput): Promise<DbResult<Lancamento>> {

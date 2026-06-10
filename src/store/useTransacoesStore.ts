@@ -9,6 +9,7 @@ import type {
 } from '../types'
 import { db } from '../services/database'
 import { useCartoesStore } from './useCartoesStore'
+import { useContasBancariasStore } from './useContasBancariasStore'
 
 interface TransacoesState {
   lancamentos: Lancamento[]
@@ -35,6 +36,7 @@ interface TransacoesActions {
   marcarComoPago: (id: string) => Promise<void>
   marcarComoPendente: (id: string) => Promise<void>
   marcarFaturaComoPaga: (cartaoId: string, mesAno: string) => Promise<void>
+  pagarFatura: (lancamentoIds: string[], contaId: string) => Promise<number>
 
   // Cálculos
   calcularDataVencimentoFatura: (cartaoId: string, dataTransacao: string) => string | null
@@ -143,7 +145,9 @@ export const useTransacoesStore = create<TransacoesStore>()(
         }
       },
 
-      // Criar lançamento parcelado (cartão de crédito)
+      // Criar lançamento parcelado (cartão de crédito) — todas as parcelas
+      // são inseridas atomicamente via RPC (falha parcial não deixa grupo
+      // incompleto)
       createLancamentoParcelado: async (lancamentoData, numeroParcelas) => {
         set({ isLoading: true, error: null })
 
@@ -161,9 +165,7 @@ export const useTransacoesStore = create<TransacoesStore>()(
             throw new Error('Erro ao calcular data de vencimento da fatura')
           }
 
-          const parcelas: Lancamento[] = []
-
-          // Criar todas as parcelas
+          const parcelas: CreateLancamentoInput[] = []
           for (let i = 1; i <= numeroParcelas; i++) {
             // Calcular data de vencimento de cada parcela (mes a mes)
             const dataVencimentoParcela = format(
@@ -171,7 +173,7 @@ export const useTransacoesStore = create<TransacoesStore>()(
               'yyyy-MM-dd'
             )
 
-            const parcela: CreateLancamentoInput = {
+            parcelas.push({
               ...lancamentoData,
               valor: valorParcela,
               observacao: `Parcela ${i}/${numeroParcelas}${lancamentoData.observacao ? ` - ${lancamentoData.observacao}` : ''}`,
@@ -180,16 +182,15 @@ export const useTransacoesStore = create<TransacoesStore>()(
               grupo_parcelas_id: grupoParcelasId,
               data_vencimento_fatura: dataVencimentoParcela,
               status: 'projetado', // Todas as parcelas começam como projetadas
-            }
-
-            const { data, error } = await db.lancamentos.create(parcela)
-
-            if (error) throw error
-            if (data) parcelas.push(data)
+            })
           }
 
+          const { data, error } = await db.lancamentos.createGrupoParcelas(parcelas)
+
+          if (error) throw error
+
           set((state) => {
-            state.lancamentos.push(...parcelas)
+            state.lancamentos.push(...(data || []))
             state.isLoading = false
           })
         } catch (error) {
@@ -334,19 +335,16 @@ export const useTransacoesStore = create<TransacoesStore>()(
         }
       },
 
-      // Deletar grupo de parcelas
+      // Deletar grupo de parcelas — atômico via RPC (todas as parcelas na
+      // mesma transação; antes era um loop de deletes com risco de grupo
+      // pela metade em falha parcial)
       deleteGrupoParcelas: async (grupoParcelasId) => {
         set({ isLoading: true, error: null })
 
         try {
-          const { lancamentos } = get()
-          const parcelasParaDeletar = lancamentos.filter(
-            (l) => l.grupo_parcelas_id === grupoParcelasId
-          )
+          const { error } = await db.lancamentos.deleteGrupoParcelas(grupoParcelasId)
 
-          for (const parcela of parcelasParaDeletar) {
-            await db.lancamentos.delete(parcela.id)
-          }
+          if (error) throw error
 
           set((state) => {
             state.lancamentos = state.lancamentos.filter(
@@ -377,6 +375,26 @@ export const useTransacoesStore = create<TransacoesStore>()(
         for (const fatura of faturas) {
           await get().updateLancamento(fatura.id, { status: 'pago' })
         }
+      },
+
+      // Pagar fatura atomicamente (RPC): marca como pagos, com a conta de
+      // débito, os lançamentos que ainda não estão pagos — tudo em uma
+      // transação (o loop antigo podia deixar a fatura meio paga)
+      pagarFatura: async (lancamentoIds, contaId) => {
+        set({ error: null })
+
+        const { data, error } = await db.lancamentos.pagarFatura(lancamentoIds, contaId)
+
+        if (error) {
+          set({ error: error.message })
+          throw new Error(error.message)
+        }
+
+        // Recarregar lançamentos e contas (o trigger debitou o saldo)
+        await get().fetchLancamentos()
+        await useContasBancariasStore.getState().fetchContas()
+
+        return data ?? 0
       },
 
       // Calcular data de vencimento da fatura (fonte única: lib/faturaUtils)

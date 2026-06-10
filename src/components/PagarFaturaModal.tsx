@@ -37,12 +37,24 @@ export function PagarFaturaModal({
   const [erro, setErro] = useState<string | null>(null)
 
   const contas = useContasBancariasStore((state) => state.contas)
-  const updateLancamento = useTransacoesStore((state) => state.updateLancamento)
+  const pagarFatura = useTransacoesStore((state) => state.pagarFatura)
 
   // Filtrar apenas contas ativas
   const contasAtivas = useMemo(
     () => contas.filter((c) => c.ativo),
     [contas]
+  )
+
+  // O total exibido cobre o ciclo completo (incluindo lançamentos já pagos,
+  // como parcelas quitadas); o débito atinge apenas os ainda não pagos.
+  // Quando os valores diferem, o usuário precisa ver o que será debitado.
+  const transacoesPendentes = useMemo(
+    () => fatura.transacoes.filter((t) => t.status !== 'pago'),
+    [fatura.transacoes]
+  )
+  const valorADebitar = useMemo(
+    () => transacoesPendentes.reduce((sum, t) => sum + t.valor, 0),
+    [transacoesPendentes]
   )
 
   // Verificar se conta selecionada tem saldo suficiente
@@ -51,7 +63,7 @@ export function PagarFaturaModal({
     return contasAtivas.find((c) => c.id === contaSelecionada)
   }, [contaSelecionada, contasAtivas])
 
-  const saldoInsuficiente = contaInfo ? contaInfo.saldo_atual < fatura.total : false
+  const saldoInsuficiente = contaInfo ? contaInfo.saldo_atual < valorADebitar : false
 
   const handlePagar = async () => {
     if (!contaSelecionada) {
@@ -63,15 +75,13 @@ export function PagarFaturaModal({
     setErro(null)
 
     try {
-      // Marcar como pagas apenas as transações ainda não pagas
-      // (evita dupla baixa no saldo caso alguma já estivesse como 'pago')
-      const pendentes = fatura.transacoes.filter((t) => t.status !== 'pago')
-      for (const transacao of pendentes) {
-        await updateLancamento(transacao.id, {
-          conta_id: contaSelecionada,
-          status: 'pago'
-        })
-      }
+      // Pagamento atômico via RPC: todos os lançamentos não pagos são
+      // marcados como pagos (com a conta de débito) em uma única transação —
+      // o loop antigo podia deixar a fatura meio paga em falha parcial
+      await pagarFatura(
+        transacoesPendentes.map((t) => t.id),
+        contaSelecionada
+      )
 
       // Sucesso
       onSuccess?.()
@@ -170,6 +180,17 @@ export function PagarFaturaModal({
                 </span>
               )}
             </div>
+
+            {valorADebitar !== fatura.total && (
+              <div className="mt-3 pt-3 border-t border-dark-700 flex justify-between items-center">
+                <span className="text-sm text-gray-400">
+                  A debitar agora ({transacoesPendentes.length} pendente(s))
+                </span>
+                <span className="text-lg font-semibold text-primary-400">
+                  {formatCurrency(valorADebitar)}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Seleção de Conta */}
@@ -187,7 +208,7 @@ export function PagarFaturaModal({
               <div className="space-y-2">
                 {contasAtivas.map((conta) => {
                   const isSelected = contaSelecionada === conta.id
-                  const temSaldo = conta.saldo_atual >= fatura.total
+                  const temSaldo = conta.saldo_atual >= valorADebitar
 
                   return (
                     <button
