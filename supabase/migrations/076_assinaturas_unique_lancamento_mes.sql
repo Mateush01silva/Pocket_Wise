@@ -21,7 +21,7 @@ BEGIN
       (array_agg(id ORDER BY (status = 'pago') DESC, created_at, id)) AS ids
     FROM lancamentos
     WHERE assinatura_id IS NOT NULL
-    GROUP BY assinatura_id, date_trunc('month', data)
+    GROUP BY assinatura_id, date_trunc('month', data::timestamp)
     HAVING COUNT(*) > 1
   LOOP
     DELETE FROM lancamentos WHERE id = ANY(dup.ids[2:]);
@@ -29,6 +29,10 @@ BEGIN
 END;
 $$;
 
+-- Cast explícito para timestamp (sem timezone): date_trunc sobre DATE resolve
+-- implicitamente para timestamptz, que é STABLE (depende do timezone da
+-- sessão) e não pode ser usado em expressão de índice. Com ::timestamp a
+-- função é IMMUTABLE.
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_lancamento_assinatura_mes
-  ON lancamentos (assinatura_id, date_trunc('month', data))
+  ON lancamentos (assinatura_id, date_trunc('month', data::timestamp))
   WHERE assinatura_id IS NOT NULL;
