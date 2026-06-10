@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { useUserPreferencesStore } from '../store/useUserPreferencesStore'
 import { useLearningModeStore } from '../store/useLearningModeStore'
+import { confirmDialog } from './ui/ConfirmDialog'
 
 interface OnboardingStep {
   icon: React.ReactNode
@@ -177,9 +178,20 @@ export function OnboardingModal() {
             <ChevronDown size={15} />
           </button>
           <button
-            onClick={handleComplete}
+            onClick={async () => {
+              // Confirmar antes de abandonar o tour — usuários novos que o
+              // fecham sem querer ficam perdidos no app
+              const ok = await confirmDialog({
+                title: 'Pular o tour de boas-vindas?',
+                message: 'Você pode retomá-lo a qualquer momento em Configurações.',
+                confirmLabel: 'Pular tour',
+                cancelLabel: 'Continuar tour',
+              })
+              if (ok) handleComplete()
+            }}
             className="p-1 rounded text-gray-600 hover:text-gray-300 transition-colors"
             title="Pular tour"
+            aria-label="Pular tour"
           >
             <X size={15} />
           </button>
