@@ -21,7 +21,6 @@ import {
   BankAccounts,
   CashFlow,
   ComparativeReports,
-  Budgets,
   Envelopes,
   Subscriptions,
   Family,
@@ -243,7 +242,7 @@ function AppRoutes() {
               <Route path="/cash-flow" element={<CashFlow />} />
               <Route path="/reports" element={<ComparativeReports />} />
               <Route path="/categories" element={<Categories />} />
-              <Route path="/budgets" element={<Budgets />} />
+              <Route path="/budgets" element={<Navigate to="/envelopes" replace />} />
               <Route path="/envelopes" element={<Envelopes />} />
               <Route path="/projections" element={<Navigate to="/credit-cards" replace />} />
               <Route path="/subscriptions" element={<Subscriptions />} />

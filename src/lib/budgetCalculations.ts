@@ -36,6 +36,10 @@ import { formatCurrency } from '../utils/currency'
 /**
  * Retorna o mês de referência do envelope para um lançamento.
  *
+ * REGRA CANÔNICA do envelope (semântica de CONSUMO — quando o gasto foi
+ * comprometido). Qualquer tela que mostre "gasto do envelope" deve usar esta
+ * função; não recriar o critério localmente.
+ *
  * Para compras PARCELADAS (parcela_total > 1):
  * usa a data de vencimento de cada parcela (data_vencimento_fatura),
  * pois cada parcela representa um compromisso financeiro em um mês específico.
@@ -43,6 +47,11 @@ import { formatCurrency } from '../utils/currency'
  *
  * Para demais compras (à vista, débito, PIX, crédito não parcelado):
  * usa a data da compra (data), pois o gasto foi comprometido no ato da compra.
+ *
+ * NOTA: o fluxo de caixa do Dashboard (calcularSaldoProjetado em
+ * financialCalculations.ts) usa OUTRO critério de propósito: lá interessa
+ * QUANDO o dinheiro sai (mês da fatura), aqui interessa quando foi gasto.
+ * Por isso o gasto de um envelope não corresponde 1:1 ao valor da fatura.
  */
 export function getMesEnvelope(lancamento: Lancamento): string {
   if (
