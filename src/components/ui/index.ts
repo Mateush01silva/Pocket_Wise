@@ -15,6 +15,9 @@ export type { CurrencyInputProps } from './CurrencyInput'
 
 export { Modal } from './Modal'
 
+export { ConfirmDialogHost, confirmDialog } from './ConfirmDialog'
+export type { ConfirmDialogOptions } from './ConfirmDialog'
+
 export { Tabs } from './Tabs'
 export type { TabsProps, TabItem } from './Tabs'
 

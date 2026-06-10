@@ -34,6 +34,7 @@ import { differenceInDays, parseISO } from 'date-fns'
 import { FamilyInviteModal } from '../components/FamilyInviteModal'
 import { ConsultorSection } from '../components/ConsultorSection'
 import { toast } from 'sonner'
+import { confirmDialog } from '../components/ui/ConfirmDialog'
 import type { OrcamentoMensal } from '../types'
 
 export function Family() {
@@ -107,7 +108,7 @@ export function Family() {
   }, [lancamentos, cartoes, orcamentos, categorias])
 
   const handleDeleteInvite = async (inviteId: string) => {
-    if (!confirm('Deseja realmente cancelar este convite?')) return
+    if (!(await confirmDialog({ title: 'Cancelar este convite?', confirmLabel: 'Cancelar convite', cancelLabel: 'Voltar', danger: true }))) return
 
     const success = await deleteInvite(inviteId)
     if (success) {
@@ -118,7 +119,13 @@ export function Family() {
   }
 
   const handleRemoveMember = async (memberId: string, memberName: string) => {
-    if (!confirm(`Deseja realmente remover ${memberName} da família?`)) return
+    const ok = await confirmDialog({
+      title: `Remover ${memberName} da família?`,
+      message: 'A pessoa perde o acesso aos dados compartilhados desta família.',
+      confirmLabel: 'Remover',
+      danger: true,
+    })
+    if (!ok) return
 
     const success = await removeMember(memberId)
     if (success) {

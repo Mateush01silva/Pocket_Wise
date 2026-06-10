@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { Modal } from './ui/Modal'
 import { Button, Input, CurrencyInput } from './ui'
 import { useCartoesStore, useTransacoesStore } from '../store'
@@ -76,7 +77,7 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
     try {
       // Validações
       if (!formData.nome?.trim()) {
-        alert('Por favor, informe o nome do cartão')
+        toast.error('Por favor, informe o nome do cartão')
         setIsLoading(false)
         return
       }
@@ -86,7 +87,7 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
         formData.dia_fechamento < 1 ||
         formData.dia_fechamento > 31
       ) {
-        alert('O dia de fechamento deve estar entre 1 e 31')
+        toast.error('O dia de fechamento deve estar entre 1 e 31')
         setIsLoading(false)
         return
       }
@@ -96,13 +97,13 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
         formData.dia_vencimento < 1 ||
         formData.dia_vencimento > 31
       ) {
-        alert('O dia de vencimento deve estar entre 1 e 31')
+        toast.error('O dia de vencimento deve estar entre 1 e 31')
         setIsLoading(false)
         return
       }
 
       if (formData.limite === undefined || formData.limite === null || formData.limite < 0) {
-        alert('O limite deve ser um valor positivo')
+        toast.error('O limite deve ser um valor positivo')
         setIsLoading(false)
         return
       }
@@ -154,7 +155,7 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
       onClose()
     } catch (error) {
       console.error('Erro ao salvar cartão:', error)
-      alert('Erro ao salvar cartão. Tente novamente.')
+      toast.error('Erro ao salvar cartão. Tente novamente.')
     } finally {
       setIsLoading(false)
     }

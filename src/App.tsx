@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Layout } from './components/layout/Layout'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { ConfirmDialogHost } from './components/ui'
 import { PrivateRoute } from './components/PrivateRoute'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import {
@@ -252,6 +253,7 @@ function AppRoutes() {
             </Routes>
           </Layout>
           <Toaster position="top-right" theme="dark" richColors />
+          <ConfirmDialogHost />
         </BrowserRouter>
       </ErrorBoundary>
     )
@@ -480,6 +482,7 @@ function AppRoutes() {
           <Route path="/settings" element={<Navigate to="/app/configuracoes" replace />} />
         </Routes>
         <Toaster position="top-right" theme="dark" richColors />
+        <ConfirmDialogHost />
       </BrowserRouter>
     </ErrorBoundary>
   )

@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { usePlan } from '../hooks/usePlan'
-import { Card, CardContent, Button, Select, Input, Tabs } from '../components/ui'
+import { Card, CardContent, Button, Select, Input, Tabs, confirmDialog } from '../components/ui'
 import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw, Clock, Pause, Eye, User } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
@@ -210,10 +210,10 @@ export function Transactions() {
     setIsUpdatingOldTransactions(true)
     try {
       const atualizados = await atualizarDataVencimentoFaturaAntigos()
-      alert(`${atualizados} transação(ões) atualizada(s) com sucesso!`)
+      toast.success(`${atualizados} transação(ões) atualizada(s) com sucesso!`)
     } catch (error) {
       console.error('Erro ao atualizar transações:', error)
-      alert('Erro ao atualizar transações. Verifique o console.')
+      toast.error('Não foi possível atualizar as transações. Verifique sua conexão e tente novamente.')
     } finally {
       setIsUpdatingOldTransactions(false)
     }
@@ -221,20 +221,23 @@ export function Transactions() {
 
   // Handler para recalcular TODAS as datas de fatura
   const handleRecalcularTodasFaturas = useCallback(async () => {
-    if (!window.confirm('Isso vai recalcular a data de fatura de TODAS as transações de crédito. Continuar?')) {
-      return
-    }
+    const ok = await confirmDialog({
+      title: 'Recalcular datas de fatura?',
+      message: 'Isso vai recalcular a data de fatura de TODAS as transações de crédito não pagas.',
+      confirmLabel: 'Recalcular',
+    })
+    if (!ok) return
     setIsUpdatingOldTransactions(true)
     try {
       const { atualizados, erros } = await recalcularTodasDatasFatura()
       if (erros.length > 0) {
-        alert(`${atualizados} transação(ões) corrigida(s).\n\nErros:\n${erros.join('\n')}`)
+        toast.warning(`${atualizados} transação(ões) corrigida(s), mas ${erros.length} com erro.`)
       } else {
-        alert(`${atualizados} transação(ões) corrigida(s) com sucesso!`)
+        toast.success(`${atualizados} transação(ões) corrigida(s) com sucesso!`)
       }
     } catch (error) {
       console.error('Erro ao recalcular:', error)
-      alert('Erro ao recalcular. Verifique o console.')
+      toast.error('Não foi possível recalcular. Verifique sua conexão e tente novamente.')
     } finally {
       setIsUpdatingOldTransactions(false)
     }
@@ -401,50 +404,69 @@ export function Transactions() {
     )
   }, [])
 
-  // Bulk actions
+  // Bulk actions — com estado de processamento para desabilitar os botões
+  // durante o await (evita duplo clique e dá feedback visual)
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
+
+  const runBulk = useCallback(
+    async (acao: (id: string) => Promise<unknown>, sucesso: string) => {
+      setIsBulkProcessing(true)
+      try {
+        for (const id of selectedIds) {
+          await acao(id)
+        }
+        toast.success(sucesso)
+        setSelectedIds([])
+      } catch (error) {
+        console.error('Erro na ação em massa:', error)
+        toast.error('Não foi possível concluir a ação em todas as transações. Verifique e tente novamente.')
+      } finally {
+        setIsBulkProcessing(false)
+      }
+    },
+    [selectedIds]
+  )
+
   const handleBulkMarkAsPaid = useCallback(async () => {
     if (selectedIds.length === 0) return
-    if (!confirm(`Marcar ${selectedIds.length} transação(ões) como paga(s)?`)) return
-
-    for (const id of selectedIds) {
-      await marcarComoPago(id)
-    }
-    setSelectedIds([])
-  }, [selectedIds, marcarComoPago])
+    if (!(await confirmDialog({ title: `Marcar ${selectedIds.length} transação(ões) como paga(s)?` }))) return
+    await runBulk((id) => marcarComoPago(id), `${selectedIds.length} transação(ões) marcada(s) como paga(s)`)
+  }, [selectedIds, marcarComoPago, runBulk])
 
   const handleBulkMarkAsPendente = useCallback(async () => {
     if (selectedIds.length === 0) return
-    if (!confirm(`Marcar ${selectedIds.length} transação(ões) como pendente(s)?`)) return
-
-    for (const id of selectedIds) {
-      await updateLancamento(id, { status: 'pendente' })
-    }
-    setSelectedIds([])
-  }, [selectedIds, updateLancamento])
+    if (!(await confirmDialog({ title: `Marcar ${selectedIds.length} transação(ões) como pendente(s)?` }))) return
+    await runBulk((id) => updateLancamento(id, { status: 'pendente' }), `${selectedIds.length} transação(ões) marcada(s) como pendente(s)`)
+  }, [selectedIds, updateLancamento, runBulk])
 
   const handleBulkMarkAsProjetado = useCallback(async () => {
     if (selectedIds.length === 0) return
-    if (!confirm(`Marcar ${selectedIds.length} transação(ões) como projetado(s)?`)) return
-
-    for (const id of selectedIds) {
-      await updateLancamento(id, { status: 'projetado' })
-    }
-    setSelectedIds([])
-  }, [selectedIds, updateLancamento])
+    if (!(await confirmDialog({ title: `Marcar ${selectedIds.length} transação(ões) como projetado(s)?` }))) return
+    await runBulk((id) => updateLancamento(id, { status: 'projetado' }), `${selectedIds.length} transação(ões) marcada(s) como projetada(s)`)
+  }, [selectedIds, updateLancamento, runBulk])
 
   const handleBulkDelete = useCallback(async () => {
     if (selectedIds.length === 0) return
-    if (!confirm(`Deletar ${selectedIds.length} transação(ões)? Esta ação não pode ser desfeita.`)) return
-
-    for (const id of selectedIds) {
-      await deleteLancamento(id)
-    }
-    setSelectedIds([])
-  }, [selectedIds, deleteLancamento])
+    const ok = await confirmDialog({
+      title: `Deletar ${selectedIds.length} transação(ões)?`,
+      message: 'Esta ação não pode ser desfeita.',
+      confirmLabel: 'Deletar',
+      danger: true,
+    })
+    if (!ok) return
+    await runBulk((id) => deleteLancamento(id), `${selectedIds.length} transação(ões) deletada(s)`)
+  }, [selectedIds, deleteLancamento, runBulk])
 
   const handleDeleteSingle = useCallback(async (id: string) => {
-    if (!confirm('Deletar esta transação? Esta ação não pode ser desfeita.')) return
+    const ok = await confirmDialog({
+      title: 'Deletar esta transação?',
+      message: 'Esta ação não pode ser desfeita.',
+      confirmLabel: 'Deletar',
+      danger: true,
+    })
+    if (!ok) return
     await deleteLancamento(id)
+    toast.success('Transação deletada')
   }, [deleteLancamento])
 
   return (
@@ -759,6 +781,7 @@ export function Transactions() {
                   variant="ghost"
                   size="sm"
                   onClick={handleBulkMarkAsPaid}
+                  disabled={isBulkProcessing}
                   className="gap-2 text-green-400 hover:text-green-300"
                 >
                   <Check className="w-4 h-4" />
@@ -768,6 +791,7 @@ export function Transactions() {
                   variant="ghost"
                   size="sm"
                   onClick={handleBulkMarkAsPendente}
+                  disabled={isBulkProcessing}
                   className="gap-2 text-yellow-400 hover:text-yellow-300"
                 >
                   <Pause className="w-4 h-4" />
@@ -777,6 +801,7 @@ export function Transactions() {
                   variant="ghost"
                   size="sm"
                   onClick={handleBulkMarkAsProjetado}
+                  disabled={isBulkProcessing}
                   className="gap-2 text-blue-400 hover:text-blue-300"
                 >
                   <Eye className="w-4 h-4" />
@@ -786,6 +811,7 @@ export function Transactions() {
                   variant="ghost"
                   size="sm"
                   onClick={handleBulkDelete}
+                  disabled={isBulkProcessing}
                   className="gap-2 text-red-400 hover:text-red-300"
                 >
                   <Trash2 className="w-4 h-4" />

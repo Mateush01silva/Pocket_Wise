@@ -7,6 +7,7 @@ import { ConsultorPermissionsModal } from './ConsultorPermissionsModal'
 import { consultorService } from '../services/consultorService'
 import { familyInvitesService } from '../services/familyService'
 import { toast } from 'sonner'
+import { confirmDialog } from './ui/ConfirmDialog'
 import type {
   FamilyInviteWithDetails,
   FamilyMemberWithUser,
@@ -55,7 +56,7 @@ export function ConsultorSection({
 
   const handleCancelInvite = async () => {
     if (!consultorPendingInvite) return
-    if (!confirm('Deseja cancelar o convite de consultor?')) return
+    if (!(await confirmDialog({ title: 'Cancelar o convite de consultor?', confirmLabel: 'Cancelar convite', cancelLabel: 'Voltar', danger: true }))) return
 
     const { data, error } = await familyInvitesService.deleteInvite(consultorPendingInvite.id)
     if (error || !data) {
@@ -68,7 +69,13 @@ export function ConsultorSection({
 
   const handleRemoveConsultor = async () => {
     if (!consultorMember) return
-    if (!confirm(`Deseja remover ${consultorMember.user_name} como consultor?`)) return
+    const ok = await confirmDialog({
+      title: `Remover ${consultorMember.user_name} como consultor?`,
+      message: 'O consultor perde o acesso aos dados desta família.',
+      confirmLabel: 'Remover',
+      danger: true,
+    })
+    if (!ok) return
 
     const { familyMembersService } = await import('../services/familyService')
     const { data, error } = await familyMembersService.removeMember(consultorMember.id)

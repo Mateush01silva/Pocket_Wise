@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { toast } from 'sonner'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select, CurrencyInput } from './ui'
 import { useCategoriasStore, useAssinaturasStore, useCartoesStore } from '../store'
@@ -124,19 +125,19 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
     try {
       // Validações
       if (!formData.nome || !formData.categoria_id || !formData.valor || !formData.primeira_cobranca) {
-        alert('Por favor, preencha todos os campos obrigatórios')
+        toast.error('Por favor, preencha todos os campos obrigatórios')
         setIsLoading(false)
         return
       }
 
       if (formData.valor <= 0) {
-        alert('O valor deve ser maior que zero')
+        toast.error('O valor deve ser maior que zero')
         setIsLoading(false)
         return
       }
 
       if (formData.dia_cobranca! < 1 || formData.dia_cobranca! > 31) {
-        alert('O dia de cobrança deve estar entre 1 e 31')
+        toast.error('O dia de cobrança deve estar entre 1 e 31')
         setIsLoading(false)
         return
       }
@@ -179,7 +180,7 @@ export function SubscriptionModal({ isOpen, onClose, editingAssinatura }: Subscr
       onClose()
     } catch (error) {
       console.error('Erro ao salvar assinatura:', error)
-      alert('Erro ao salvar assinatura. Tente novamente.')
+      toast.error('Erro ao salvar assinatura. Tente novamente.')
     } finally {
       setIsLoading(false)
     }

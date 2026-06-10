@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { confirmDialog } from '../components/ui/ConfirmDialog'
 import { usePlan } from '../hooks/usePlan'
 import {
   Plus,
@@ -305,15 +306,20 @@ export function CreditCards() {
   }
 
   const handleDelete = async (cartao: Cartao) => {
-    const confirmMessage = `Tem certeza que deseja excluir o cartão "${cartao.nome}"?\n\nEsta ação não pode ser desfeita.`
+    const ok = await confirmDialog({
+      title: `Excluir o cartão "${cartao.nome}"?`,
+      message: 'Esta ação não pode ser desfeita.',
+      confirmLabel: 'Excluir',
+      danger: true,
+    })
+    if (!ok) return
 
-    if (window.confirm(confirmMessage)) {
-      try {
-        await deleteCartao(cartao.id)
-      } catch (error) {
-        console.error('Erro ao deletar cartão:', error)
-        alert('Erro ao deletar cartão. Verifique se não há lançamentos associados.')
-      }
+    try {
+      await deleteCartao(cartao.id)
+      toast.success('Cartão excluído')
+    } catch (error) {
+      console.error('Erro ao deletar cartão:', error)
+      toast.error('Não foi possível excluir o cartão. Verifique se não há lançamentos associados a ele.')
     }
   }
 

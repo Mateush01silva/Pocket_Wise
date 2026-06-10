@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { Modal } from './ui/Modal'
 import { Button, Input, CurrencyInput } from './ui'
 import { useContasBancariasStore, useFamilyStore } from '../store'
@@ -98,25 +99,25 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
     try {
       // Validações
       if (!formData.nome?.trim()) {
-        alert('Por favor, informe o nome da conta')
+        toast.error('Por favor, informe o nome da conta')
         setIsLoading(false)
         return
       }
 
       if (!formData.tipo) {
-        alert('Por favor, selecione o tipo da conta')
+        toast.error('Por favor, selecione o tipo da conta')
         setIsLoading(false)
         return
       }
 
       if (formData.saldo_inicial === undefined || formData.saldo_inicial < 0) {
-        alert('O saldo inicial não pode ser negativo')
+        toast.error('O saldo inicial não pode ser negativo')
         setIsLoading(false)
         return
       }
 
       if (!familyId) {
-        alert('Erro: Family ID não encontrado')
+        toast.error('Erro: Family ID não encontrado')
         setIsLoading(false)
         return
       }
@@ -139,7 +140,7 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
         if (formData.saldo_inicial !== undefined && formData.saldo_inicial !== conta.saldo_atual) {
           await atualizarSaldo(conta.id, formData.saldo_inicial)
         }
-        alert('Conta atualizada com sucesso!')
+        toast.success('Conta atualizada com sucesso!')
       } else {
         // Criar nova conta
         const newConta = await createConta({
@@ -156,7 +157,7 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
         })
 
         if (newConta) {
-          alert('Conta criada com sucesso!')
+          toast.success('Conta criada com sucesso!')
         } else {
           throw new Error('Erro ao criar conta')
         }
@@ -165,7 +166,7 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
       onClose()
     } catch (error) {
       console.error('Erro ao salvar conta:', error)
-      alert('Erro ao salvar conta. Tente novamente.')
+      toast.error('Erro ao salvar conta. Tente novamente.')
     } finally {
       setIsLoading(false)
     }
