@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { format, addMonths, parseISO } from 'date-fns'
+import { calcularDataVencimentoFatura as calcularDataVencimentoFaturaUtil } from '../lib/faturaUtils'
 import type {
   Lancamento,
   CreateLancamentoInput,
@@ -40,7 +41,7 @@ interface TransacoesActions {
 
   // Manutenção
   atualizarDataVencimentoFaturaAntigos: () => Promise<number>
-  recalcularTodasDatasFatura: () => Promise<{ atualizados: number; erros: string[] }>
+  recalcularTodasDatasFatura: (cartaoId?: string) => Promise<{ atualizados: number; erros: string[] }>
 
   // Queries
   getLancamentosPorCategoria: (categoriaId: string) => Lancamento[]
@@ -262,6 +263,40 @@ export const useTransacoesStore = create<TransacoesStore>()(
         set({ isLoading: true, error: null })
 
         try {
+          // Recalcular a fatura quando data, cartão ou forma de pagamento
+          // mudam — sem isso a transação fica presa na fatura antiga
+          // (data_vencimento_fatura stale). Não sobrescreve valores passados
+          // explicitamente (ex.: parcelas e regeneração de assinaturas).
+          const existente = get().lancamentos.find((l) => l.id === id)
+          const afetaFatura =
+            updateData.data !== undefined ||
+            updateData.cartao_id !== undefined ||
+            updateData.forma_pagamento !== undefined
+
+          if (existente && afetaFatura && updateData.data_vencimento_fatura === undefined) {
+            const novaForma = updateData.forma_pagamento ?? existente.forma_pagamento
+            const novoCartaoId = updateData.cartao_id !== undefined ? updateData.cartao_id : existente.cartao_id
+            const novaData = updateData.data ?? existente.data
+
+            if (novaForma === 'credito' && novoCartaoId) {
+              const base = get().calcularDataVencimentoFatura(novoCartaoId, novaData)
+              if (base) {
+                // Parcelas mantêm o deslocamento mês a mês a partir da 1ª fatura
+                const mesesParcela = existente.parcela_atual && existente.parcela_atual > 1
+                  ? existente.parcela_atual - 1
+                  : 0
+                updateData = {
+                  ...updateData,
+                  data_vencimento_fatura: mesesParcela > 0
+                    ? format(addMonths(parseISO(base), mesesParcela), 'yyyy-MM-dd')
+                    : base,
+                }
+              }
+            } else {
+              updateData = { ...updateData, data_vencimento_fatura: null }
+            }
+          }
+
           const { data, error } = await db.lancamentos.update({ id, ...updateData })
 
           if (error) throw error
@@ -344,34 +379,14 @@ export const useTransacoesStore = create<TransacoesStore>()(
         }
       },
 
-      // Calcular data de vencimento da fatura
+      // Calcular data de vencimento da fatura (fonte única: lib/faturaUtils)
       calcularDataVencimentoFatura: (cartaoId, dataTransacao) => {
         const cartoes = useCartoesStore.getState().cartoes
         const cartao = cartoes.find((c) => c.id === cartaoId)
 
         if (!cartao) return null
 
-        const dataCompra = parseISO(dataTransacao)
-        const diaCompra = dataCompra.getDate()
-        const mesCompra = dataCompra.getMonth()
-        const anoCompra = dataCompra.getFullYear()
-
-        // Se comprou antes do fechamento, vence no mesmo mês
-        // Se comprou depois do fechamento, vence no mês seguinte
-        let mesVencimento = mesCompra
-        let anoVencimento = anoCompra
-
-        if (diaCompra > cartao.dia_fechamento) {
-          // Comprou depois do fechamento, vai para próxima fatura
-          mesVencimento += 1
-          if (mesVencimento > 11) {
-            mesVencimento = 0
-            anoVencimento += 1
-          }
-        }
-
-        const dataVencimento = new Date(anoVencimento, mesVencimento, cartao.dia_vencimento)
-        return format(dataVencimento, 'yyyy-MM-dd')
+        return calcularDataVencimentoFaturaUtil(dataTransacao, cartao)
       },
 
       // Queries
@@ -446,15 +461,21 @@ export const useTransacoesStore = create<TransacoesStore>()(
       return atualizados
     },
 
-    // Recalcular data_vencimento_fatura de TODAS as transações de crédito
-    recalcularTodasDatasFatura: async () => {
+    // Recalcular data_vencimento_fatura das transações de crédito não pagas.
+    // Com cartaoId, restringe ao cartão (usado ao editar dia de fechamento/
+    // vencimento). Transações pagas são preservadas: recalculá-las mudaria o
+    // histórico de faturas já quitadas.
+    recalcularTodasDatasFatura: async (cartaoId?: string) => {
       const { lancamentos, calcularDataVencimentoFatura, updateLancamento } = get()
       let atualizados = 0
       const erros: string[] = []
 
-      // Filtrar TODAS as transações de crédito com cartão
       const transacoesCredito = lancamentos.filter(
-        (l) => l.cartao_id && l.forma_pagamento === 'credito'
+        (l) =>
+          l.cartao_id &&
+          l.forma_pagamento === 'credito' &&
+          l.status !== 'pago' &&
+          (!cartaoId || l.cartao_id === cartaoId)
       )
 
       console.log(`Recalculando data de fatura para ${transacoesCredito.length} transações de crédito`)

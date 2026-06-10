@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Modal } from './ui/Modal'
 import { Button, Input, CurrencyInput } from './ui'
-import { useCartoesStore } from '../store'
+import { useCartoesStore, useTransacoesStore } from '../store'
 import type { CreateCartaoInput, Cartao } from '../types'
 
 interface CreditCardModalProps {
@@ -108,6 +108,10 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
       }
 
       if (isEditMode && cartao) {
+        const cicloMudou =
+          cartao.dia_fechamento !== formData.dia_fechamento ||
+          cartao.dia_vencimento !== formData.dia_vencimento
+
         // Atualizar cartão existente
         await updateCartao(cartao.id, {
           nome: formData.nome.trim(),
@@ -117,6 +121,13 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
           cor: formData.cor || CORES_DISPONIVEIS[4],
           ativo: formData.ativo ?? true,
         })
+
+        // Mudou o ciclo: recalcular a fatura das transações não pagas do
+        // cartão (manuais e assinaturas) — antes só assinaturas eram
+        // regeneradas e as transações manuais ficavam na fatura antiga
+        if (cicloMudou) {
+          await useTransacoesStore.getState().recalcularTodasDatasFatura(cartao.id)
+        }
       } else {
         // Criar novo cartão
         const cartaoData: CreateCartaoInput = {
