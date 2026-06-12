@@ -3,16 +3,41 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { usePlan } from '../hooks/usePlan'
 import { Card, CardContent, Button, Select, Input, Tabs, confirmDialog } from '../components/ui'
-import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw, Clock, Pause, Eye, User } from 'lucide-react'
+import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw, Clock, Pause, Eye, User, Settings2 } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
-import { useTransacoesStore, useCategoriasStore, useCartoesStore } from '../store'
+import { useTransacoesStore, useCategoriasStore, useCartoesStore, useContasBancariasStore } from '../store'
 import { useFamilyStore } from '../store/useFamilyStore'
 import { TransactionModal } from '../components/TransactionModal'
 import { usePermissions } from '../hooks/usePermissions'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import type { Lancamento } from '../types'
+import type { Lancamento, CreateLancamentoInput, PaymentMethod, LancamentoStatus, TransactionType } from '../types'
+
+// Estado da "linha rápida" de lançamento direto na tabela
+interface QuickRowState {
+  tipo: TransactionType
+  data: string
+  categoria_id: string
+  observacao: string
+  forma_pagamento: PaymentMethod
+  cartao_id: string
+  conta_id: string
+  valor: string
+  status: LancamentoStatus
+}
+
+const criarLinhaRapidaVazia = (tipo: TransactionType): QuickRowState => ({
+  tipo,
+  data: format(new Date(), 'yyyy-MM-dd'),
+  categoria_id: '',
+  observacao: '',
+  forma_pagamento: 'dinheiro',
+  cartao_id: '',
+  conta_id: '',
+  valor: '',
+  status: 'pago',
+})
 
 type SortField = 'data' | 'categoria' | 'valor' | 'status' | 'forma_pagamento' | 'cadastro'
 type SortOrder = 'asc' | 'desc'
@@ -24,6 +49,11 @@ export function Transactions() {
   const [searchParams] = useSearchParams()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingLancamento, setEditingLancamento] = useState<Lancamento | undefined>(undefined)
+  const [modalInitialData, setModalInitialData] = useState<Partial<CreateLancamentoInput> | undefined>(undefined)
+  // Linha rápida (lançamento direto na tabela)
+  const [isQuickAdding, setIsQuickAdding] = useState(false)
+  const [quickRow, setQuickRow] = useState<QuickRowState>(() => criarLinhaRapidaVazia('despesa'))
+  const [isSavingQuick, setIsSavingQuick] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [filterTipo, setFilterTipo] = useState<'all' | 'receita' | 'despesa'>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'pago' | 'pendente' | 'projetado'>('all')
@@ -105,7 +135,10 @@ export function Transactions() {
   const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const categorias = useCategoriasStore((state) => state.categorias)
   const cartoes = useCartoesStore((state) => state.cartoes)
+  const contas = useContasBancariasStore((state) => state.contas)
+  const fetchContas = useContasBancariasStore((state) => state.fetchContas)
   const familyMembers = useFamilyStore((state) => state.members)
+  const createLancamento = useTransacoesStore((state) => state.createLancamento)
   const deleteLancamento = useTransacoesStore((state) => state.deleteLancamento)
   const marcarComoPago = useTransacoesStore((state) => state.marcarComoPago)
   const updateLancamento = useTransacoesStore((state) => state.updateLancamento)
@@ -136,18 +169,144 @@ export function Transactions() {
       return
     }
     setEditingLancamento(undefined)
+    setModalInitialData(undefined)
     setIsModalOpen(true)
   }, [getLimit, lancamentos.length, navigate])
 
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false)
     setEditingLancamento(undefined)
+    setModalInitialData(undefined)
   }, [])
 
   const handleEditLancamento = useCallback((lancamento: Lancamento) => {
     setEditingLancamento(lancamento)
+    setModalInitialData(undefined)
     setIsModalOpen(true)
   }, [])
+
+  // Buscar contas (necessárias para débito/PIX/transferência na linha rápida)
+  useEffect(() => {
+    fetchContas()
+  }, [fetchContas])
+
+  // Categorias principais (sem subcategoria) do tipo da linha rápida, em
+  // ordem alfabética
+  const categoriasQuickOptions = useMemo(() => {
+    return categorias
+      .filter((c) => !c.categoria_pai_id && c.tipo === quickRow.tipo)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+      .map((c) => ({ value: c.id, label: c.nome }))
+  }, [categorias, quickRow.tipo])
+
+  const cartaoQuickOptions = useMemo(
+    () => cartoes.filter((c) => c.ativo).map((c) => ({ value: c.id, label: c.nome })),
+    [cartoes]
+  )
+
+  const contaQuickOptions = useMemo(
+    () => contas.filter((c) => c.ativo).map((c) => ({ value: c.id, label: `${c.icone || ''} ${c.nome}`.trim() })),
+    [contas]
+  )
+
+  const iniciarLinhaRapida = useCallback(() => {
+    const limit = getLimit('transactions')
+    if (lancamentos.length >= limit) {
+      toast.error(`Você atingiu o limite do Explorador (${limit} transações). Assine o Planejador para criar mais.`, {
+        action: { label: 'Assinar Planejador', onClick: () => navigate('/app/assinatura') },
+      })
+      return
+    }
+    const tipoInicial: TransactionType = filterTipo === 'receita' ? 'receita' : 'despesa'
+    setQuickRow(criarLinhaRapidaVazia(tipoInicial))
+    setIsQuickAdding(true)
+  }, [getLimit, lancamentos.length, navigate, filterTipo])
+
+  const cancelarLinhaRapida = useCallback(() => {
+    setIsQuickAdding(false)
+    setQuickRow(criarLinhaRapidaVazia('despesa'))
+  }, [])
+
+  // Monta o payload comum (linha rápida → criação ou "+ opções")
+  const montarPayloadQuick = useCallback((): Partial<CreateLancamentoInput> => {
+    const valorNum = parseFloat((quickRow.valor || '').replace(',', '.'))
+    const precisaConta =
+      quickRow.forma_pagamento === 'debito' ||
+      quickRow.forma_pagamento === 'pix' ||
+      quickRow.forma_pagamento === 'transferencia'
+    return {
+      tipo: quickRow.tipo,
+      data: quickRow.data,
+      valor: isNaN(valorNum) ? 0 : valorNum,
+      categoria_id: quickRow.categoria_id || undefined,
+      observacao: quickRow.observacao || undefined,
+      forma_pagamento: quickRow.forma_pagamento,
+      cartao_id: quickRow.forma_pagamento === 'credito' ? quickRow.cartao_id || undefined : undefined,
+      conta_id: quickRow.forma_pagamento !== 'credito' && (quickRow.conta_id || precisaConta)
+        ? quickRow.conta_id || undefined
+        : undefined,
+      status: quickRow.status,
+    }
+  }, [quickRow])
+
+  const salvarLinhaRapida = useCallback(async () => {
+    const valorNum = parseFloat((quickRow.valor || '').replace(',', '.'))
+
+    if (!quickRow.categoria_id) {
+      toast.error('Selecione a categoria')
+      return
+    }
+    if (isNaN(valorNum) || valorNum <= 0) {
+      toast.error('Informe um valor maior que zero')
+      return
+    }
+    if (quickRow.forma_pagamento === 'credito' && !quickRow.cartao_id) {
+      toast.error('Selecione o cartão. Use "+ opções" para parcelas e mais.')
+      return
+    }
+    if (
+      (quickRow.forma_pagamento === 'debito' ||
+        quickRow.forma_pagamento === 'pix' ||
+        quickRow.forma_pagamento === 'transferencia') &&
+      !quickRow.conta_id
+    ) {
+      toast.error('Selecione a conta bancária para esta forma de pagamento')
+      return
+    }
+
+    setIsSavingQuick(true)
+    try {
+      const payload = montarPayloadQuick()
+      await createLancamento({
+        family_id: 'local-storage-family',
+        ...payload,
+      } as CreateLancamentoInput)
+      toast.success('Transação salva!')
+      // Mantém a linha aberta para lançamentos em sequência, preservando
+      // tipo/data/forma para agilizar
+      setQuickRow((prev) => ({
+        ...criarLinhaRapidaVazia(prev.tipo),
+        data: prev.data,
+        forma_pagamento: prev.forma_pagamento,
+        cartao_id: prev.cartao_id,
+        conta_id: prev.conta_id,
+        status: prev.status,
+      }))
+    } catch (error) {
+      console.error('Erro ao salvar na linha rápida:', error)
+      toast.error('Erro ao salvar. Verifique sua conexão e tente novamente.')
+    } finally {
+      setIsSavingQuick(false)
+    }
+  }, [quickRow, montarPayloadQuick, createLancamento])
+
+  // Abre o formulário completo já preenchido com o que foi digitado na linha
+  const abrirOpcoesCompletas = useCallback(() => {
+    setModalInitialData(montarPayloadQuick())
+    setEditingLancamento(undefined)
+    setIsQuickAdding(false)
+    setIsModalOpen(true)
+  }, [montarPayloadQuick])
 
   // Get category name
   const getCategoryName = useCallback((categoriaId: string | null) => {
@@ -758,6 +917,15 @@ export function Transactions() {
           )}
         </span>
         <div className="flex items-center gap-2 sm:gap-3">
+          {canEdit && !isQuickAdding && (
+            <button
+              onClick={iniciarLinhaRapida}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-lg text-xs text-primary-400 hover:text-primary-300 hover:bg-primary-500/10 border border-primary-500/30 transition-colors"
+            >
+              <Plus size={14} />
+              <span>Adicionar linha</span>
+            </button>
+          )}
           <button
             onClick={() => handleSort('cadastro')}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 rounded-lg text-xs transition-colors ${
@@ -906,6 +1074,154 @@ export function Transactions() {
                 </tr>
               </thead>
               <tbody>
+                {/* Linha rápida de lançamento direto na tabela */}
+                {isQuickAdding && canEdit && (
+                  <tr className="border-b border-dark-700/50 bg-primary-500/5">
+                    {/* Indicador */}
+                    <td className="p-2 text-center">
+                      <Plus className="w-4 h-4 text-primary-400 mx-auto" />
+                    </td>
+                    {/* Data */}
+                    <td className="p-2">
+                      <input
+                        type="date"
+                        value={quickRow.data}
+                        onChange={(e) => setQuickRow((p) => ({ ...p, data: e.target.value }))}
+                        className="w-full px-2 py-1.5 bg-dark-800 border border-dark-600 rounded text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      />
+                    </td>
+                    {/* Tipo + Categoria */}
+                    <td className="p-2">
+                      <select
+                        value={quickRow.tipo}
+                        onChange={(e) => setQuickRow((p) => ({ ...p, tipo: e.target.value as TransactionType, categoria_id: '' }))}
+                        className="w-full mb-1 px-2 py-1 bg-dark-800 border border-dark-600 rounded text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      >
+                        <option value="despesa">Despesa</option>
+                        <option value="receita">Receita</option>
+                      </select>
+                      <select
+                        value={quickRow.categoria_id}
+                        onChange={(e) => setQuickRow((p) => ({ ...p, categoria_id: e.target.value }))}
+                        className="w-full px-2 py-1.5 bg-dark-800 border border-dark-600 rounded text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      >
+                        <option value="">Categoria...</option>
+                        {categoriasQuickOptions.map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </td>
+                    {/* Descrição */}
+                    <td className="p-2">
+                      <input
+                        type="text"
+                        value={quickRow.observacao}
+                        onChange={(e) => setQuickRow((p) => ({ ...p, observacao: e.target.value }))}
+                        placeholder="Descrição..."
+                        className="w-full px-2 py-1.5 bg-dark-800 border border-dark-600 rounded text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      />
+                    </td>
+                    {/* Forma Pgto */}
+                    <td className="p-2">
+                      <select
+                        value={quickRow.forma_pagamento}
+                        onChange={(e) => setQuickRow((p) => ({ ...p, forma_pagamento: e.target.value as PaymentMethod, cartao_id: '', conta_id: '' }))}
+                        className="w-full px-2 py-1.5 bg-dark-800 border border-dark-600 rounded text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      >
+                        <option value="dinheiro">Dinheiro</option>
+                        <option value="debito">Débito</option>
+                        <option value="credito">Crédito</option>
+                        <option value="pix">PIX</option>
+                        <option value="transferencia">Transferência</option>
+                        <option value="boleto">Boleto</option>
+                      </select>
+                    </td>
+                    {/* Cartão (crédito) ou Conta (débito/pix/transf) */}
+                    <td className="p-2">
+                      {quickRow.forma_pagamento === 'credito' ? (
+                        <select
+                          value={quickRow.cartao_id}
+                          onChange={(e) => setQuickRow((p) => ({ ...p, cartao_id: e.target.value }))}
+                          className="w-full px-2 py-1.5 bg-dark-800 border border-dark-600 rounded text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        >
+                          <option value="">Cartão...</option>
+                          {cartaoQuickOptions.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      ) : quickRow.forma_pagamento === 'debito' || quickRow.forma_pagamento === 'pix' || quickRow.forma_pagamento === 'transferencia' ? (
+                        <select
+                          value={quickRow.conta_id}
+                          onChange={(e) => setQuickRow((p) => ({ ...p, conta_id: e.target.value }))}
+                          className="w-full px-2 py-1.5 bg-dark-800 border border-dark-600 rounded text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        >
+                          <option value="">Conta...</option>
+                          {contaQuickOptions.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-gray-600">-</span>
+                      )}
+                    </td>
+                    {/* Valor */}
+                    <td className="p-2">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={quickRow.valor}
+                        onChange={(e) => setQuickRow((p) => ({ ...p, valor: e.target.value.replace(/[^0-9.,]/g, '') }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') salvarLinhaRapida() }}
+                        placeholder="0,00"
+                        className="w-full px-2 py-1.5 bg-dark-800 border border-dark-600 rounded text-sm text-gray-100 text-right placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      />
+                    </td>
+                    {/* Status */}
+                    <td className="p-2">
+                      <select
+                        value={quickRow.status}
+                        onChange={(e) => setQuickRow((p) => ({ ...p, status: e.target.value as LancamentoStatus }))}
+                        className="w-full px-2 py-1.5 bg-dark-800 border border-dark-600 rounded text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      >
+                        <option value="pago">Pago</option>
+                        <option value="pendente">Pendente</option>
+                        <option value="projetado">Projetado</option>
+                      </select>
+                    </td>
+                    {/* Lançado por (placeholder de alinhamento) */}
+                    {familyMembers.length > 1 && <td className="p-2" />}
+                    {/* Ações */}
+                    <td className="p-2">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={salvarLinhaRapida}
+                          disabled={isSavingQuick}
+                          className="p-1.5 rounded bg-primary-500/20 text-primary-300 hover:bg-primary-500/30 transition-colors disabled:opacity-50"
+                          title="Salvar (Enter)"
+                          aria-label="Salvar lançamento"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={abrirOpcoesCompletas}
+                          className="p-1.5 rounded text-gray-400 hover:text-primary-400 hover:bg-dark-700 transition-colors"
+                          title="Mais opções (parcelas, recorrência, portador...)"
+                          aria-label="Abrir formulário completo"
+                        >
+                          <Settings2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={cancelarLinhaRapida}
+                          className="p-1.5 rounded text-gray-400 hover:text-red-400 hover:bg-dark-700 transition-colors"
+                          title="Cancelar"
+                          aria-label="Cancelar"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )}
                 {paginatedLancamentos.length === 0 ? (
                   <tr>
                     <td colSpan={familyMembers.length > 1 ? 10 : 9} className="text-center py-12 text-gray-500">
@@ -1096,6 +1412,7 @@ export function Transactions() {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         editingLancamento={editingLancamento}
+        initialData={modalInitialData}
       />
     </div>
   )

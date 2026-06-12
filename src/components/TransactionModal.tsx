@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select, CurrencyInput } from './ui'
@@ -10,9 +10,12 @@ interface TransactionModalProps {
   isOpen: boolean
   onClose: () => void
   editingLancamento?: Lancamento
+  // Dados iniciais ao criar (ex.: vindos da "linha rápida" da tabela, ao
+  // clicar em "+ opções" para abrir o formulário completo já preenchido)
+  initialData?: Partial<CreateLancamentoInput>
 }
 
-export function TransactionModal({ isOpen, onClose, editingLancamento }: TransactionModalProps) {
+export function TransactionModal({ isOpen, onClose, editingLancamento, initialData }: TransactionModalProps) {
   const categorias = useCategoriasStore((state) => state.categorias)
   // Select raw cartoes array and derive active cards with memo to keep identity stable
   const cartoes = useCartoesStore((state) => state.cartoes)
@@ -101,6 +104,13 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
     }
   }, [isOpen, fetchContas])
 
+  // Mantém os dados iniciais sem fazer o efeito de populate reexecutar a cada
+  // render (initialData costuma ser um objeto recriado pelo componente pai)
+  const initialDataRef = useRef(initialData)
+  useEffect(() => {
+    initialDataRef.current = initialData
+  }, [initialData])
+
   // Effect to populate form when editing
   useEffect(() => {
     if (editingLancamento && isOpen) {
@@ -118,6 +128,10 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         status: editingLancamento.status || 'pago',
       })
       setParcelasInput(String(editingLancamento.parcela_total || 1))
+    } else if (isOpen && !editingLancamento && initialDataRef.current) {
+      // Abrindo para criar com dados pré-preenchidos (ex.: "+ opções" da
+      // linha rápida) — mescla o que já foi digitado com os defaults
+      setFormData((prev) => ({ ...prev, ...initialDataRef.current }))
     } else if (!isOpen) {
       // Reset form when closing
       setFormData({
