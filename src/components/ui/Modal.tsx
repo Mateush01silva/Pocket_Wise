@@ -25,6 +25,18 @@ export function Modal({
   const dialogRef = useRef<HTMLDivElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
 
+  // Mantém a referência mais recente de onClose sem que ela faça parte das
+  // dependências do efeito de foco. O onClose costuma ser recriado a cada
+  // render do componente pai (ex.: um handleClose inline), então se ele
+  // estivesse nas deps o efeito reexecutaria a cada tecla digitada — o
+  // cleanup chamava previousFocusRef.current.focus() e o efeito recolocava o
+  // foco no primeiro campo, "roubando" o foco do campo que o usuário estava
+  // digitando (bug do foco que saía letra por letra).
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   // Esc fecha; Tab fica preso dentro do diálogo (focus trap); ao fechar, o
   // foco volta para o elemento que abriu o modal — sem isso, leitores de
   // tela e navegação por teclado "escapam" para a página atrás do overlay
@@ -35,7 +47,7 @@ export function Modal({
 
     const handleKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose()
+        onCloseRef.current()
         return
       }
 
@@ -71,7 +83,7 @@ export function Modal({
       document.body.style.overflow = 'unset'
       previousFocusRef.current?.focus()
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   if (!isOpen) return null
 

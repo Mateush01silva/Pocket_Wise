@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select, CurrencyInput } from './ui'
@@ -10,9 +10,12 @@ interface TransactionModalProps {
   isOpen: boolean
   onClose: () => void
   editingLancamento?: Lancamento
+  // Dados iniciais ao criar (ex.: vindos da "linha rápida" da tabela, ao
+  // clicar em "+ opções" para abrir o formulário completo já preenchido)
+  initialData?: Partial<CreateLancamentoInput>
 }
 
-export function TransactionModal({ isOpen, onClose, editingLancamento }: TransactionModalProps) {
+export function TransactionModal({ isOpen, onClose, editingLancamento, initialData }: TransactionModalProps) {
   const categorias = useCategoriasStore((state) => state.categorias)
   // Select raw cartoes array and derive active cards with memo to keep identity stable
   const cartoes = useCartoesStore((state) => state.cartoes)
@@ -42,17 +45,20 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
   const [mesesRecorrencia, setMesesRecorrencia] = useState<number>(3)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Filtrar categorias principais por tipo
+  // Filtrar categorias principais por tipo (ordenadas alfabeticamente para
+  // facilitar encontrar a categoria no momento do lançamento)
   const categoriasPrincipais = useMemo(() => {
-    return categorias.filter(
-      (c) => !c.categoria_pai_id && c.tipo === formData.tipo
-    )
+    return categorias
+      .filter((c) => !c.categoria_pai_id && c.tipo === formData.tipo)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
   }, [categorias, formData.tipo])
 
-  // Filtrar subcategorias da categoria selecionada
+  // Filtrar subcategorias da categoria selecionada (também em ordem alfabética)
   const subcategorias = useMemo(() => {
     if (!formData.categoria_id) return []
-    return categorias.filter((c) => c.categoria_pai_id === formData.categoria_id)
+    return categorias
+      .filter((c) => c.categoria_pai_id === formData.categoria_id)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
   }, [categorias, formData.categoria_id])
 
   // Convert categorias to options format (memoized)
@@ -73,6 +79,17 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
     }))
   }, [cartoes])
 
+  // Portadores (titular + adicionais) do cartão selecionado, para registrar
+  // quem realizou a compra. Só aparece quando o cartão tem portadores.
+  const portadorOptions = useMemo(() => {
+    if (!formData.cartao_id) return []
+    const cartao = cartoes.find((c) => c.id === formData.cartao_id)
+    return (cartao?.portadores ?? []).map((p) => ({
+      value: p.id,
+      label: p.nome,
+    }))
+  }, [cartoes, formData.cartao_id])
+
   const contaOptions = useMemo(() => {
     return contas.filter(c => c.ativo).map((conta) => ({
       value: conta.id,
@@ -87,6 +104,13 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
     }
   }, [isOpen, fetchContas])
 
+  // Mantém os dados iniciais sem fazer o efeito de populate reexecutar a cada
+  // render (initialData costuma ser um objeto recriado pelo componente pai)
+  const initialDataRef = useRef(initialData)
+  useEffect(() => {
+    initialDataRef.current = initialData
+  }, [initialData])
+
   // Effect to populate form when editing
   useEffect(() => {
     if (editingLancamento && isOpen) {
@@ -98,11 +122,16 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         data: editingLancamento.data,
         forma_pagamento: editingLancamento.forma_pagamento,
         cartao_id: editingLancamento.cartao_id || undefined,
+        portador_id: editingLancamento.portador_id || undefined,
         conta_id: editingLancamento.conta_id || undefined,
         observacao: editingLancamento.observacao || undefined,
         status: editingLancamento.status || 'pago',
       })
       setParcelasInput(String(editingLancamento.parcela_total || 1))
+    } else if (isOpen && !editingLancamento && initialDataRef.current) {
+      // Abrindo para criar com dados pré-preenchidos (ex.: "+ opções" da
+      // linha rápida) — mescla o que já foi digitado com os defaults
+      setFormData((prev) => ({ ...prev, ...initialDataRef.current }))
     } else if (!isOpen) {
       // Reset form when closing
       setFormData({
@@ -171,6 +200,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
             data: formData.data!,
             forma_pagamento: formData.forma_pagamento as any,
             cartao_id: formData.cartao_id,
+            portador_id: formData.portador_id,
             conta_id: formData.conta_id,
             observacao: formData.observacao,
             status: formData.status || 'projetado',
@@ -189,6 +219,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
             data: formData.data!,
             forma_pagamento: formData.forma_pagamento as any,
             cartao_id: formData.cartao_id,
+            portador_id: formData.portador_id,
             conta_id: formData.conta_id,
             observacao: formData.observacao,
             status: formData.status || 'projetado',
@@ -204,6 +235,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
             data: formData.data!,
             forma_pagamento: formData.forma_pagamento as any,
             cartao_id: formData.cartao_id,
+            portador_id: formData.portador_id,
             conta_id: formData.conta_id,
             observacao: formData.observacao,
             status: formData.status,
@@ -220,6 +252,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
           data: formData.data!,
           forma_pagamento: formData.forma_pagamento as any,
           cartao_id: formData.cartao_id,
+          portador_id: formData.portador_id,
           conta_id: formData.conta_id,
           observacao: formData.observacao,
           status: formData.status || 'pago',
@@ -408,6 +441,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
               ...formData,
               forma_pagamento: novaForma,
               cartao_id: undefined,
+              portador_id: undefined,
               conta_id: undefined,
               // Auto-setar status para 'projetado' quando for crédito
               status: novaForma === 'credito' ? 'projetado' : formData.status,
@@ -465,11 +499,28 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
               label="Cartão de Crédito *"
               value={formData.cartao_id || ''}
               onChange={(e) =>
-                setFormData({ ...formData, cartao_id: e.target.value || undefined })
+                setFormData({
+                  ...formData,
+                  cartao_id: e.target.value || undefined,
+                  portador_id: undefined, // troca de cartão zera o portador
+                })
               }
               options={cartaoOptions}
               required
             />
+
+            {/* Quem usou o cartão (portadores: titular + adicionais) */}
+            {formData.cartao_id && portadorOptions.length > 0 && (
+              <Select
+                label="Quem usou o cartão"
+                value={formData.portador_id || ''}
+                onChange={(e) =>
+                  setFormData({ ...formData, portador_id: e.target.value || undefined })
+                }
+                options={portadorOptions}
+                helperText="Selecione o portador (titular ou adicional) que fez a compra"
+              />
+            )}
 
             {/* Parcelas */}
             {formData.cartao_id && (
