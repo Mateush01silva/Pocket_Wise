@@ -42,17 +42,20 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
   const [mesesRecorrencia, setMesesRecorrencia] = useState<number>(3)
   const [isLoading, setIsLoading] = useState(false)
 
-  // Filtrar categorias principais por tipo
+  // Filtrar categorias principais por tipo (ordenadas alfabeticamente para
+  // facilitar encontrar a categoria no momento do lançamento)
   const categoriasPrincipais = useMemo(() => {
-    return categorias.filter(
-      (c) => !c.categoria_pai_id && c.tipo === formData.tipo
-    )
+    return categorias
+      .filter((c) => !c.categoria_pai_id && c.tipo === formData.tipo)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
   }, [categorias, formData.tipo])
 
-  // Filtrar subcategorias da categoria selecionada
+  // Filtrar subcategorias da categoria selecionada (também em ordem alfabética)
   const subcategorias = useMemo(() => {
     if (!formData.categoria_id) return []
-    return categorias.filter((c) => c.categoria_pai_id === formData.categoria_id)
+    return categorias
+      .filter((c) => c.categoria_pai_id === formData.categoria_id)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
   }, [categorias, formData.categoria_id])
 
   // Convert categorias to options format (memoized)
