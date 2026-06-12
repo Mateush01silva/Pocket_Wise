@@ -76,6 +76,17 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
     }))
   }, [cartoes])
 
+  // Portadores (titular + adicionais) do cartão selecionado, para registrar
+  // quem realizou a compra. Só aparece quando o cartão tem portadores.
+  const portadorOptions = useMemo(() => {
+    if (!formData.cartao_id) return []
+    const cartao = cartoes.find((c) => c.id === formData.cartao_id)
+    return (cartao?.portadores ?? []).map((p) => ({
+      value: p.id,
+      label: p.nome,
+    }))
+  }, [cartoes, formData.cartao_id])
+
   const contaOptions = useMemo(() => {
     return contas.filter(c => c.ativo).map((conta) => ({
       value: conta.id,
@@ -101,6 +112,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
         data: editingLancamento.data,
         forma_pagamento: editingLancamento.forma_pagamento,
         cartao_id: editingLancamento.cartao_id || undefined,
+        portador_id: editingLancamento.portador_id || undefined,
         conta_id: editingLancamento.conta_id || undefined,
         observacao: editingLancamento.observacao || undefined,
         status: editingLancamento.status || 'pago',
@@ -174,6 +186,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
             data: formData.data!,
             forma_pagamento: formData.forma_pagamento as any,
             cartao_id: formData.cartao_id,
+            portador_id: formData.portador_id,
             conta_id: formData.conta_id,
             observacao: formData.observacao,
             status: formData.status || 'projetado',
@@ -192,6 +205,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
             data: formData.data!,
             forma_pagamento: formData.forma_pagamento as any,
             cartao_id: formData.cartao_id,
+            portador_id: formData.portador_id,
             conta_id: formData.conta_id,
             observacao: formData.observacao,
             status: formData.status || 'projetado',
@@ -207,6 +221,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
             data: formData.data!,
             forma_pagamento: formData.forma_pagamento as any,
             cartao_id: formData.cartao_id,
+            portador_id: formData.portador_id,
             conta_id: formData.conta_id,
             observacao: formData.observacao,
             status: formData.status,
@@ -223,6 +238,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
           data: formData.data!,
           forma_pagamento: formData.forma_pagamento as any,
           cartao_id: formData.cartao_id,
+          portador_id: formData.portador_id,
           conta_id: formData.conta_id,
           observacao: formData.observacao,
           status: formData.status || 'pago',
@@ -411,6 +427,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
               ...formData,
               forma_pagamento: novaForma,
               cartao_id: undefined,
+              portador_id: undefined,
               conta_id: undefined,
               // Auto-setar status para 'projetado' quando for crédito
               status: novaForma === 'credito' ? 'projetado' : formData.status,
@@ -468,11 +485,28 @@ export function TransactionModal({ isOpen, onClose, editingLancamento }: Transac
               label="Cartão de Crédito *"
               value={formData.cartao_id || ''}
               onChange={(e) =>
-                setFormData({ ...formData, cartao_id: e.target.value || undefined })
+                setFormData({
+                  ...formData,
+                  cartao_id: e.target.value || undefined,
+                  portador_id: undefined, // troca de cartão zera o portador
+                })
               }
               options={cartaoOptions}
               required
             />
+
+            {/* Quem usou o cartão (portadores: titular + adicionais) */}
+            {formData.cartao_id && portadorOptions.length > 0 && (
+              <Select
+                label="Quem usou o cartão"
+                value={formData.portador_id || ''}
+                onChange={(e) =>
+                  setFormData({ ...formData, portador_id: e.target.value || undefined })
+                }
+                options={portadorOptions}
+                helperText="Selecione o portador (titular ou adicional) que fez a compra"
+              />
+            )}
 
             {/* Parcelas */}
             {formData.cartao_id && (

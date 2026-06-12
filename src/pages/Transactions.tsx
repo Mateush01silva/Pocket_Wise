@@ -163,6 +163,14 @@ export function Transactions() {
     return cartao?.nome || 'Cartão desconhecido'
   }, [cartoes])
 
+  // Get portador (quem usou o cartão) name
+  const getPortadorName = useCallback((cartaoId: string | null, portadorId: string | null) => {
+    if (!cartaoId || !portadorId) return ''
+    const cartao = cartoes.find(c => c.id === cartaoId)
+    const portador = (cartao?.portadores ?? []).find(p => p.id === portadorId)
+    return portador?.nome || ''
+  }, [cartoes])
+
   // Get member name by user_id
   const getMemberName = useCallback((userId: string | null) => {
     if (!userId) return 'Desconhecido'
@@ -310,9 +318,10 @@ export function Transactions() {
         const valorStr = lancamento.valor.toString()
         const valorFormatado = formatCurrency(lancamento.valor).toLowerCase()
         const memberName = getMemberName(lancamento.criado_por).toLowerCase()
+        const portadorName = getPortadorName(lancamento.cartao_id, lancamento.portador_id).toLowerCase()
 
-        // Busca por texto (categoria, subcategoria, observação, responsável) ou valor
-        const matchesText = catName.includes(search) || subCatName.includes(search) || obs.includes(search) || memberName.includes(search)
+        // Busca por texto (categoria, subcategoria, observação, responsável, portador) ou valor
+        const matchesText = catName.includes(search) || subCatName.includes(search) || obs.includes(search) || memberName.includes(search) || portadorName.includes(search)
         const matchesValue = valorStr.includes(search.replace(',', '.')) ||
                            valorFormatado.includes(search) ||
                            search.replace(/[^\d,.-]/g, '').replace(',', '.') === valorStr
@@ -352,7 +361,7 @@ export function Transactions() {
     })
 
     return result
-  }, [lancamentos, filterTipo, filterStatus, filterCategoria, filterSubcategoria, filterFormaPagamento, filterCartao, filterCriadoPor, periodFilter, valorMin, valorMax, searchTerm, sortField, sortOrder, getCategoryName, getMemberName, filtrarPorDataFatura])
+  }, [lancamentos, filterTipo, filterStatus, filterCategoria, filterSubcategoria, filterFormaPagamento, filterCartao, filterCriadoPor, periodFilter, valorMin, valorMax, searchTerm, sortField, sortOrder, getCategoryName, getMemberName, getPortadorName, filtrarPorDataFatura])
 
   // Limpar filtros avançados
   const clearAdvancedFilters = useCallback(() => {
@@ -972,6 +981,12 @@ export function Transactions() {
                         <p className="text-sm text-gray-300 hover:text-primary-400 transition-colors">
                           {getCardName(lancamento.cartao_id)}
                         </p>
+                        {getPortadorName(lancamento.cartao_id, lancamento.portador_id) && (
+                          <p className="text-xs text-secondary-400 mt-1 flex items-center gap-1">
+                            <User size={11} />
+                            {getPortadorName(lancamento.cartao_id, lancamento.portador_id)}
+                          </p>
+                        )}
                       </td>
                       <td className="p-4 text-right">
                         <p className={`text-sm font-semibold hover:opacity-80 transition-opacity ${

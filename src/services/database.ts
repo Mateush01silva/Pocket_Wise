@@ -183,6 +183,7 @@ export const lancamentosService = {
         subcategoria_id: input.subcategoria_id || null,
         observacao: input.observacao || null,
         cartao_id: input.cartao_id || null,
+        portador_id: input.portador_id || null,
         conta_id: input.conta_id || null,
         parcela_atual: input.parcela_atual || null,
         parcela_total: input.parcela_total || null,
@@ -281,6 +282,7 @@ export const lancamentosService = {
         subcategoria_id: input.subcategoria_id || null,
         observacao: input.observacao || null,
         cartao_id: input.cartao_id || null,
+        portador_id: input.portador_id || null,
         conta_id: input.conta_id || null,
         parcela_atual: input.parcela_atual || null,
         parcela_total: input.parcela_total || null,
@@ -412,6 +414,7 @@ export const cartoesService = {
         limite: input.limite || null,
         cor: input.cor || '#6366f1',
         ativo: true,
+        portadores: input.portadores || [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }
