@@ -5,6 +5,8 @@ import { format, startOfMonth, parseISO, isBefore } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { confirmDialog } from '../components/ui/ConfirmDialog'
+import { toast } from 'sonner'
 import { Select } from '../components/ui/Select'
 import { EnvelopeCard } from '../components/EnvelopeCard'
 import { CategoryTransactionsModal } from '../components/CategoryTransactionsModal'
@@ -140,7 +142,7 @@ export function Envelopes() {
       }
     } catch (error) {
       console.error('Erro ao criar orçamento:', error)
-      alert('Erro ao criar orçamento. Tente novamente.')
+      toast.error('Não foi possível criar o orçamento. Verifique sua conexão e tente novamente.')
     } finally {
       if (isMounted.current) setIsCreating(false)
     }
@@ -150,23 +152,23 @@ export function Envelopes() {
     if (!orcamentoAtual) return
 
     const mesFormatado = format(parseISO(mesAtual), 'MMMM yyyy', { locale: ptBR })
-    const confirmacao = confirm(
-      `Tem certeza que deseja excluir o orçamento de ${mesFormatado}?\n\n` +
-      'Esta ação é IRREVERSÍVEL e irá apagar:\n' +
-      '• Todas as categorias orçadas\n' +
-      '• Todos os envelopes digitais\n\n' +
-      'As transações não serão afetadas.'
-    )
+    const confirmacao = await confirmDialog({
+      title: `Excluir o orçamento de ${mesFormatado}?`,
+      message:
+        'Esta ação é irreversível e irá apagar todas as categorias orçadas e os envelopes digitais.\nAs transações não serão afetadas.',
+      confirmLabel: 'Excluir',
+      danger: true,
+    })
 
     if (!confirmacao) return
 
     try {
       await deleteOrcamento(orcamentoAtual.id)
       setOrcamentoAtual(null)
-      alert(`Orçamento de ${mesFormatado} excluído com sucesso!`)
+      toast.success(`Orçamento de ${mesFormatado} excluído com sucesso!`)
     } catch (error) {
       console.error('Erro ao deletar orçamento:', error)
-      alert('Erro ao excluir orçamento. Tente novamente.')
+      toast.error('Não foi possível excluir o orçamento. Verifique sua conexão e tente novamente.')
     }
   }
 

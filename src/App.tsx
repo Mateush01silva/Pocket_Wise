@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Layout } from './components/layout/Layout'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { ConfirmDialogHost } from './components/ui'
 import { PrivateRoute } from './components/PrivateRoute'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import {
@@ -21,7 +22,6 @@ import {
   BankAccounts,
   CashFlow,
   ComparativeReports,
-  Budgets,
   Envelopes,
   Subscriptions,
   Family,
@@ -37,7 +37,7 @@ import { Assinatura } from './pages/Assinatura'
 import { AcceptInvite } from './pages/AcceptInvite'
 import { ConsultorClientes } from './pages/ConsultorClientes'
 import { AdminRoute } from './components/AdminRoute'
-import { useCategoriasStore, useTransacoesStore, useCartoesStore, useAssinaturasStore } from './store'
+import { useCategoriasStore, useTransacoesStore, useCartoesStore, useAssinaturasStore, useContasBancariasStore } from './store'
 import { useFamilyStore } from './store/useFamilyStore'
 import { useCaixinhasStore } from './store/useCaixinhasStore'
 import { isSupabaseConfigured } from './lib/supabase'
@@ -196,11 +196,16 @@ function AppRoutes() {
   const refreshData = useCallback(async () => {
     if (!user) return
     const now = Date.now()
-    const COOLDOWN_MS = 30_000 // no máximo 1 refresh a cada 30 segundos
+    const COOLDOWN_MS = 10_000 // no máximo 1 refresh a cada 10 segundos
     if (now - lastRefreshRef.current < COOLDOWN_MS) return
     lastRefreshRef.current = now
     try {
-      await fetchLancamentos()
+      // Transações e saldos de contas: o que o outro membro da família mais
+      // provavelmente alterou enquanto a aba estava em segundo plano
+      await Promise.all([
+        fetchLancamentos(),
+        useContasBancariasStore.getState().fetchContas(),
+      ])
     } catch {
       // silencioso — não interromper UX por falha de background refresh
     }
@@ -243,7 +248,7 @@ function AppRoutes() {
               <Route path="/cash-flow" element={<CashFlow />} />
               <Route path="/reports" element={<ComparativeReports />} />
               <Route path="/categories" element={<Categories />} />
-              <Route path="/budgets" element={<Budgets />} />
+              <Route path="/budgets" element={<Navigate to="/envelopes" replace />} />
               <Route path="/envelopes" element={<Envelopes />} />
               <Route path="/projections" element={<Navigate to="/credit-cards" replace />} />
               <Route path="/subscriptions" element={<Subscriptions />} />
@@ -253,6 +258,7 @@ function AppRoutes() {
             </Routes>
           </Layout>
           <Toaster position="top-right" theme="dark" richColors />
+          <ConfirmDialogHost />
         </BrowserRouter>
       </ErrorBoundary>
     )
@@ -481,6 +487,7 @@ function AppRoutes() {
           <Route path="/settings" element={<Navigate to="/app/configuracoes" replace />} />
         </Routes>
         <Toaster position="top-right" theme="dark" richColors />
+        <ConfirmDialogHost />
       </BrowserRouter>
     </ErrorBoundary>
   )

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { toast } from 'sonner'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select } from './ui'
 import { useCategoriasStore } from '../store'
@@ -135,13 +136,13 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
     try {
       // Validações
       if (!formData.nome?.trim()) {
-        alert('Por favor, informe o nome da categoria')
+        toast.error('Por favor, informe o nome da categoria')
         setIsLoading(false)
         return
       }
 
       if (!formData.tipo) {
-        alert('Por favor, selecione o tipo da categoria')
+        toast.error('Por favor, selecione o tipo da categoria')
         setIsLoading(false)
         return
       }
@@ -187,7 +188,7 @@ export function CategoryModal({ isOpen, onClose, categoria, categoriaPaiIdInicia
       onClose()
     } catch (error) {
       console.error('Erro ao salvar categoria:', error)
-      alert('Erro ao salvar categoria. Tente novamente.')
+      toast.error('Erro ao salvar categoria. Tente novamente.')
     } finally {
       setIsLoading(false)
     }

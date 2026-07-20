@@ -6,6 +6,7 @@ import { useCaixinhasStore } from '../store/useCaixinhasStore'
 import { useContasBancariasStore } from '../store/useContasBancariasStore'
 import { formatCurrency } from '../utils/currency'
 import { toast } from 'sonner'
+import { confirmDialog } from './ui/ConfirmDialog'
 import type { CaixinhaComDetalhes } from '../types'
 
 interface AtualizarCotacaoModalProps {
@@ -78,7 +79,12 @@ export function AtualizarCotacaoModal({ isOpen, onClose, caixinha }: AtualizarCo
   }
 
   const handleReverter = async (valorParaReverter: number) => {
-    if (!confirm(`Reverter para ${formatCurrency(valorParaReverter)}? O saldo da conta vinculada também será ajustado.`)) return
+    const ok = await confirmDialog({
+      title: `Reverter para ${formatCurrency(valorParaReverter)}?`,
+      message: 'O saldo da conta vinculada também será ajustado.',
+      confirmLabel: 'Reverter',
+    })
+    if (!ok) return
     setIsReverting(true)
     try {
       const success = await reverterCotacao(caixinha.id, valorParaReverter)

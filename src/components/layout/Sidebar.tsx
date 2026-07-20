@@ -333,7 +333,9 @@ export function Sidebar({ isOpen, onClose, isCollapsed = false, onToggleCollapse
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-200 truncate">{userName}</p>
-              <p className="text-xs text-gray-500 truncate">{planLabel}</p>
+              {!isConsultor && (
+                <p className="text-xs text-gray-500 truncate">{planLabel}</p>
+              )}
             </div>
           )}
         </div>

@@ -3,6 +3,10 @@ import { ChevronDown, Home, Users, Check, Loader2 } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
+import { useCategoriasStore, useTransacoesStore, useCartoesStore, useContasBancariasStore, useAssinaturasStore } from '../../store'
+import { useFamilyStore } from '../../store/useFamilyStore'
+import { useCaixinhasStore } from '../../store/useCaixinhasStore'
+import { useOrcamentosStore } from '../../store/useOrcamentosStore'
 
 export function FamilySwitcher() {
   const { userFamilies, activeFamilyId, personalFamilyId, switchFamily, isPersonalSubValid } = useAuth()
@@ -30,11 +34,31 @@ export function FamilySwitcher() {
     try {
       const result = await switchFamily(familyId)
       if (result.success) {
-        // Recarregar a página para que todos os stores busquem dados da nova família
-        window.location.reload()
+        // Recarregar os stores da nova família SEM window.location.reload():
+        // o reload completo descartava formulários em andamento e qualquer
+        // estado de navegação do usuário.
+        useFamilyStore.getState().reset()
+        await Promise.all([
+          useCategoriasStore.getState().fetchCategorias(),
+          useTransacoesStore.getState().fetchLancamentos(),
+          useCartoesStore.getState().fetchCartoes(),
+          useContasBancariasStore.getState().fetchContas(),
+          useFamilyStore.getState().initialize(),
+          useAssinaturasStore.getState().initialize(),
+          // initialize() destes stores tem guarda "já inicializado" — usar os
+          // fetches diretos para forçar os dados da nova família
+          useCaixinhasStore.getState().fetchCaixinhas(),
+          useCaixinhasStore.getState().fetchSummary(),
+          useOrcamentosStore.getState().fetchOrcamentos(),
+        ])
+        toast.success('Família trocada com sucesso')
       } else {
         toast.error(result.error ?? 'Erro ao trocar de família')
       }
+    } catch (error) {
+      console.error('Erro ao recarregar dados da nova família:', error)
+      // Fallback seguro: garante consistência mesmo se algum store falhar
+      window.location.reload()
     } finally {
       setSwitching(false)
     }

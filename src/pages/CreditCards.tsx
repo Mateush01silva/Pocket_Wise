@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { confirmDialog } from '../components/ui/ConfirmDialog'
 import { usePlan } from '../hooks/usePlan'
 import {
   Plus,
@@ -15,7 +16,7 @@ import {
   Target,
   FileSearch,
 } from 'lucide-react'
-import { format, parseISO, addMonths, startOfMonth } from 'date-fns'
+import { format, addMonths, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useCartoesStore, useTransacoesStore, useCategoriasStore } from '../store'
 import { usePermissions } from '../hooks/usePermissions'
@@ -27,70 +28,31 @@ import { formatCurrency } from '../utils/currency'
 import { LearningTooltip } from '../components/ui/LearningTooltip'
 import { learningContent } from '../lib/learningContent'
 import type { Cartao, Lancamento } from '../types'
+import {
+  calcularFaturaAtual,
+  getMesFaturaLancamento,
+  isFaturaFechada,
+  somarFatura,
+  type CicloCartao,
+} from '../lib/faturaUtils'
 
 /**
- * Calcula o mês da fatura baseado na data da compra e dia de fechamento
- *
- * Exemplo com fechamento dia 13:
- * - Compra em 10/jan (dia 10 <= 13) → Fatura de janeiro
- * - Compra em 15/jan (dia 15 > 13) → Fatura de fevereiro
- */
-function calcularMesFatura(dataCompra: string, diaFechamento: number): Date {
-  const data = parseISO(dataCompra)
-  const diaCompra = data.getDate()
-
-  // Se comprou depois do fechamento, vai para o próximo mês
-  if (diaCompra > diaFechamento) {
-    return addMonths(startOfMonth(data), 1)
-  }
-
-  return startOfMonth(data)
-}
-
-/**
- * Calcula qual é a fatura atual do cartão (ciclo de faturamento em aberto)
- *
- * Se hoje é 20/jan e fechamento é dia 13:
- * - A fatura de janeiro já fechou (13/jan)
- * - A fatura atual é de fevereiro (compras de 14/jan a 13/fev)
- *
- * Se hoje é 10/jan e fechamento é dia 13:
- * - A fatura de janeiro ainda não fechou
- * - A fatura atual é de janeiro (compras de 14/dez a 13/jan)
- */
-function calcularFaturaAtual(diaFechamento: number): Date {
-  const hoje = new Date()
-  const diaHoje = hoje.getDate()
-
-  // Se já passou do fechamento, a fatura atual é do próximo mês
-  if (diaHoje > diaFechamento) {
-    return addMonths(startOfMonth(hoje), 1)
-  }
-
-  return startOfMonth(hoje)
-}
-
-/**
- * Filtra transações que pertencem à fatura atual
+ * Filtra transações que pertencem à fatura atual (ciclo em aberto).
+ * Lógica de ciclo centralizada em lib/faturaUtils.
  */
 function getTransacoesFaturaAtual(
   lancamentos: Lancamento[],
   cartaoId: string,
-  diaFechamento: number
+  cartao: CicloCartao
 ): Lancamento[] {
-  const faturaAtual = calcularFaturaAtual(diaFechamento)
-  const faturaAtualTime = faturaAtual.getTime()
+  const faturaAtualTime = calcularFaturaAtual(cartao).getTime()
 
   return lancamentos.filter((l) => {
     if (l.cartao_id !== cartaoId) return false
     if (l.forma_pagamento !== 'credito') return false
     if (l.status === 'pago') return false
 
-    // Para parcelas com data_vencimento_fatura, usar esse campo
-    const mesFatura = l.data_vencimento_fatura
-      ? startOfMonth(parseISO(l.data_vencimento_fatura))
-      : calcularMesFatura(l.data, diaFechamento)
-    return mesFatura.getTime() === faturaAtualTime
+    return getMesFaturaLancamento(l, cartao).getTime() === faturaAtualTime
   })
 }
 
@@ -101,8 +63,7 @@ function getTransacoesFaturaAtual(
 function getFaturaFechadaPendente(
   lancamentos: Lancamento[],
   cartaoId: string,
-  diaFechamento: number,
-  diaVencimento: number
+  cartao: CicloCartao
 ): {
   mesFatura: Date
   transacoes: Lancamento[]
@@ -123,10 +84,7 @@ function getFaturaFechadaPendente(
   const faturasPorMes = new Map<number, Lancamento[]>()
 
   todasTransacoes.forEach((t) => {
-    const mesFatura = t.data_vencimento_fatura
-      ? startOfMonth(parseISO(t.data_vencimento_fatura))
-      : calcularMesFatura(t.data, diaFechamento)
-    const key = mesFatura.getTime()
+    const key = getMesFaturaLancamento(t, cartao).getTime()
     if (!faturasPorMes.has(key)) {
       faturasPorMes.set(key, [])
     }
@@ -143,20 +101,21 @@ function getFaturaFechadaPendente(
 
   faturasPorMes.forEach((transacoes, timestamp) => {
     const mesFatura = new Date(timestamp)
-    const mesFaturaMonth = mesFatura.getMonth()
-    const mesFaturaYear = mesFatura.getFullYear()
 
-    const dataFechamento = new Date(mesFaturaYear, mesFaturaMonth, diaFechamento)
-    const faturaFechou = hoje > dataFechamento
+    // Fechada somente APÓS o dia do fechamento terminar — no próprio dia a
+    // fatura ainda recebe compras (mesmo critério da associação de transações)
+    const faturaFechou = isFaturaFechada(mesFatura, cartao, hoje)
     const temNaoPago = transacoes.some((t) => t.status !== 'pago')
 
     if (faturaFechou && temNaoPago) {
-      const dataVencimento = new Date(mesFaturaYear, mesFaturaMonth, diaVencimento)
+      // O mês da fatura é o mês do vencimento
+      const dataVencimento = new Date(mesFatura.getFullYear(), mesFatura.getMonth(), cartao.dia_vencimento)
 
       faturasFechadasPendentes.push({
         mesFatura,
         transacoes,
-        total: transacoes.reduce((sum, t) => sum + t.valor, 0),
+        // Receitas no cartão (estorno/cashback) abatem o total da fatura
+        total: somarFatura(transacoes),
         dataVencimento,
       })
     }
@@ -208,23 +167,15 @@ export function CreditCards() {
           l.status === 'projetado'
       )
 
-      const totalUsandoLimite = comprasUsandoLimite.reduce((sum, f) => sum + f.valor, 0)
+      // Receitas no cartão (estorno/cashback) liberam limite e abatem fatura
+      const totalUsandoLimite = somarFatura(comprasUsandoLimite)
 
       // Fatura em aberto (ciclo atual - ainda não fechou)
-      const transacoesFaturaEmAberto = getTransacoesFaturaAtual(
-        lancamentos,
-        cartao.id,
-        cartao.dia_fechamento
-      )
-      const totalFaturaEmAberto = transacoesFaturaEmAberto.reduce((sum, f) => sum + f.valor, 0)
+      const transacoesFaturaEmAberto = getTransacoesFaturaAtual(lancamentos, cartao.id, cartao)
+      const totalFaturaEmAberto = somarFatura(transacoesFaturaEmAberto)
 
       // Fatura fechada pendente de pagamento (já fechou, precisa pagar)
-      const faturaFechadaPendente = getFaturaFechadaPendente(
-        lancamentos,
-        cartao.id,
-        cartao.dia_fechamento,
-        cartao.dia_vencimento
-      )
+      const faturaFechadaPendente = getFaturaFechadaPendente(lancamentos, cartao.id, cartao)
 
       const parcelasPendentes = lancamentos.filter(
         (l) =>
@@ -355,15 +306,20 @@ export function CreditCards() {
   }
 
   const handleDelete = async (cartao: Cartao) => {
-    const confirmMessage = `Tem certeza que deseja excluir o cartão "${cartao.nome}"?\n\nEsta ação não pode ser desfeita.`
+    const ok = await confirmDialog({
+      title: `Excluir o cartão "${cartao.nome}"?`,
+      message: 'Esta ação não pode ser desfeita.',
+      confirmLabel: 'Excluir',
+      danger: true,
+    })
+    if (!ok) return
 
-    if (window.confirm(confirmMessage)) {
-      try {
-        await deleteCartao(cartao.id)
-      } catch (error) {
-        console.error('Erro ao deletar cartão:', error)
-        alert('Erro ao deletar cartão. Verifique se não há lançamentos associados.')
-      }
+    try {
+      await deleteCartao(cartao.id)
+      toast.success('Cartão excluído')
+    } catch (error) {
+      console.error('Erro ao deletar cartão:', error)
+      toast.error('Não foi possível excluir o cartão. Verifique se não há lançamentos associados a ele.')
     }
   }
 
@@ -854,6 +810,7 @@ export function CreditCards() {
             transacoes={transacoesCartao}
             totalFatura={cartao.totalUsandoLimite}
             diaFechamento={cartao.dia_fechamento}
+            diaVencimento={cartao.dia_vencimento}
           />
         )
       })()}
@@ -881,10 +838,7 @@ export function CreditCards() {
         // independente do status (pagas incluídas — ex: parcelas já quitadas)
         const transacoesParaVerificar = lancamentos.filter((l) => {
           if (l.cartao_id !== cartao.id || l.forma_pagamento !== 'credito') return false
-          const mes = l.data_vencimento_fatura
-            ? startOfMonth(parseISO(l.data_vencimento_fatura)).getTime()
-            : calcularMesFatura(l.data, cartao.dia_fechamento).getTime()
-          return mes === mesFaturaTime
+          return getMesFaturaLancamento(l, cartao).getTime() === mesFaturaTime
         })
 
         return (
@@ -896,6 +850,7 @@ export function CreditCards() {
             transacoes={transacoesParaVerificar}
             totalFatura={total}
             diaFechamento={cartao.dia_fechamento}
+            diaVencimento={cartao.dia_vencimento}
             showVerificarButton={true}
           />
         )

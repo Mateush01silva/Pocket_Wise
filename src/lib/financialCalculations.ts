@@ -37,6 +37,11 @@ export function calcularSaldoReal(lancamentos: Lancamento[]): {
 
 /**
  * Calcula o saldo PROJETADO (todas as transações: pagas + pendentes + projetadas)
+ *
+ * Semântica de FLUXO DE CAIXA: lançamentos de cartão entram no mês de
+ * data_vencimento_fatura (quando o dinheiro efetivamente sai), diferente do
+ * envelope (getMesEnvelope em budgetCalculations.ts), que usa o mês em que o
+ * gasto foi comprometido. A diferença é intencional — não "unificar".
  */
 export function calcularSaldoProjetado(
   lancamentos: Lancamento[],

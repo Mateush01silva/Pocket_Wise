@@ -124,32 +124,36 @@ export const useContasBancariasStore = create<ContasBancariasStore>()(
         }
       },
 
-      // Atualizar saldo manualmente (para ajustes)
+      // Atualizar saldo manualmente (para ajustes/reconciliação).
+      // RPC atômica no banco — não usar updateConta com saldo_atual absoluto,
+      // pois o valor local pode estar desatualizado e sobrescrever os deltas
+      // aplicados pelos triggers de lançamentos.
       atualizarSaldo: async (id, novoSaldo) => {
-        await get().updateConta(id, { saldo_atual: novoSaldo })
+        set({ error: null })
+
+        const { error } = await db.contas.ajustarSaldo(id, novoSaldo)
+
+        if (error) {
+          set({ error: error.message })
+          throw error
+        }
+
+        await get().fetchContas()
       },
 
-      // Transferir entre contas
+      // Transferir entre contas — RPC atômica: validação de saldo e os dois
+      // deltas acontecem no servidor, na mesma transação.
       transferirEntreContas: async (contaOrigemId, contaDestinoId, valor) => {
-        const contaOrigem = get().getContaById(contaOrigemId)
-        const contaDestino = get().getContaById(contaDestinoId)
+        set({ error: null })
 
-        if (!contaOrigem || !contaDestino) {
-          throw new Error('Conta não encontrada')
+        const { error } = await db.contas.transferir(contaOrigemId, contaDestinoId, valor)
+
+        if (error) {
+          set({ error: error.message })
+          throw new Error(error.message)
         }
 
-        if (contaOrigem.saldo_atual < valor) {
-          throw new Error('Saldo insuficiente na conta de origem')
-        }
-
-        // Atualizar saldos
-        await get().updateConta(contaOrigemId, {
-          saldo_atual: contaOrigem.saldo_atual - valor,
-        })
-
-        await get().updateConta(contaDestinoId, {
-          saldo_atual: contaDestino.saldo_atual + valor,
-        })
+        await get().fetchContas()
       },
 
       // Queries

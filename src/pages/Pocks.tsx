@@ -294,7 +294,13 @@ export function Pocks() {
         feature="pocks"
         title="Pocks — Saúde Financeira"
         subtitle="Seu score de saúde financeira, atualizado todo mês"
-        requiredTier="planejador"
+        requiredTier="mestre"
+        benefits={[
+          'Score mensal de 0 a 100 baseado no seu comportamento real',
+          'Acompanhe sua evolução mês a mês com histórico de 6 meses',
+          'Streaks de meses consecutivos dentro do orçamento com bônus de pontos',
+          'Inclui acesso ao Posso Comprar? com IA e Assistente Financeiro',
+        ]}
       >
         <LoadingState />
       </FeaturePreview>
@@ -325,7 +331,7 @@ export function Pocks() {
           onClick={carregar}
           disabled={isLoading}
           className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-dark-800 transition-colors disabled:opacity-50"
-          title="Recalcular"
+          title="Recalcular" aria-label="Recalcular"
         >
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
         </button>

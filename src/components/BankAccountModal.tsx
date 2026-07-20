@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { Modal } from './ui/Modal'
 import { Button, Input, CurrencyInput } from './ui'
 import { useContasBancariasStore, useFamilyStore } from '../store'
@@ -45,8 +46,8 @@ const ICONES_DISPONIVEIS = ['💳', '🏦', '💰', '💵', '💸', '🪙', '�
 export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalProps) {
   const createConta = useContasBancariasStore((state) => state.createConta)
   const updateConta = useContasBancariasStore((state) => state.updateConta)
+  const atualizarSaldo = useContasBancariasStore((state) => state.atualizarSaldo)
   const familyId = useFamilyStore((state: any) => state.family?.id)
-
   const [formData, setFormData] = useState<Partial<CreateContaBancariaInput>>({
     nome: '',
     tipo: 'conta_corrente',
@@ -98,35 +99,35 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
     try {
       // Validações
       if (!formData.nome?.trim()) {
-        alert('Por favor, informe o nome da conta')
+        toast.error('Por favor, informe o nome da conta')
         setIsLoading(false)
         return
       }
 
       if (!formData.tipo) {
-        alert('Por favor, selecione o tipo da conta')
+        toast.error('Por favor, selecione o tipo da conta')
         setIsLoading(false)
         return
       }
 
       if (formData.saldo_inicial === undefined || formData.saldo_inicial < 0) {
-        alert('O saldo inicial não pode ser negativo')
+        toast.error('O saldo inicial não pode ser negativo')
         setIsLoading(false)
         return
       }
 
       if (!familyId) {
-        alert('Erro: Family ID não encontrado')
+        toast.error('Erro: Family ID não encontrado')
         setIsLoading(false)
         return
       }
 
       if (isEditMode && conta) {
-        // Atualizar conta existente
+        // Atualizar conta existente (sem saldo_atual: gravar saldo absoluto
+        // a partir do estado local sobrescreveria deltas dos triggers)
         await updateConta(conta.id, {
           nome: formData.nome,
           tipo: formData.tipo,
-          saldo_atual: formData.saldo_inicial, // Permite ajustar saldo atual
           cor: formData.cor,
           icone: formData.icone,
           ativo: formData.ativo ?? true,
@@ -134,7 +135,12 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
           agencia: formData.agencia || null,
           numero_conta: formData.numero_conta || null,
         })
-        alert('Conta atualizada com sucesso!')
+
+        // Só ajusta o saldo se o usuário realmente alterou o valor no form
+        if (formData.saldo_inicial !== undefined && formData.saldo_inicial !== conta.saldo_atual) {
+          await atualizarSaldo(conta.id, formData.saldo_inicial)
+        }
+        toast.success('Conta atualizada com sucesso!')
       } else {
         // Criar nova conta
         const newConta = await createConta({
@@ -151,7 +157,7 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
         })
 
         if (newConta) {
-          alert('Conta criada com sucesso!')
+          toast.success('Conta criada com sucesso!')
         } else {
           throw new Error('Erro ao criar conta')
         }
@@ -160,7 +166,7 @@ export function BankAccountModal({ isOpen, onClose, conta }: BankAccountModalPro
       onClose()
     } catch (error) {
       console.error('Erro ao salvar conta:', error)
-      alert('Erro ao salvar conta. Tente novamente.')
+      toast.error('Erro ao salvar conta. Tente novamente.')
     } finally {
       setIsLoading(false)
     }

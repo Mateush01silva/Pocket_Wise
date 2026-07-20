@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { confirmDialog } from '../components/ui/ConfirmDialog'
 import { usePlan } from '../hooks/usePlan'
 import {
   Plus,
@@ -94,16 +95,22 @@ export function BankAccounts() {
   }
 
   const handleDelete = async (conta: ContaBancaria) => {
-    const confirmMessage = `Tem certeza que deseja ${conta.ativo ? 'desativar' : 'excluir'} a conta "${conta.nome}"?\n\n${conta.ativo ? 'A conta será desativada e não aparecerá mais nas listagens.' : 'Esta ação não pode ser desfeita.'}`
+    const ok = await confirmDialog({
+      title: `${conta.ativo ? 'Desativar' : 'Excluir'} a conta "${conta.nome}"?`,
+      message: conta.ativo
+        ? 'A conta será desativada e não aparecerá mais nas listagens.'
+        : 'Esta ação não pode ser desfeita.',
+      confirmLabel: conta.ativo ? 'Desativar' : 'Excluir',
+      danger: true,
+    })
+    if (!ok) return
 
-    if (window.confirm(confirmMessage)) {
-      try {
-        await deleteConta(conta.id)
-        alert('Conta removida com sucesso!')
-      } catch (error) {
-        console.error('Erro ao deletar conta:', error)
-        alert('Erro ao deletar conta. Verifique se não há transações associadas.')
-      }
+    try {
+      await deleteConta(conta.id)
+      toast.success('Conta removida com sucesso!')
+    } catch (error) {
+      console.error('Erro ao deletar conta:', error)
+      toast.error('Não foi possível remover a conta. Verifique se não há transações associadas a ela.')
     }
   }
 

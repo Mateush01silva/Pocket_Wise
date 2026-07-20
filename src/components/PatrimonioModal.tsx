@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { TrendingUp, DollarSign, Info } from 'lucide-react'
 import { Modal } from './ui/Modal'
 import { Button } from './ui/Button'
@@ -42,7 +43,7 @@ export function PatrimonioModal({
       onClose()
     } catch (error) {
       console.error('Erro ao atualizar patrimônio:', error)
-      alert('Erro ao atualizar patrimônio. Tente novamente.')
+      toast.error('Erro ao atualizar patrimônio. Tente novamente.')
     } finally {
       setIsLoading(false)
     }

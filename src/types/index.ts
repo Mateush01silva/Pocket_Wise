@@ -73,6 +73,14 @@ export interface CategoriaComSubcategorias extends Categoria {
 // CARTÕES
 // =====================================================
 
+// Portador de um cartão (titular ou adicional). Fica embutido no próprio
+// cartão (coluna jsonb), já que adicionais compartilham fatura e limite do
+// cartão principal — não são cartões separados.
+export interface CartaoPortador {
+  id: string
+  nome: string
+}
+
 export interface Cartao {
   id: string
   user_id: string | null
@@ -83,6 +91,7 @@ export interface Cartao {
   limite: number | null
   cor: string
   ativo: boolean
+  portadores: CartaoPortador[] // Titular + adicionais (vazio = sem distinção)
   created_at: string
   updated_at: string
 }
@@ -148,6 +157,7 @@ export interface Lancamento {
   observacao: string | null
   forma_pagamento: PaymentMethod
   cartao_id: string | null
+  portador_id: string | null // Quem usou o cartão (ref. a cartoes.portadores)
   conta_id: string | null // Conta bancária vinculada
   parcela_atual: number | null
   parcela_total: number | null
@@ -272,6 +282,7 @@ export interface CreateLancamentoInput {
   observacao?: string | null
   forma_pagamento: PaymentMethod
   cartao_id?: string | null
+  portador_id?: string | null
   conta_id?: string | null
   parcela_atual?: number | null
   parcela_total?: number | null
@@ -294,6 +305,7 @@ export interface CreateCartaoInput {
   limite?: number | null
   cor?: string
   ativo?: boolean
+  portadores?: CartaoPortador[]
 }
 
 export interface UpdateCartaoInput extends Partial<CreateCartaoInput> {
@@ -720,6 +732,7 @@ export interface Caixinha {
   // Status expandido para Objetivos & Reservas (migration 051)
   status: CaixinhaStatus // 'ativa' | 'pausada' | 'concluida'
   meses_pausados: number // Quantidade de meses pausados (para extensão do prazo)
+  pausada_em?: string | null // Quando entrou em pausa (migration 078); usado na retomada para incrementar meses_pausados
   ordem_exibicao: number | null // Posição de exibição para drag-to-reorder
   cor: string
   descricao: string | null
@@ -802,6 +815,7 @@ export interface CreateCaixinhaInput {
 export interface UpdateCaixinhaInput extends Partial<CreateCaixinhaInput> {
   id: string
   ativa?: boolean
+  saldo_atual?: number
   valor_mercado?: number | null
   data_valor_mercado?: string | null
   ordem_exibicao?: number | null

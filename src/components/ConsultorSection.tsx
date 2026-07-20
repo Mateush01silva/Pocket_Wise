@@ -7,6 +7,7 @@ import { ConsultorPermissionsModal } from './ConsultorPermissionsModal'
 import { consultorService } from '../services/consultorService'
 import { familyInvitesService } from '../services/familyService'
 import { toast } from 'sonner'
+import { confirmDialog } from './ui/ConfirmDialog'
 import type {
   FamilyInviteWithDetails,
   FamilyMemberWithUser,
@@ -55,7 +56,7 @@ export function ConsultorSection({
 
   const handleCancelInvite = async () => {
     if (!consultorPendingInvite) return
-    if (!confirm('Deseja cancelar o convite de consultor?')) return
+    if (!(await confirmDialog({ title: 'Cancelar o convite de consultor?', confirmLabel: 'Cancelar convite', cancelLabel: 'Voltar', danger: true }))) return
 
     const { data, error } = await familyInvitesService.deleteInvite(consultorPendingInvite.id)
     if (error || !data) {
@@ -68,7 +69,13 @@ export function ConsultorSection({
 
   const handleRemoveConsultor = async () => {
     if (!consultorMember) return
-    if (!confirm(`Deseja remover ${consultorMember.user_name} como consultor?`)) return
+    const ok = await confirmDialog({
+      title: `Remover ${consultorMember.user_name} como consultor?`,
+      message: 'O consultor perde o acesso aos dados desta família.',
+      confirmLabel: 'Remover',
+      danger: true,
+    })
+    if (!ok) return
 
     const { familyMembersService } = await import('../services/familyService')
     const { data, error } = await familyMembersService.removeMember(consultorMember.id)
@@ -214,14 +221,14 @@ export function ConsultorSection({
           {/* Estado: consultor ativo */}
           {consultorMember && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-dark-700/30 rounded-lg border border-dark-600">
+              <div className="p-4 bg-dark-700/30 rounded-lg border border-dark-600 space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-primary-500/20 rounded-full flex items-center justify-center">
+                  <div className="w-12 h-12 bg-primary-500/20 rounded-full flex items-center justify-center shrink-0">
                     <User className="text-primary-400" size={24} />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="font-medium text-gray-200">{consultorMember.user_name}</h4>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       <span className="text-xs px-2 py-0.5 bg-primary-500/10 text-primary-400 rounded-full border border-primary-500/20">
                         Consultor
                       </span>
@@ -237,15 +244,16 @@ export function ConsultorSection({
                   </div>
                 </div>
                 {isAdmin && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 pt-1 border-t border-dark-600">
                     <Button
                       variant="secondary"
                       size="sm"
                       onClick={() => setIsPermissionsModalOpen(true)}
                       disabled={isLoadingPermissions || !consultorPermissions}
                       title="Editar permissões"
+                      className="flex-1"
                     >
-                      <Settings size={16} className="mr-1" />
+                      <Settings size={16} className="mr-1.5" />
                       Permissões
                     </Button>
                     <Button

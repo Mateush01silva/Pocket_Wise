@@ -5,12 +5,14 @@ import { Sidebar } from './Sidebar'
 import { NotificationBell } from '../NotificationBell'
 import { OnboardingModal } from '../OnboardingModal'
 import { PushPermissionBanner } from '../PushPermissionBanner'
+import { AvisoCorrecoesBanner } from '../AvisoCorrecoesBanner'
 import { TrialExpiredModal } from '../TrialExpiredModal'
 import { useAuth } from '../../contexts/AuthContext'
 import { useUserPreferencesStore } from '../../store/useUserPreferencesStore'
 import { usePlan } from '../../hooks/usePlan'
-import { AlertTriangle, Zap, Briefcase, ChevronLeft } from 'lucide-react'
+import { AlertTriangle, Zap, Briefcase, ChevronLeft, ClipboardList } from 'lucide-react'
 import { useFamilyStore } from '../../store/useFamilyStore'
+import { ConsultorDashboard } from '../../pages/consultor/ConsultorDashboard'
 
 interface LayoutProps {
   children: ReactNode
@@ -18,6 +20,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [showConsultorPanel, setShowConsultorPanel] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     () => localStorage.getItem('pw-sidebar-collapsed') === '1'
   )
@@ -122,6 +125,10 @@ export function Layout({ children }: LayoutProps) {
         </div>
 
         <div className="max-w-7xl mx-auto pt-14 lg:pt-0 overflow-x-hidden">
+          {/* Aviso temporário sobre as correções de consistência (jun/2026) —
+              some sozinho após a data embutida no componente */}
+          <AvisoCorrecoesBanner />
+
           {/* Banner trial Explorador — exibido durante todo o período de trial */}
           {showTrialBanner && (
             <div className={cn(
@@ -202,14 +209,32 @@ export function Layout({ children }: LayoutProps) {
                   {' '}como consultor
                 </p>
               </div>
-              <button
-                onClick={handleBackToClients}
-                className="flex items-center gap-1 text-sm font-medium text-primary-400 hover:text-primary-300 whitespace-nowrap shrink-0 transition-colors"
-              >
-                <ChevronLeft size={14} />
-                Meus Clientes
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setShowConsultorPanel(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-primary-500/20 border border-primary-500/30 text-primary-300 hover:bg-primary-500/30 transition-all"
+                >
+                  <ClipboardList size={12} />
+                  Atendimento
+                </button>
+                <button
+                  onClick={handleBackToClients}
+                  className="flex items-center gap-1 text-sm font-medium text-primary-400 hover:text-primary-300 whitespace-nowrap transition-colors"
+                >
+                  <ChevronLeft size={14} />
+                  Clientes
+                </button>
+              </div>
             </div>
+          )}
+
+          {/* Painel de atendimento consultivo */}
+          {isConsultorMode && showConsultorPanel && family && (
+            <ConsultorDashboard
+              familyId={family.id}
+              familyName={family.nome}
+              onClose={() => setShowConsultorPanel(false)}
+            />
           )}
 
           {children}

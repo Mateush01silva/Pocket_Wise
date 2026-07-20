@@ -7,6 +7,7 @@ import { useContasBancariasStore } from '../store/useContasBancariasStore'
 import type { Caixinha, CaixinhaTipo, SubtipoInvestimento } from '../types'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+import { confirmDialog } from './ui/ConfirmDialog'
 import { calcularAporteSugerido } from '../lib/caixinhasCalculations'
 import { formatCurrency } from '../utils/currency'
 
@@ -126,6 +127,25 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
       }
 
       if (editingCaixinha) {
+        // Mudar o tipo para investimento descarta o prazo silenciosamente —
+        // avisar antes, pois o aporte sugerido e a projeção dependem dele
+        const vaiPerderPrazo =
+          editingCaixinha.tipo !== 'investimento' &&
+          formData.tipo === 'investimento' &&
+          !!editingCaixinha.prazo_data
+        if (vaiPerderPrazo) {
+          const ok = await confirmDialog({
+            title: 'Converter em caixinha de investimento?',
+            message:
+              'Investimentos não têm prazo — o prazo atual e o aporte mensal sugerido serão removidos. O saldo e o histórico são preservados.',
+            confirmLabel: 'Converter',
+          })
+          if (!ok) {
+            setIsLoading(false)
+            return
+          }
+        }
+
         const result = await updateCaixinha({
           id: editingCaixinha.id,
           nome: formData.nome,
@@ -292,6 +312,11 @@ export function CaixinhaModal({ isOpen, onClose, editingCaixinha }: CaixinhaModa
         </div>
 
         {/* Prazo — não exibido para investimento */}
+        {isInvestimento && (
+          <p className="text-xs text-gray-500">
+            Investimentos não têm prazo: são acompanhados continuamente pelo valor de mercado.
+          </p>
+        )}
         {!isInvestimento && (
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">

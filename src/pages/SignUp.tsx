@@ -341,6 +341,10 @@ export function SignUp() {
             <CheckCircle className="w-5 h-5" />
             <span>✨ 14 dias grátis • Sem cartão de crédito</span>
           </p>
+          <p className="text-xs text-gray-400 mt-2">
+            O teste usa o plano Explorador: até 20 transações, 1 conta, 1 cartão, 5 envelopes e 2
+            caixinhas. Para uso ilimitado, conheça o Planejador e o Mestre a qualquer momento.
+          </p>
         </div>
       </div>
     </div>

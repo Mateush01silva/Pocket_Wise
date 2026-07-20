@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { Plus, Filter, Calendar, RefreshCw, RotateCcw } from 'lucide-react'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { confirmDialog } from '../components/ui/ConfirmDialog'
+import { toast } from 'sonner'
 import { SubscriptionCard } from '../components/SubscriptionCard'
 import { SubscriptionModal } from '../components/SubscriptionModal'
 import { CancelSubscriptionModal } from '../components/CancelSubscriptionModal'
@@ -76,11 +78,15 @@ export function Subscriptions() {
   }
 
   const handleDelete = async (assinatura: AssinaturaComDetalhes) => {
-    const confirmacao = window.confirm(
-      `Tem certeza que deseja DELETAR permanentemente a assinatura "${assinatura.nome}"?\n\nTodos os dados e lançamentos vinculados serão removidos. Esta ação não pode ser desfeita.`
-    )
+    const confirmacao = await confirmDialog({
+      title: `Deletar a assinatura "${assinatura.nome}"?`,
+      message: 'Todos os dados e lançamentos vinculados serão removidos. Esta ação não pode ser desfeita.',
+      confirmLabel: 'Deletar',
+      danger: true,
+    })
     if (confirmacao) {
       await deleteAssinatura(assinatura.id)
+      toast.success('Assinatura deletada')
     }
   }
 
@@ -95,13 +101,13 @@ export function Subscriptions() {
     try {
       const resultado = await sincronizarLancamentosAssinaturas(new Date())
       if (resultado.criados > 0) {
-        alert(`${resultado.criados} lançamento(s) criado(s) para:\n${resultado.assinaturas.join('\n')}`)
+        toast.success(`${resultado.criados} lançamento(s) criado(s): ${resultado.assinaturas.join(', ')}`)
       } else {
-        alert('Todos os lançamentos de assinaturas já estão sincronizados para este mês!')
+        toast.info('Todos os lançamentos de assinaturas já estão sincronizados para este mês!')
       }
     } catch (error) {
       console.error('Erro ao sincronizar:', error)
-      alert('Erro ao sincronizar lançamentos. Verifique o console.')
+      toast.error('Não foi possível sincronizar os lançamentos. Verifique sua conexão e tente novamente.')
     } finally {
       setIsSyncing(false)
     }
@@ -109,26 +115,23 @@ export function Subscriptions() {
 
   // Regenerar todos os lançamentos de assinaturas (corrige faturas)
   const handleRegenerateLancamentos = useCallback(async () => {
-    const confirmacao = window.confirm(
-      'Isso vai REMOVER todos os lançamentos PROJETADOS das assinaturas ativas e gerar novamente com as datas de fatura corrigidas.\n\n' +
-      'Lançamentos já pagos ou pendentes NÃO serão afetados.\n\n' +
-      'Deseja continuar?'
-    )
+    const confirmacao = await confirmDialog({
+      title: 'Regenerar lançamentos das assinaturas?',
+      message:
+        'Isso vai remover todos os lançamentos PROJETADOS das assinaturas ativas e gerá-los novamente com as datas de fatura corrigidas.\n\nLançamentos já pagos ou pendentes NÃO serão afetados.',
+      confirmLabel: 'Regenerar',
+    })
     if (!confirmacao) return
 
     setIsRegenerating(true)
     try {
       const resultado = await regenerarTodosLancamentosAssinaturas()
-      alert(
-        `Regeneração concluída!\n\n` +
-        `• ${resultado.removidos} lançamentos removidos\n` +
-        `• ${resultado.criados} lançamentos criados\n` +
-        `• ${resultado.assinaturas.length} assinatura(s) processada(s):\n` +
-        `  ${resultado.assinaturas.join(', ')}`
+      toast.success(
+        `Regeneração concluída: ${resultado.removidos} removidos, ${resultado.criados} criados (${resultado.assinaturas.length} assinatura(s))`
       )
     } catch (error) {
       console.error('Erro ao regenerar:', error)
-      alert('Erro ao regenerar lançamentos. Verifique o console.')
+      toast.error('Não foi possível regenerar os lançamentos. Verifique sua conexão e tente novamente.')
     } finally {
       setIsRegenerating(false)
     }
@@ -215,7 +218,7 @@ export function Subscriptions() {
               <button
                 onClick={handleRegenerateLancamentos}
                 disabled={isRegenerating || isSyncing}
-                title="Corrigir datas de fatura de todas as assinaturas"
+                title="Corrigir datas de fatura de todas as assinaturas" aria-label="Corrigir datas de fatura de todas as assinaturas"
                 className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-500 hover:text-amber-400 hover:bg-amber-500/10 rounded transition-colors disabled:opacity-50"
               >
                 <RotateCcw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />

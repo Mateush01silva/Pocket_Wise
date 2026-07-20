@@ -16,6 +16,7 @@
 
 import { supabase, getCurrentUser, getUserFamilyId } from '../lib/supabase'
 import { historicoMensalService } from './historicoMensalService'
+import { addMonths, differenceInCalendarMonths, format, parseISO, startOfMonth } from 'date-fns'
 import type {
   Caixinha,
   CaixinhaComDetalhes,
@@ -223,30 +224,17 @@ export const caixinhasService = {
       return { data: null, error: updateError }
     }
 
-    // Se há conta vinculada e houve variação, atualizar o saldo da conta
+    // Se há conta vinculada e houve variação, aplicar o delta no saldo da
+    // conta de forma atômica (RPC) — sem janela entre leitura e escrita.
+    // Sem Math.max(0): investimentos podem ter valor de mercado abaixo do aportado.
     if (caixinha.conta_investimento_id && delta !== 0) {
-      const { data: conta, error: contaError } = await supabase
-        // @ts-ignore
-        .from('contas_bancarias')
-        .select('id, saldo_atual')
-        .eq('id', caixinha.conta_investimento_id)
-        .single()
+      const { error: updateContaError } = await (supabase as any).rpc('ajustar_saldo_conta_delta', {
+        p_conta_id: caixinha.conta_investimento_id,
+        p_delta: delta,
+      })
 
-      if (!contaError && conta) {
-        // Sem Math.max(0): investimentos podem ter valor de mercado abaixo do aportado
-        const novoSaldoConta = conta.saldo_atual + delta
-        const { error: updateContaError } = await supabase
-          // @ts-ignore
-          .from('contas_bancarias')
-          .update({ saldo_atual: novoSaldoConta })
-          .eq('id', caixinha.conta_investimento_id)
-          .select()
-
-        if (updateContaError) {
-          console.error('Erro ao atualizar saldo da conta vinculada:', updateContaError)
-        }
-      } else if (contaError) {
-        console.error('Erro ao buscar conta vinculada:', contaError)
+      if (updateContaError) {
+        console.error('Erro ao atualizar saldo da conta vinculada:', updateContaError)
       }
     }
 
@@ -275,7 +263,7 @@ export const caixinhasService = {
     const { data: existing } = await supabase
       // @ts-ignore
       .from('caixinhas')
-      .select('family_id, tipo, saldo_atual')
+      .select('family_id, tipo, saldo_atual, status, meses_pausados, pausada_em')
       .eq('id', id)
       .single()
 
@@ -301,6 +289,24 @@ export const caixinhasService = {
       updatePayload.ativa = true
     }
 
+    const agora = new Date()
+    const estavaPausada = existing.status === 'pausada' && existing.pausada_em
+
+    // Pausar: registrar quando começou a pausa
+    if (status === 'pausada' && existing.status !== 'pausada') {
+      updatePayload.pausada_em = agora.toISOString()
+    }
+
+    // Retomar/concluir uma caixinha pausada: incrementar meses_pausados pela
+    // duração real da pausa — é isso que estende o prazo (o aporte sugerido
+    // soma meses_pausados aos meses restantes)
+    if (status !== 'pausada' && estavaPausada) {
+      const inicioPausa = startOfMonth(parseISO(existing.pausada_em))
+      const mesesEmPausa = Math.max(0, differenceInCalendarMonths(startOfMonth(agora), inicioPausa))
+      updatePayload.meses_pausados = (existing.meses_pausados ?? 0) + mesesEmPausa
+      updatePayload.pausada_em = null
+    }
+
     const { data, error } = await supabase
       // @ts-ignore
       .from('caixinhas')
@@ -308,6 +314,29 @@ export const caixinhasService = {
       .eq('id', id)
       .select()
       .single()
+
+    if (!error && data) {
+      // Histórico mensal: marcar meses pausados para o streak não quebrar
+      // (o cálculo de streak ignora meses com mes_pausado=true)
+      if (status === 'pausada' && existing.status !== 'pausada') {
+        historicoMensalService
+          .marcarMesPausado(id, format(startOfMonth(agora), 'yyyy-MM-dd'))
+          .catch(() => {
+            // Falha silenciosa — não impede a pausa em si
+          })
+      } else if (status !== 'pausada' && estavaPausada) {
+        // Marcar os meses decorridos da pausa (exceto o mês atual, que volta
+        // a poder receber depósitos)
+        let mes = startOfMonth(parseISO(existing.pausada_em))
+        const mesAtual = startOfMonth(agora)
+        while (mes < mesAtual) {
+          historicoMensalService
+            .marcarMesPausado(id, format(mes, 'yyyy-MM-dd'))
+            .catch(() => {})
+          mes = addMonths(mes, 1)
+        }
+      }
+    }
 
     return { data, error }
   },
@@ -639,12 +668,27 @@ export const transacoesCaixinhasService = {
     const { data: caixinha } = await supabase
       // @ts-ignore
       .from('caixinhas')
-      .select('family_id, saldo_atual')
+      .select('family_id, saldo_atual, status')
       .eq('id', input.caixinha_id)
       .single()
 
     if (!caixinha || caixinha.family_id !== familyId) {
       return { data: null, error: new Error('Caixinha not found or access denied') }
+    }
+
+    // Bloquear depósito em caixinha pausada/concluída (retirada continua
+    // permitida — o usuário pode precisar do dinheiro mesmo em pausa)
+    if (input.tipo === 'deposito' && caixinha.status === 'pausada') {
+      return {
+        data: null,
+        error: new Error('Esta caixinha está pausada. Retome-a para voltar a depositar.'),
+      }
+    }
+    if (input.tipo === 'deposito' && caixinha.status === 'concluida') {
+      return {
+        data: null,
+        error: new Error('Esta caixinha foi concluída e não aceita novos depósitos.'),
+      }
     }
 
     // Validar retirada (não pode retirar mais do que tem)

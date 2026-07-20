@@ -430,8 +430,23 @@ export const rebalanceamentoService = {
         return { data: null, error: new Error('Categorias não encontradas no orçamento') }
       }
 
+      if (!input.valor_transferido || input.valor_transferido <= 0) {
+        return { data: null, error: new Error('O valor a transferir deve ser maior que zero') }
+      }
+
       // Atualizar valor_orcado da categoria origem (diminuir)
       const novoValorOrigem = Math.round((catOrigem.valor_orcado - input.valor_transferido) * 100) / 100
+
+      // O orçamento da origem não pode ficar negativo (a tabela tem CHECK
+      // valor_orcado >= 0; validar aqui dá uma mensagem clara ao usuário)
+      if (novoValorOrigem < 0) {
+        return {
+          data: null,
+          error: new Error(
+            `A categoria de origem tem apenas R$ ${catOrigem.valor_orcado.toFixed(2)} orçados — não é possível transferir R$ ${input.valor_transferido.toFixed(2)}.`
+          ),
+        }
+      }
       const { error: errorOrigem } = await supabase
         // @ts-ignore
         .from('categorias_budget')

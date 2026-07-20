@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { Calendar, ChevronDown } from 'lucide-react'
 import { Button } from './ui'
 import { format, subDays, subMonths, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns'
@@ -166,7 +167,7 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
 
   const handleCustomDateApply = () => {
     if (!customStartDate || !customEndDate) {
-      alert('Por favor, preencha ambas as datas')
+      toast.error('Por favor, preencha ambas as datas')
       return
     }
 
@@ -174,7 +175,7 @@ export function DateRangeFilter({ value, onChange, className = '' }: DateRangeFi
     const endDate = new Date(customEndDate)
 
     if (startDate > endDate) {
-      alert('A data inicial não pode ser maior que a data final')
+      toast.error('A data inicial não pode ser maior que a data final')
       return
     }
 

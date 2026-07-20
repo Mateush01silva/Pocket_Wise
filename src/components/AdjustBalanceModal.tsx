@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { X, RefreshCw, AlertCircle } from 'lucide-react'
 import { useContasBancariasStore } from '../store/useContasBancariasStore'
 import { Button, Input } from './ui'
@@ -14,7 +15,7 @@ interface AdjustBalanceModalProps {
 export function AdjustBalanceModal({ isOpen, onClose, conta }: AdjustBalanceModalProps) {
   const [novoSaldo, setNovoSaldo] = useState(conta.saldo_atual.toString())
   const [isLoading, setIsLoading] = useState(false)
-  const updateConta = useContasBancariasStore((state) => state.updateConta)
+  const atualizarSaldo = useContasBancariasStore((state) => state.atualizarSaldo)
 
   if (!isOpen) return null
 
@@ -26,16 +27,16 @@ export function AdjustBalanceModal({ isOpen, onClose, conta }: AdjustBalanceModa
       const valorNumerico = parseFloat(novoSaldo.replace(',', '.'))
 
       if (isNaN(valorNumerico)) {
-        alert('Digite um valor válido')
+        toast.error('Digite um valor válido')
         return
       }
 
-      await updateConta(conta.id, { saldo_atual: valorNumerico })
-      alert('Saldo atualizado com sucesso!')
+      await atualizarSaldo(conta.id, valorNumerico)
+      toast.success('Saldo atualizado com sucesso!')
       onClose()
     } catch (error) {
       console.error('Erro ao atualizar saldo:', error)
-      alert('Erro ao atualizar saldo. Tente novamente.')
+      toast.error('Erro ao atualizar saldo. Tente novamente.')
     } finally {
       setIsLoading(false)
     }

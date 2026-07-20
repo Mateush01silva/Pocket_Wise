@@ -7,6 +7,7 @@ import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '../lib/cn'
 import { toast } from 'sonner'
+import { confirmDialog } from './ui/ConfirmDialog'
 import type { CaixinhaComDetalhes, TransacaoCaixinha } from '../types'
 
 interface HistoricoCaixinhaModalProps {
@@ -41,7 +42,13 @@ export function HistoricoCaixinhaModal({
       ? `Desfazer este depósito de ${formatCurrency(transacao.valor)}? O valor será removido da caixinha e voltará como saldo disponível do mês de origem.`
       : `Desfazer esta retirada de ${formatCurrency(transacao.valor)}? O valor voltará para a caixinha.`
 
-    if (!confirm(confirmMsg)) return
+    const ok = await confirmDialog({
+      title: `Desfazer ${tipoLabel}?`,
+      message: confirmMsg,
+      confirmLabel: 'Desfazer',
+      danger: true,
+    })
+    if (!ok) return
 
     setUndoingId(transacao.id)
     try {

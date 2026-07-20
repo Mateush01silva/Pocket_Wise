@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { Modal } from './ui/Modal'
 import { Button, Input, CurrencyInput } from './ui'
-import { useCartoesStore } from '../store'
-import type { CreateCartaoInput, Cartao } from '../types'
+import { Plus, Trash2 } from 'lucide-react'
+import { useCartoesStore, useTransacoesStore } from '../store'
+import type { CreateCartaoInput, Cartao, CartaoPortador } from '../types'
 
 interface CreditCardModalProps {
   isOpen: boolean
@@ -41,6 +43,7 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
     limite: 0,
     cor: CORES_DISPONIVEIS[4], // Verde por padrão
     ativo: true,
+    portadores: [],
   })
   const [isLoading, setIsLoading] = useState(false)
 
@@ -56,6 +59,7 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
         limite: cartao.limite,
         cor: cartao.cor || CORES_DISPONIVEIS[4],
         ativo: cartao.ativo,
+        portadores: cartao.portadores ?? [],
       })
     } else {
       setFormData({
@@ -65,9 +69,35 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
         limite: 0,
         cor: CORES_DISPONIVEIS[4],
         ativo: true,
+        portadores: [],
       })
     }
   }, [cartao])
+
+  const portadores: CartaoPortador[] = formData.portadores ?? []
+
+  const addPortador = () => {
+    setFormData((prev) => ({
+      ...prev,
+      portadores: [...(prev.portadores ?? []), { id: crypto.randomUUID(), nome: '' }],
+    }))
+  }
+
+  const updatePortadorNome = (id: string, nome: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      portadores: (prev.portadores ?? []).map((p) =>
+        p.id === id ? { ...p, nome } : p
+      ),
+    }))
+  }
+
+  const removePortador = (id: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      portadores: (prev.portadores ?? []).filter((p) => p.id !== id),
+    }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -76,7 +106,7 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
     try {
       // Validações
       if (!formData.nome?.trim()) {
-        alert('Por favor, informe o nome do cartão')
+        toast.error('Por favor, informe o nome do cartão')
         setIsLoading(false)
         return
       }
@@ -86,7 +116,7 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
         formData.dia_fechamento < 1 ||
         formData.dia_fechamento > 31
       ) {
-        alert('O dia de fechamento deve estar entre 1 e 31')
+        toast.error('O dia de fechamento deve estar entre 1 e 31')
         setIsLoading(false)
         return
       }
@@ -96,18 +126,27 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
         formData.dia_vencimento < 1 ||
         formData.dia_vencimento > 31
       ) {
-        alert('O dia de vencimento deve estar entre 1 e 31')
+        toast.error('O dia de vencimento deve estar entre 1 e 31')
         setIsLoading(false)
         return
       }
 
       if (formData.limite === undefined || formData.limite === null || formData.limite < 0) {
-        alert('O limite deve ser um valor positivo')
+        toast.error('O limite deve ser um valor positivo')
         setIsLoading(false)
         return
       }
 
+      // Remove portadores sem nome e normaliza os textos
+      const portadoresLimpos: CartaoPortador[] = portadores
+        .map((p) => ({ ...p, nome: p.nome.trim() }))
+        .filter((p) => p.nome.length > 0)
+
       if (isEditMode && cartao) {
+        const cicloMudou =
+          cartao.dia_fechamento !== formData.dia_fechamento ||
+          cartao.dia_vencimento !== formData.dia_vencimento
+
         // Atualizar cartão existente
         await updateCartao(cartao.id, {
           nome: formData.nome.trim(),
@@ -116,7 +155,15 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
           limite: formData.limite,
           cor: formData.cor || CORES_DISPONIVEIS[4],
           ativo: formData.ativo ?? true,
+          portadores: portadoresLimpos,
         })
+
+        // Mudou o ciclo: recalcular a fatura das transações não pagas do
+        // cartão (manuais e assinaturas) — antes só assinaturas eram
+        // regeneradas e as transações manuais ficavam na fatura antiga
+        if (cicloMudou) {
+          await useTransacoesStore.getState().recalcularTodasDatasFatura(cartao.id)
+        }
       } else {
         // Criar novo cartão
         const cartaoData: CreateCartaoInput = {
@@ -126,6 +173,7 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
           limite: formData.limite ?? 0,
           cor: formData.cor || CORES_DISPONIVEIS[4],
           ativo: formData.ativo ?? true,
+          portadores: portadoresLimpos,
         }
 
         await createCartao(cartaoData)
@@ -139,11 +187,12 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
         limite: 0,
         cor: CORES_DISPONIVEIS[4],
         ativo: true,
+        portadores: [],
       })
       onClose()
     } catch (error) {
       console.error('Erro ao salvar cartão:', error)
-      alert('Erro ao salvar cartão. Tente novamente.')
+      toast.error('Erro ao salvar cartão. Tente novamente.')
     } finally {
       setIsLoading(false)
     }
@@ -158,6 +207,7 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
         limite: 0,
         cor: CORES_DISPONIVEIS[4],
         ativo: true,
+        portadores: [],
       })
       onClose()
     }
@@ -234,6 +284,50 @@ export function CreditCardModal({ isOpen, onClose, cartao }: CreditCardModalProp
             onChange={(value) => setFormData({ ...formData, limite: value })}
             placeholder="R$ 0,00"
           />
+        </div>
+
+        {/* Portadores (titular + adicionais) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Portadores do cartão
+          </label>
+          <p className="text-xs text-gray-500 mb-2">
+            Cadastre quem usa este cartão (titular e adicionais). No lançamento
+            você poderá escolher quem fez a compra. Deixe vazio se não quiser
+            distinguir.
+          </p>
+
+          <div className="space-y-2">
+            {portadores.map((portador) => (
+              <div key={portador.id} className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  value={portador.nome}
+                  onChange={(e) => updatePortadorNome(portador.id, e.target.value)}
+                  placeholder="Ex: Mateus (titular), Esposa (adicional)..."
+                  className="flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={() => removePortador(portador.id)}
+                  className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+                  title="Remover portador"
+                  aria-label="Remover portador"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={addPortador}
+            className="mt-2 flex items-center gap-1.5 text-sm text-primary-400 hover:text-primary-300 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Adicionar portador
+          </button>
         </div>
 
         {/* Cor */}

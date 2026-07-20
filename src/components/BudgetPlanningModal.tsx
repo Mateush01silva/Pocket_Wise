@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
+import { confirmDialog } from './ui/ConfirmDialog'
 import { Check, X, AlertTriangle, TrendingUp, Search, PiggyBank, Clock, Target } from 'lucide-react'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select } from './ui'
@@ -304,12 +305,12 @@ export function BudgetPlanningModal({
     e.preventDefault()
 
     if (!isValid) {
-      alert('O orçamento está desbalanceado! Receitas devem ser >= Despesas + Poupança')
+      toast.error('O orçamento está desbalanceado! Receitas devem ser >= Despesas + Poupança')
       return
     }
 
     if (categoriasReceitaSelecionadas.length === 0 && categoriasDespesaSelecionadas.length === 0) {
-      alert('Selecione ao menos uma categoria (receita ou despesa) para orçar')
+      toast.error('Selecione ao menos uma categoria (receita ou despesa) para orçar')
       return
     }
 
@@ -361,7 +362,7 @@ export function BudgetPlanningModal({
       onClose()
     } catch (error) {
       console.error('Erro ao salvar orçamento:', error)
-      alert('Erro ao salvar orçamento. Tente novamente.')
+      toast.error('Erro ao salvar orçamento. Tente novamente.')
     } finally {
       setIsLoading(false)
     }
@@ -500,7 +501,13 @@ export function BudgetPlanningModal({
                         </span>
                         <button
                           onClick={async () => {
-                            if (!confirm(`Remover aporte de ${formatCurrency(retirada.valor)} da ${retirada.caixinha_nome} deste orçamento? O valor voltará para a caixinha.`)) return
+                            const ok = await confirmDialog({
+                              title: `Remover aporte de ${formatCurrency(retirada.valor)}?`,
+                              message: `O aporte na ${retirada.caixinha_nome} sai deste orçamento e o valor volta para a caixinha.`,
+                              confirmLabel: 'Remover',
+                              danger: true,
+                            })
+                            if (!ok) return
                             await deleteTransacaoCaixinha(retirada.id, retirada.caixinha_id, { tipo: 'retirada', valor: retirada.valor })
                           }}
                           className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"

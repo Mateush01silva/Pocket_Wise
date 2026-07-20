@@ -4,7 +4,7 @@ import { usePlan } from '../hooks/usePlan'
 import {
   PiggyBank, Plus, Target, TrendingUp, TrendingDown, Wallet,
   Edit2, Trash2, ArrowUpCircle, ArrowDownCircle, History,
-  RefreshCw, AlertCircle, BarChart3, PauseCircle, PlayCircle, ArrowRightLeft,
+  RefreshCw, AlertCircle, BarChart3, PauseCircle, PlayCircle, ArrowRightLeft, SlidersHorizontal,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '../components/ui'
 import { CaixinhaModal } from '../components/CaixinhaModal'
@@ -12,6 +12,7 @@ import { MovimentarCaixinhaModal } from '../components/MovimentarCaixinhaModal'
 import { TransferirCaixinhaModal } from '../components/TransferirCaixinhaModal'
 import { HistoricoCaixinhaModal } from '../components/HistoricoCaixinhaModal'
 import { AtualizarCotacaoModal } from '../components/AtualizarCotacaoModal'
+import { AjustarSaldoCaixinhaModal } from '../components/AjustarSaldoCaixinhaModal'
 import { MiniTimeline } from '../components/MiniTimeline'
 import { MetasDashboard } from '../components/MetasDashboard'
 import { useMetasDashboardAccess } from '../hooks/useMetasDashboardAccess'
@@ -25,6 +26,7 @@ import { calcularStreak } from '../lib/caixinhasCalculations'
 import type { CaixinhaHistoricoMensal } from '../types'
 import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
+import { confirmDialog } from '../components/ui/ConfirmDialog'
 import { LearningTooltip } from '../components/ui/LearningTooltip'
 import { learningContent } from '../lib/learningContent'
 import { calcularSaldoAcumuladoNaoAlocado } from '../lib/financialCalculations'
@@ -67,6 +69,7 @@ export function Caixinhas() {
   const [historicoCaixinha, setHistoricoCaixinha] = useState<CaixinhaComDetalhes | null>(null)
   const [cotacaoCaixinha, setCotacaoCaixinha] = useState<CaixinhaComDetalhes | null>(null)
   const [transferirCaixinha, setTransferirCaixinha] = useState<CaixinhaComDetalhes | null>(null)
+  const [ajustarSaldoCaixinha, setAjustarSaldoCaixinha] = useState<CaixinhaComDetalhes | null>(null)
   const [isConcluindoMeta, setIsConcluindoMeta] = useState(false)
   // Histórico mensal por caixinha: Record<caixinha_id, CaixinhaHistoricoMensal[]>
   const [historicoMensal, setHistoricoMensal] = useState<Record<string, CaixinhaHistoricoMensal[]>>({})
@@ -146,7 +149,13 @@ export function Caixinhas() {
       toast.error(`Não é possível deletar. Caixinha possui saldo de ${formatCurrency(caixinha.saldo_atual)}`)
       return
     }
-    if (!confirm(`Deseja realmente deletar a caixinha "${caixinha.nome}"?`)) return
+    const okDeletar = await confirmDialog({
+      title: `Deletar a caixinha "${caixinha.nome}"?`,
+      message: 'O histórico de movimentações desta caixinha será perdido. Esta ação não pode ser desfeita.',
+      confirmLabel: 'Deletar',
+      danger: true,
+    })
+    if (!okDeletar) return
     const success = await deleteCaixinha(caixinha.id)
     if (success) {
       toast.success('Caixinha deletada com sucesso')
@@ -170,8 +179,13 @@ export function Caixinhas() {
     setTipoMovimentacao('retirada')
   }
 
-  const handleConcluirMeta = (caixinha: CaixinhaComDetalhes) => {
-    if (!confirm(`🎉 Parabéns! Sua meta "${caixinha.nome}" foi concluída!\n\nPara arquivar esta caixinha, retire o saldo disponível (${formatCurrency(caixinha.saldo_atual)}) no próximo passo.`)) return
+  const handleConcluirMeta = async (caixinha: CaixinhaComDetalhes) => {
+    const ok = await confirmDialog({
+      title: `🎉 Parabéns! Meta "${caixinha.nome}" atingida!`,
+      message: `Para arquivar esta caixinha, retire o saldo disponível (${formatCurrency(caixinha.saldo_atual)}) no próximo passo. Se você fechar a retirada sem confirmar, a caixinha continua ativa.`,
+      confirmLabel: 'Retirar e concluir',
+    })
+    if (!ok) return
     setIsConcluindoMeta(true)
     setMovimentarCaixinha(caixinha)
     setTipoMovimentacao('retirada')
@@ -205,8 +219,16 @@ export function Caixinhas() {
   const handleTransferir = (caixinha: CaixinhaComDetalhes) => setTransferirCaixinha(caixinha)
   const handleCloseTransferir = () => setTransferirCaixinha(null)
 
+  const handleAjustarSaldo = (caixinha: CaixinhaComDetalhes) => setAjustarSaldoCaixinha(caixinha)
+  const handleCloseAjustarSaldo = () => setAjustarSaldoCaixinha(null)
+
   const handlePausar = async (caixinha: CaixinhaComDetalhes) => {
-    if (!confirm(`Pausar a caixinha "${caixinha.nome}"?\n\nO saldo é preservado e o prazo será estendido pelos meses pausados.`)) return
+    const okPausar = await confirmDialog({
+      title: `Pausar a caixinha "${caixinha.nome}"?`,
+      message: 'O saldo é preservado e novos depósitos ficam bloqueados. Ao retomar, o prazo é estendido pelos meses em que ficou pausada (o streak não é quebrado).',
+      confirmLabel: 'Pausar',
+    })
+    if (!okPausar) return
     const success = await updateStatus(caixinha.id, 'pausada')
     if (success) {
       toast.success(`Caixinha "${caixinha.nome}" pausada. Retome quando quiser.`)
@@ -297,6 +319,14 @@ export function Caixinhas() {
           isOpen={true}
           onClose={handleCloseTransferir}
           caixinha={transferirCaixinha}
+        />
+      )}
+
+      {ajustarSaldoCaixinha && (
+        <AjustarSaldoCaixinhaModal
+          isOpen={true}
+          onClose={handleCloseAjustarSaldo}
+          caixinha={ajustarSaldoCaixinha}
         />
       )}
 
@@ -672,6 +702,15 @@ export function Caixinhas() {
                                 Atualizar Cotação
                               </Button>
                             </LearningTooltip>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="w-full"
+                              onClick={() => handleAjustarSaldo(caixinha)}
+                            >
+                              <SlidersHorizontal size={14} className="mr-1" />
+                              Ajustar Saldo
+                            </Button>
                           </div>
                         )}
 

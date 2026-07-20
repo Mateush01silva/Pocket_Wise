@@ -44,7 +44,7 @@ export function TransferirContasModal({ isOpen, onClose, contaOrigem }: Transfer
     try {
       await transferirEntreContas(contaOrigem.id, contaDestinoId, valor)
 
-      // Se a conta de origem é de investimento, atualizar valor_mercado das caixinhas vinculadas
+      // Se a conta de origem é de investimento, reduzir valor_mercado das caixinhas vinculadas
       if (contaOrigem.tipo === 'investimento') {
         const caixinhasVinculadas = caixinhas.filter(
           (c) => c.conta_investimento_id === contaOrigem.id && c.tipo === 'investimento' && c.ativa
@@ -58,6 +58,29 @@ export function TransferirContasModal({ isOpen, onClose, contaOrigem }: Transfer
             const proporcao = totalMercado > 0 ? mercadoCaixinha / totalMercado : 1 / caixinhasVinculadas.length
             const reducao = valor * proporcao
             const novoValorMercado = Math.max(0, mercadoCaixinha - reducao)
+            await updateCaixinha({
+              id: caixinha.id,
+              valor_mercado: novoValorMercado,
+              data_valor_mercado: new Date().toISOString(),
+            })
+          }
+        }
+      }
+
+      // Se a conta de destino é de investimento, aumentar valor_mercado das caixinhas vinculadas
+      if (contaDestino?.tipo === 'investimento') {
+        const caixinhasVinculadas = caixinhas.filter(
+          (c) => c.conta_investimento_id === contaDestinoId && c.tipo === 'investimento' && c.ativa
+        )
+        if (caixinhasVinculadas.length > 0) {
+          const totalMercado = caixinhasVinculadas.reduce(
+            (sum, c) => sum + (c.valor_mercado ?? c.saldo_atual), 0
+          )
+          for (const caixinha of caixinhasVinculadas) {
+            const mercadoCaixinha = caixinha.valor_mercado ?? caixinha.saldo_atual
+            const proporcao = totalMercado > 0 ? mercadoCaixinha / totalMercado : 1 / caixinhasVinculadas.length
+            const aumento = valor * proporcao
+            const novoValorMercado = mercadoCaixinha + aumento
             await updateCaixinha({
               id: caixinha.id,
               valor_mercado: novoValorMercado,
