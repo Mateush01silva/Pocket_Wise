@@ -6,6 +6,32 @@ import { useCategoriasStore, useCartoesStore, useContasBancariasStore, useTransa
 import type { CreateLancamentoInput, Lancamento } from '../types'
 import { format } from 'date-fns'
 
+// Nova despesa nasce como compra no crédito (status 'projetado') quando o
+// usuário tem cartão ativo — a maioria dos gastos é no cartão, então só
+// falta escolher qual. Com um único cartão, ele já vem selecionado.
+// Sem cartão cadastrado, mantém o padrão dinheiro/pago.
+// (Lê a store de forma não-reativa: os defaults são aplicados só na abertura.)
+function criarFormPadrao(): Partial<CreateLancamentoInput> {
+  const cartoesAtivos = useCartoesStore.getState().cartoes.filter((c) => c.ativo)
+  const base = {
+    tipo: 'despesa' as const,
+    data: format(new Date(), 'yyyy-MM-dd'),
+    valor: 0,
+    conta_id: undefined,
+  }
+
+  if (cartoesAtivos.length === 0) {
+    return { ...base, forma_pagamento: 'dinheiro', status: 'pago' }
+  }
+
+  return {
+    ...base,
+    forma_pagamento: 'credito',
+    status: 'projetado',
+    cartao_id: cartoesAtivos.length === 1 ? cartoesAtivos[0].id : undefined,
+  }
+}
+
 interface TransactionModalProps {
   isOpen: boolean
   onClose: () => void
@@ -32,14 +58,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
   const deleteLancamento = useTransacoesStore((state) => state.deleteLancamento)
   const deleteGrupoParcelas = useTransacoesStore((state) => state.deleteGrupoParcelas)
 
-  const [formData, setFormData] = useState<Partial<CreateLancamentoInput>>({
-    tipo: 'despesa',
-    data: format(new Date(), 'yyyy-MM-dd'),
-    forma_pagamento: 'dinheiro',
-    valor: 0,
-    status: 'pago',
-    conta_id: undefined,
-  })
+  const [formData, setFormData] = useState<Partial<CreateLancamentoInput>>(() => criarFormPadrao())
   const [parcelasInput, setParcelasInput] = useState<string>('1')
   const [isRecorrente, setIsRecorrente] = useState<boolean>(false)
   const [mesesRecorrencia, setMesesRecorrencia] = useState<number>(3)
@@ -128,20 +147,14 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
         status: editingLancamento.status || 'pago',
       })
       setParcelasInput(String(editingLancamento.parcela_total || 1))
-    } else if (isOpen && !editingLancamento && initialDataRef.current) {
-      // Abrindo para criar com dados pré-preenchidos (ex.: "+ opções" da
-      // linha rápida) — mescla o que já foi digitado com os defaults
-      setFormData((prev) => ({ ...prev, ...initialDataRef.current }))
+    } else if (isOpen && !editingLancamento) {
+      // Abrindo para criar: aplica os defaults (crédito/projetado quando há
+      // cartão) e mescla dados pré-preenchidos (ex.: "+ opções" da linha
+      // rápida), que têm prioridade sobre os defaults
+      setFormData({ ...criarFormPadrao(), ...(initialDataRef.current || {}) })
     } else if (!isOpen) {
       // Reset form when closing
-      setFormData({
-        tipo: 'despesa',
-        data: format(new Date(), 'yyyy-MM-dd'),
-        forma_pagamento: 'dinheiro',
-        valor: 0,
-        status: 'pago',
-        conta_id: undefined,
-      })
+      setFormData(criarFormPadrao())
       setParcelasInput('1')
       setIsRecorrente(false)
       setMesesRecorrencia(3)
@@ -278,14 +291,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
 
       // Reset form and close
       toast.success(editingLancamento ? 'Transação atualizada!' : 'Transação salva!')
-      setFormData({
-        tipo: 'despesa',
-        data: format(new Date(), 'yyyy-MM-dd'),
-        forma_pagamento: 'dinheiro',
-        valor: 0,
-        status: 'pago',
-        conta_id: undefined,
-      })
+      setFormData(criarFormPadrao())
       setParcelasInput('1')
       setIsRecorrente(false)
       setMesesRecorrencia(3)
@@ -302,14 +308,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
 
   const handleClose = () => {
     if (!isLoading) {
-      setFormData({
-        tipo: 'despesa',
-        data: format(new Date(), 'yyyy-MM-dd'),
-        forma_pagamento: 'dinheiro',
-        valor: 0,
-        status: 'pago',
-        conta_id: undefined,
-      })
+      setFormData(criarFormPadrao())
       setParcelasInput('1')
       setIsRecorrente(false)
       setMesesRecorrencia(3)
@@ -443,8 +442,15 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
               cartao_id: undefined,
               portador_id: undefined,
               conta_id: undefined,
-              // Auto-setar status para 'projetado' quando for crédito
-              status: novaForma === 'credito' ? 'projetado' : formData.status,
+              // Auto-setar status para 'projetado' quando for crédito; ao
+              // sair do crédito, volta para 'pago' (não faz sentido manter
+              // 'projetado' em dinheiro/PIX/débito)
+              status:
+                novaForma === 'credito'
+                  ? 'projetado'
+                  : formData.status === 'projetado'
+                  ? 'pago'
+                  : formData.status,
             })
           }}
           options={[

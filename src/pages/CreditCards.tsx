@@ -30,6 +30,7 @@ import { learningContent } from '../lib/learningContent'
 import type { Cartao, Lancamento } from '../types'
 import {
   calcularFaturaAtual,
+  consomeLimiteCartao,
   getMesFaturaLancamento,
   isFaturaFechada,
   somarFatura,
@@ -158,13 +159,11 @@ export function CreditCards() {
   const cartoesComEstatisticas = useMemo(() => {
     return cartoes.map((cartao) => {
       // Buscar compras que efetivamente consomem o limite do cartão
-      // Apenas 'projetado' conta (compras reais feitas no cartão)
-      // 'pendente' (assinaturas) não consome limite pois pode ser cancelado
+      // (critério centralizado em consomeLimiteCartao: compras já realizadas
+      // não pagas + todas as parcelas; ocorrências futuras de recorrências e
+      // assinaturas 'pendente' não seguram limite)
       const comprasUsandoLimite = lancamentos.filter(
-        (l) =>
-          l.cartao_id === cartao.id &&
-          l.forma_pagamento === 'credito' &&
-          l.status === 'projetado'
+        (l) => l.cartao_id === cartao.id && consomeLimiteCartao(l)
       )
 
       // Receitas no cartão (estorno/cashback) liberam limite e abatem fatura

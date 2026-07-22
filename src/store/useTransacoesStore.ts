@@ -220,7 +220,11 @@ export const useTransacoesStore = create<TransacoesStore>()(
             let status: 'pago' | 'pendente' | 'projetado'
 
             if (lancamentoData.cartao_id && lancamentoData.forma_pagamento === 'credito') {
-              status = 'projetado'
+              // Só a cobrança já realizada consome limite ('projetado').
+              // Ocorrências futuras ficam 'pendente' (como assinaturas):
+              // aparecem na fatura do mês, mas não seguram o limite do
+              // cartão hoje — a recorrência pode ser cancelada antes.
+              status = dataTransacao <= hoje ? 'projetado' : 'pendente'
             } else {
               status = dataTransacao <= hoje ? 'pago' : 'pendente'
             }
