@@ -112,6 +112,33 @@ export function somarFatura(lancamentos: Array<{ tipo: string; valor: number }>)
 }
 
 /**
+ * Um lançamento consome o limite do cartão quando a compra JÁ ACONTECEU e
+ * ainda não foi paga (status 'projetado'):
+ * - Parcelas (parcela_total > 1) comprometem o limite inteiro no ato da
+ *   compra, mesmo as parcelas de faturas futuras.
+ * - Lançamentos avulsos/recorrentes só consomem a partir da data da compra —
+ *   ocorrências futuras (ex.: próximos meses de uma recorrência) ainda não
+ *   passaram no cartão e podem ser canceladas antes de acontecer.
+ * - 'pendente' (assinaturas aguardando o mês da cobrança) nunca consome
+ *   limite; a assinatura aparece apenas na fatura do mês correspondente.
+ */
+export function consomeLimiteCartao(
+  lancamento: {
+    forma_pagamento: string
+    status: string
+    data: string
+    parcela_total?: number | null
+  },
+  hoje: Date = new Date()
+): boolean {
+  if (lancamento.forma_pagamento !== 'credito' || lancamento.status !== 'projetado') {
+    return false
+  }
+  if (lancamento.parcela_total && lancamento.parcela_total > 1) return true
+  return lancamento.data <= format(hoje, 'yyyy-MM-dd')
+}
+
+/**
  * Período de compras coberto por uma fatura (dia seguinte ao fechamento
  * anterior até o dia do fechamento).
  */
