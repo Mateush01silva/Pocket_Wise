@@ -187,22 +187,31 @@ export function BudgetPlanningModal({
     [categorias]
   )
 
-  // Categorias filtradas pelo termo de busca
-  const categoriasReceitaFiltradas = useMemo(
-    () =>
-      filtroReceita
-        ? categoriasReceita.filter((c) => c.nome.toLowerCase().includes(filtroReceita.toLowerCase()))
-        : categoriasReceita,
-    [categoriasReceita, filtroReceita]
-  )
+  // Categorias filtradas pelo termo de busca, com as SELECIONADAS primeiro:
+  // quem está editando valores não precisa caçar a categoria no meio da lista
+  const categoriasReceitaFiltradas = useMemo(() => {
+    const filtradas = filtroReceita
+      ? categoriasReceita.filter((c) => c.nome.toLowerCase().includes(filtroReceita.toLowerCase()))
+      : categoriasReceita
+    const selecionadasIds = new Set(categoriasReceitaSelecionadas.map((c) => c.categoria_id))
+    return [...filtradas].sort((a, b) => {
+      const selA = selecionadasIds.has(a.id) ? 0 : 1
+      const selB = selecionadasIds.has(b.id) ? 0 : 1
+      return selA - selB || a.nome.localeCompare(b.nome)
+    })
+  }, [categoriasReceita, filtroReceita, categoriasReceitaSelecionadas])
 
-  const categoriasDespesaFiltradas = useMemo(
-    () =>
-      filtroDespesa
-        ? categoriasDespesa.filter((c) => c.nome.toLowerCase().includes(filtroDespesa.toLowerCase()))
-        : categoriasDespesa,
-    [categoriasDespesa, filtroDespesa]
-  )
+  const categoriasDespesaFiltradas = useMemo(() => {
+    const filtradas = filtroDespesa
+      ? categoriasDespesa.filter((c) => c.nome.toLowerCase().includes(filtroDespesa.toLowerCase()))
+      : categoriasDespesa
+    const selecionadasIds = new Set(categoriasDespesaSelecionadas.map((c) => c.categoria_id))
+    return [...filtradas].sort((a, b) => {
+      const selA = selecionadasIds.has(a.id) ? 0 : 1
+      const selB = selecionadasIds.has(b.id) ? 0 : 1
+      return selA - selB || a.nome.localeCompare(b.nome)
+    })
+  }, [categoriasDespesa, filtroDespesa, categoriasDespesaSelecionadas])
 
   // Inicializar formulário com dados do orçamento existente
   useEffect(() => {
@@ -373,15 +382,18 @@ export function BudgetPlanningModal({
       isOpen={isOpen}
       onClose={onClose}
       title={isEditMode ? 'Editar Orçamento' : 'Planejar Orçamento'}
-      maxWidth="5xl"
+      maxWidth="full"
+      fillHeight
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Layout de 2 colunas para telas maiores */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Coluna 1: Receitas */}
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+      <form onSubmit={handleSubmit} className="flex flex-col h-full min-h-0">
+        {/* Área principal: no desktop, duas colunas com rolagem independente;
+            no mobile, uma coluna única com rolagem natural da página */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain lg:overflow-hidden">
+          <div className="lg:h-full lg:grid lg:grid-cols-2 lg:divide-x lg:divide-dark-700/50">
+          {/* Coluna 1: Receitas, Poupança e Metas */}
+          <div className="flex flex-col lg:h-full lg:min-h-0 p-4 sm:p-6 gap-3">
+            <div className="shrink-0 space-y-3">
+              <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                 <TrendingUp size={16} className="text-green-400" />
                 Receitas Previstas ({categoriasReceitaSelecionadas.length} categorias)
               </h3>
@@ -419,7 +431,7 @@ export function BudgetPlanningModal({
               )}
 
               {/* Busca de Receitas */}
-              <div className="relative mb-3">
+              <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                 <Input
                   value={filtroReceita}
@@ -428,8 +440,11 @@ export function BudgetPlanningModal({
                   className="pl-9"
                 />
               </div>
+            </div>
 
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {/* Conteúdo rolável da coluna de receitas */}
+            <div className="space-y-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain pr-1">
+              <div className="space-y-2">
                 {categoriasReceitaFiltradas.map((categoria) => {
                   const selecionada = categoriasReceitaSelecionadas.find((c) => c.categoria_id === categoria.id)
 
@@ -536,7 +551,6 @@ export function BudgetPlanningModal({
                   )}
                 </p>
               </div>
-            </div>
 
             {/* Meta de Poupança */}
             <div className="bg-dark-700/30 p-4 rounded-lg border border-dark-600">
@@ -579,26 +593,109 @@ export function BudgetPlanningModal({
                 )}
               </div>
             </div>
+
+            {/* Metas e Sonhos: aporte planejado nas caixinhas de Objetivos &
+                Reservas. Não altera saldos nem envelopes — é intenção de aporte. */}
+            {caixinhasMetas.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                  <Target size={16} className="text-primary-400" />
+                  Metas e Sonhos
+                  <span className="text-xs text-gray-500 font-normal ml-1">
+                    — quanto planejo aportar este mês (opcional)
+                  </span>
+                </h3>
+
+                <div className="space-y-2">
+                  {caixinhasMetas.map((caixinha) => {
+                    const saldoConquistado = (caixinha as unknown as { saldo_conquistado?: number }).saldo_conquistado ?? caixinha.saldo_atual
+                    const aporteSugerido = calcularAporteSugerido(
+                      caixinha.meta_valor,
+                      saldoConquistado,
+                      caixinha.prazo_data,
+                      caixinha.meses_pausados ?? 0
+                    )
+                    const valorPlanejado = intencoesMetas[caixinha.id] ?? 0
+
+                    return (
+                      <div
+                        key={caixinha.id}
+                        className="flex items-center gap-3 p-3 bg-dark-700 rounded-lg border border-dark-600"
+                      >
+                        <span className="text-xl flex-shrink-0">{caixinha.icone || '🎯'}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-200 truncate">{caixinha.nome}</p>
+                          {aporteSugerido !== null && aporteSugerido > 0 && (
+                            <p className="text-xs text-gray-500">
+                              Sugerido: {formatCurrency(aporteSugerido)}/mês
+                            </p>
+                          )}
+                        </div>
+                        <div className="w-36 flex-shrink-0">
+                          <CurrencyInput
+                            value={valorPlanejado}
+                            onChange={(value) =>
+                              setIntencoesMetas((prev) => ({ ...prev, [caixinha.id]: value }))
+                            }
+                            placeholder="R$ 0,00"
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Resumo: Receita - Despesas - Metas = Saldo livre não alocado */}
+                {totalMetasPlanejadas > 0 && (
+                  <div className="p-3 bg-primary-500/10 rounded-lg border border-primary-500/30 text-sm space-y-1">
+                    <div className="flex justify-between text-gray-400">
+                      <span>Receita declarada</span>
+                      <span className="text-green-400">{formatCurrency(totalReceitasPlanejadas)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-400">
+                      <span>— Despesas planejadas</span>
+                      <span className="text-red-400">− {formatCurrency(totalDespesasPlanejadas)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-400">
+                      <span>— Metas e Sonhos</span>
+                      <span className="text-primary-400">− {formatCurrency(totalMetasPlanejadas)}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold pt-1 border-t border-dark-600">
+                      <span className="text-gray-300">= Saldo livre não alocado</span>
+                      <span className={totalReceitasPlanejadas - totalDespesasPlanejadas - totalMetasPlanejadas >= 0 ? 'text-green-400' : 'text-yellow-400'}>
+                        {formatCurrency(totalReceitasPlanejadas - totalDespesasPlanejadas - totalMetasPlanejadas)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Apenas informativo — não bloqueia o save do orçamento.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+            </div>
           </div>
 
           {/* Coluna 2: Despesas */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-300 mb-3">
-              Despesas Previstas ({categoriasDespesaSelecionadas.length} categorias)
-            </h3>
+          <div className="flex flex-col lg:h-full lg:min-h-0 p-4 sm:p-6 gap-3">
+            <div className="shrink-0 space-y-3">
+              <h3 className="text-sm font-semibold text-gray-300">
+                Despesas Previstas ({categoriasDespesaSelecionadas.length} categorias)
+              </h3>
 
-            {/* Busca de Despesas */}
-            <div className="relative mb-3">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-              <Input
-                value={filtroDespesa}
-                onChange={(e) => setFiltroDespesa(e.target.value)}
-                placeholder="Buscar categoria de despesa..."
-                className="pl-9"
-              />
+              {/* Busca de Despesas */}
+              <div className="relative">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Input
+                  value={filtroDespesa}
+                  onChange={(e) => setFiltroDespesa(e.target.value)}
+                  placeholder="Buscar categoria de despesa..."
+                  className="pl-9"
+                />
+              </div>
             </div>
 
-            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+            <div className="space-y-2 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain pr-1">
               {categoriasDespesaFiltradas.map((categoria) => {
                 const selecionada = categoriasDespesaSelecionadas.find((c) => c.categoria_id === categoria.id)
 
@@ -673,125 +770,41 @@ export function BudgetPlanningModal({
             </div>
 
             {/* Resumo de Despesas */}
-            <div className="mt-3 p-3 bg-red-500/10 rounded-lg border border-red-500/30">
+            <div className="shrink-0 p-3 bg-red-500/10 rounded-lg border border-red-500/30">
               <p className="text-sm text-gray-300">
                 <span className="font-semibold text-red-400">Total de Despesas: </span>
                 {formatCurrency(totalDespesasPlanejadas)}
               </p>
             </div>
           </div>
+          </div>
         </div>
 
-        {/* =====================================================
-            SEÇÃO: METAS E SONHOS
-            Planejamento de aporte nas caixinhas de Objetivos & Reservas.
-            Não altera saldos nem envelopes — é puramente intenção de aporte.
-        ===================================================== */}
-        {caixinhasMetas.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
-              <Target size={16} className="text-primary-400" />
-              Metas e Sonhos
-              <span className="text-xs text-gray-500 font-normal ml-1">
-                — quanto planejo aportar este mês (opcional, não afeta o orçamento)
-              </span>
-            </h3>
-
-            <div className="space-y-2">
-              {caixinhasMetas.map((caixinha) => {
-                const saldoConquistado = (caixinha as unknown as { saldo_conquistado?: number }).saldo_conquistado ?? caixinha.saldo_atual
-                const aporteSugerido = calcularAporteSugerido(
-                  caixinha.meta_valor,
-                  saldoConquistado,
-                  caixinha.prazo_data,
-                  caixinha.meses_pausados ?? 0
-                )
-                const valorPlanejado = intencoesMetas[caixinha.id] ?? 0
-
-                return (
-                  <div
-                    key={caixinha.id}
-                    className="flex items-center gap-3 p-3 bg-dark-700 rounded-lg border border-dark-600"
-                  >
-                    <span className="text-xl flex-shrink-0">{caixinha.icone || '🎯'}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-200 truncate">{caixinha.nome}</p>
-                      {aporteSugerido !== null && aporteSugerido > 0 && (
-                        <p className="text-xs text-gray-500">
-                          Sugerido: {formatCurrency(aporteSugerido)}/mês
-                        </p>
-                      )}
-                    </div>
-                    <div className="w-36 flex-shrink-0">
-                      <CurrencyInput
-                        value={valorPlanejado}
-                        onChange={(value) =>
-                          setIntencoesMetas((prev) => ({ ...prev, [caixinha.id]: value }))
-                        }
-                        placeholder="R$ 0,00"
-                      />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Resumo: Receita - Despesas - Metas = Saldo livre não alocado */}
-            {totalMetasPlanejadas > 0 && (
-              <div className="p-3 bg-primary-500/10 rounded-lg border border-primary-500/30 text-sm space-y-1">
-                <div className="flex justify-between text-gray-400">
-                  <span>Receita declarada</span>
-                  <span className="text-green-400">{formatCurrency(totalReceitasPlanejadas)}</span>
-                </div>
-                <div className="flex justify-between text-gray-400">
-                  <span>— Despesas planejadas</span>
-                  <span className="text-red-400">− {formatCurrency(totalDespesasPlanejadas)}</span>
-                </div>
-                <div className="flex justify-between text-gray-400">
-                  <span>— Metas e Sonhos</span>
-                  <span className="text-primary-400">− {formatCurrency(totalMetasPlanejadas)}</span>
-                </div>
-                <div className="flex justify-between font-semibold pt-1 border-t border-dark-600">
-                  <span className="text-gray-300">= Saldo livre não alocado</span>
-                  <span className={totalReceitasPlanejadas - totalDespesasPlanejadas - totalMetasPlanejadas >= 0 ? 'text-green-400' : 'text-yellow-400'}>
-                    {formatCurrency(totalReceitasPlanejadas - totalDespesasPlanejadas - totalMetasPlanejadas)}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Apenas informativo — não bloqueia o save do orçamento.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Seção de Resumo e Validação */}
+        {/* Rodapé fixo: resumo/validação sempre visível + ações */}
         <div
           className={cn(
-            'p-4 rounded-lg border-2',
-            isValid
-              ? 'bg-green-500/10 border-green-500/30'
-              : 'bg-red-500/10 border-red-500/30'
+            'shrink-0 border-t p-3 sm:px-6 sm:py-4 space-y-3 bg-dark-900',
+            isValid ? 'border-dark-700/50' : 'border-red-500/40'
           )}
         >
-          <div className="grid sm:grid-cols-4 gap-4 text-sm">
-            <div className="text-center p-2 bg-dark-800/50 rounded-lg">
-              <span className="block text-gray-400 text-xs mb-1">Receitas</span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+            <div className="text-center px-2 py-1.5 bg-dark-800/70 rounded-lg">
+              <span className="block text-gray-400 text-xs">Receitas</span>
               <span className="font-semibold text-green-400">{formatCurrency(totalReceitasPlanejadas)}</span>
             </div>
 
-            <div className="text-center p-2 bg-dark-800/50 rounded-lg">
-              <span className="block text-gray-400 text-xs mb-1">Despesas</span>
+            <div className="text-center px-2 py-1.5 bg-dark-800/70 rounded-lg">
+              <span className="block text-gray-400 text-xs">Despesas</span>
               <span className="font-semibold text-red-400">{formatCurrency(totalDespesasPlanejadas)}</span>
             </div>
 
-            <div className="text-center p-2 bg-dark-800/50 rounded-lg">
-              <span className="block text-gray-400 text-xs mb-1">Poupança</span>
+            <div className="text-center px-2 py-1.5 bg-dark-800/70 rounded-lg">
+              <span className="block text-gray-400 text-xs">Poupança</span>
               <span className="font-semibold text-yellow-400">{formatCurrency(metaReal)}</span>
             </div>
 
-            <div className="text-center p-2 bg-dark-800/50 rounded-lg">
-              <span className="block text-gray-400 text-xs mb-1">Saldo</span>
+            <div className="text-center px-2 py-1.5 bg-dark-800/70 rounded-lg">
+              <span className="block text-gray-400 text-xs">Saldo</span>
               <div className="flex items-center justify-center gap-1">
                 <span className={cn('font-bold', isValid ? 'text-green-400' : 'text-red-400')}>
                   {formatCurrency(saldo)}
@@ -806,22 +819,21 @@ export function BudgetPlanningModal({
           </div>
 
           {!isValid && (
-            <p className="text-xs text-red-400 mt-3 text-center">
+            <p className="text-xs text-red-400 text-center">
               Orçamento desbalanceado! Reduza despesas ou aumente receitas.
             </p>
           )}
-        </div>
 
-        {/* Botões */}
-        <div className="flex gap-3 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>
-            <X size={16} className="mr-2" />
-            Cancelar
-          </Button>
-          <Button type="submit" isLoading={isLoading} disabled={!isValid} className="flex-1">
-            <Check size={16} className="mr-2" />
-            {isEditMode ? 'Salvar Alterações' : 'Criar Orçamento'}
-          </Button>
+          <div className="flex gap-3">
+            <Button type="button" variant="ghost" onClick={onClose} disabled={isLoading}>
+              <X size={16} className="mr-2" />
+              Cancelar
+            </Button>
+            <Button type="submit" isLoading={isLoading} disabled={!isValid} className="flex-1">
+              <Check size={16} className="mr-2" />
+              {isEditMode ? 'Salvar Alterações' : 'Criar Orçamento'}
+            </Button>
+          </div>
         </div>
       </form>
     </Modal>

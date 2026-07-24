@@ -608,9 +608,44 @@ export function Transactions() {
 
   const handleBulkMarkAsPaid = useCallback(async () => {
     if (selectedIds.length === 0) return
-    if (!(await confirmDialog({ title: `Marcar ${selectedIds.length} transação(ões) como paga(s)?` }))) return
-    await runBulk((id) => marcarComoPago(id), `${selectedIds.length} transação(ões) marcada(s) como paga(s)`)
-  }, [selectedIds, marcarComoPago, runBulk])
+
+    // Compras no crédito não podem ser marcadas como pagas avulsas: sem conta
+    // de débito vinculada, o saldo da conta nunca é descontado e os números
+    // divergem do banco real. O caminho certo é "Pagar fatura" (em Cartões),
+    // que pergunta a conta e debita tudo atomicamente.
+    const selecionados = lancamentos.filter((l) => selectedIds.includes(l.id))
+    const idsCredito = selecionados
+      .filter((l) => l.forma_pagamento === 'credito' && l.status !== 'pago')
+      .map((l) => l.id)
+    const idsPagaveis = selectedIds.filter((id) => !idsCredito.includes(id))
+
+    if (idsPagaveis.length === 0) {
+      toast.info(
+        'Compras no crédito são quitadas pela fatura: use "Pagar fatura" na tela de Cartões para debitar a conta corretamente.'
+      )
+      return
+    }
+
+    if (!(await confirmDialog({ title: `Marcar ${idsPagaveis.length} transação(ões) como paga(s)?` }))) return
+    setIsBulkProcessing(true)
+    try {
+      for (const id of idsPagaveis) {
+        await marcarComoPago(id)
+      }
+      toast.success(`${idsPagaveis.length} transação(ões) marcada(s) como paga(s)`)
+      if (idsCredito.length > 0) {
+        toast.info(
+          `${idsCredito.length} compra(s) no crédito não foi(ram) alterada(s): use "Pagar fatura" em Cartões para quitá-las debitando a conta.`
+        )
+      }
+      setSelectedIds([])
+    } catch (error) {
+      console.error('Erro na ação em massa:', error)
+      toast.error('Não foi possível concluir a ação em todas as transações. Verifique e tente novamente.')
+    } finally {
+      setIsBulkProcessing(false)
+    }
+  }, [selectedIds, lancamentos, marcarComoPago])
 
   const handleBulkMarkAsPendente = useCallback(async () => {
     if (selectedIds.length === 0) return

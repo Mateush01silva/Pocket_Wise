@@ -8,7 +8,10 @@ interface ModalProps {
   title: string
   description?: string
   children: React.ReactNode
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl'
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | 'full'
+  // Ocupa a altura da tela e delega o scroll ao conteúdo (para layouts de
+  // colunas com rolagem independente, como o planejamento de orçamento)
+  fillHeight?: boolean
 }
 
 const FOCUSABLE_SELECTOR =
@@ -21,6 +24,7 @@ export function Modal({
   description,
   children,
   maxWidth = 'md',
+  fillHeight = false,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
@@ -97,6 +101,7 @@ export function Modal({
     '4xl': 'max-w-4xl',
     '5xl': 'max-w-5xl',
     '6xl': 'max-w-6xl',
+    full: 'max-w-[1500px]',
   }
 
   return (
@@ -113,7 +118,11 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className={`relative w-full ${maxWidthClasses[maxWidth]} bg-dark-900 border border-dark-700/50 shadow-2xl max-h-[100dvh] sm:max-h-[85vh] flex flex-col rounded-t-2xl sm:rounded-xl`}
+        className={`relative w-full ${maxWidthClasses[maxWidth]} bg-dark-900 border border-dark-700/50 shadow-2xl flex flex-col rounded-t-2xl sm:rounded-xl ${
+          fillHeight
+            ? 'h-[100dvh] sm:h-[92vh] max-h-[100dvh] sm:max-h-[92vh]'
+            : 'max-h-[100dvh] sm:max-h-[85vh]'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -135,8 +144,16 @@ export function Modal({
           </Button>
         </div>
 
-        {/* Content - Scrollable */}
-        <div className="p-4 sm:p-6 overflow-y-auto overscroll-contain min-h-0">{children}</div>
+        {/* Content - Scrollable (ou delegado ao conteúdo com fillHeight) */}
+        <div
+          className={
+            fillHeight
+              ? 'flex-1 min-h-0 flex flex-col overflow-hidden'
+              : 'p-4 sm:p-6 overflow-y-auto overscroll-contain min-h-0'
+          }
+        >
+          {children}
+        </div>
       </div>
     </div>
   )

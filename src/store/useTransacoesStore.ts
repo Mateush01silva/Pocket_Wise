@@ -35,7 +35,6 @@ interface TransacoesActions {
   // Ações especiais
   marcarComoPago: (id: string) => Promise<void>
   marcarComoPendente: (id: string) => Promise<void>
-  marcarFaturaComoPaga: (cartaoId: string, mesAno: string) => Promise<void>
   pagarFatura: (lancamentoIds: string[], contaId: string) => Promise<number>
 
   // Cálculos
@@ -153,7 +152,14 @@ export const useTransacoesStore = create<TransacoesStore>()(
 
         try {
           const grupoParcelasId = crypto.randomUUID()
-          const valorParcela = lancamentoData.valor / numeroParcelas
+          // Divisão com centavos exatos: cada parcela é arredondada para 2
+          // casas e a diferença (resto da divisão) vai na 1ª parcela. Sem
+          // isso, o banco (numeric(15,2)) arredondava cada parcela e o grupo
+          // somava alguns centavos a mais/menos que o valor da compra.
+          const valorParcela = Math.floor((lancamentoData.valor / numeroParcelas) * 100) / 100
+          const restoCentavos = Math.round(
+            (lancamentoData.valor - valorParcela * numeroParcelas) * 100
+          ) / 100
 
           // Calcular data de vencimento da primeira parcela
           const dataVencimento = get().calcularDataVencimentoFatura(
@@ -175,7 +181,7 @@ export const useTransacoesStore = create<TransacoesStore>()(
 
             parcelas.push({
               ...lancamentoData,
-              valor: valorParcela,
+              valor: i === 1 ? Math.round((valorParcela + restoCentavos) * 100) / 100 : valorParcela,
               observacao: `Parcela ${i}/${numeroParcelas}${lancamentoData.observacao ? ` - ${lancamentoData.observacao}` : ''}`,
               parcela_atual: i,
               parcela_total: numeroParcelas,
@@ -370,15 +376,6 @@ export const useTransacoesStore = create<TransacoesStore>()(
       // Marcar como pendente
       marcarComoPendente: async (id) => {
         await get().updateLancamento(id, { status: 'pendente' })
-      },
-
-      // Marcar fatura inteira como paga
-      marcarFaturaComoPaga: async (cartaoId, mesAno) => {
-        const faturas = get().getFaturasCartao(cartaoId, mesAno)
-
-        for (const fatura of faturas) {
-          await get().updateLancamento(fatura.id, { status: 'pago' })
-        }
       },
 
       // Pagar fatura atomicamente (RPC): marca como pagos, com a conta de
