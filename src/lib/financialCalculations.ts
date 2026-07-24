@@ -168,10 +168,23 @@ export interface SaldoMesInfo {
 }
 
 /**
- * Calcula o saldo acumulado não alocado de todos os meses passados
- * Considera todos os meses desde a primeira transação até o mês anterior
- * Para cada mês: calcula receitas - despesas - já alocado em caixinhas
- * Soma apenas os saldos positivos de cada mês
+ * Calcula o saldo acumulado não alocado de todos os meses passados.
+ * Considera todos os meses desde a primeira transação até o mês anterior,
+ * em ordem cronológica, como um "pote" acumulado:
+ *
+ * - Cada mês contribui com (receitas - despesas + retiradas de caixinha
+ *   destinadas ao mês - alocações marcadas naquele mês).
+ * - Mês NEGATIVO consome as sobras dos meses anteriores (e, se sobrar
+ *   déficit, ele carrega adiante consumindo sobras futuras). Sem isso o
+ *   total somava só os meses positivos e oferecia para alocar um dinheiro
+ *   que não existe.
+ * - Alocação MAIOR que a sobra do próprio mês de referência drena as sobras
+ *   dos outros meses (mais antigos primeiro). Sem isso, alocar o total
+ *   sugerido (que soma vários meses) zerava só o mês marcado e o restante
+ *   "reaparecia" como disponível.
+ *
+ * O total nunca dobra-conta: alocar exatamente o valor exibido zera o
+ * disponível, independente do mês em que a alocação foi registrada.
  */
 export function calcularSaldoAcumuladoNaoAlocado(
   lancamentos: Lancamento[],
@@ -197,7 +210,27 @@ export function calcularSaldoAcumuladoNaoAlocado(
     return { totalDisponivel: 0, mesesComSaldo: [] }
   }
 
+  // Sobras remanescentes por mês (ordem cronológica) e déficit acumulado
   const mesesComSaldo: SaldoMesInfo[] = []
+  let deficitAcumulado = 0
+
+  // Consome `valor` das sobras já registradas, dos meses mais antigos
+  // primeiro. Retorna o que não pôde ser coberto.
+  const consumirDasSobras = (valor: number): number => {
+    let restante = valor
+    for (const m of mesesComSaldo) {
+      if (restante <= 0) break
+      const usar = Math.min(m.saldoDisponivel, restante)
+      m.saldoDisponivel -= usar
+      restante -= usar
+    }
+    // Remover meses zerados para não poluir o detalhamento
+    for (let i = mesesComSaldo.length - 1; i >= 0; i--) {
+      if (mesesComSaldo[i].saldoDisponivel <= 0.005) mesesComSaldo.splice(i, 1)
+    }
+    return restante
+  }
+
   let mesAtual = dataInicio
 
   // Iterar por todos os meses até o mês anterior
@@ -222,8 +255,7 @@ export function calcularSaldoAcumuladoNaoAlocado(
       })
       .reduce((sum, t) => sum + t.valor, 0)
 
-    // Calcular total já alocado deste mês em caixinhas
-    // (saldo que o usuário decidiu guardar em caixinhas a partir deste mês)
+    // Total já alocado em caixinhas com este mês como referência de origem
     // A transação.origem_mes_referencia pode ser 'YYYY-MM-DD' ou 'YYYY-MM'
     const totalAlocado = transacoesCaixinhas
       .filter((t) => {
@@ -233,23 +265,38 @@ export function calcularSaldoAcumuladoNaoAlocado(
       })
       .reduce((sum, t) => sum + t.valor, 0)
 
-    // Saldo disponível = fluxo orgânico + retiradas de caixinha - já guardado novamente
-    // Exemplo: receitas R$3.000, despesas R$3.348, caixinha R$500 → sobra R$152
-    const saldoDisponivel = Math.round((saldoBruto + totalRetiradasCaixinhas - totalAlocado) * 100) / 100
+    // Resultado líquido do mês = fluxo orgânico + retiradas de caixinha - já guardado
+    let liquidoMes = Math.round((saldoBruto + totalRetiradasCaixinhas - totalAlocado) * 100) / 100
 
-    // Apenas incluir meses com saldo positivo disponível (> R$ 0,00)
-    if (saldoDisponivel > 0) {
-      mesesComSaldo.push({
-        mesRef,
-        saldoBruto: Math.round(saldoBruto * 100) / 100,
-        totalRetiradasCaixinhas: Math.round(totalRetiradasCaixinhas * 100) / 100,
-        totalAlocado: Math.round(totalAlocado * 100) / 100,
-        saldoDisponivel,
-      })
+    if (liquidoMes > 0) {
+      // Primeiro cobre déficit carregado de meses anteriores
+      const usadoNoDeficit = Math.min(liquidoMes, deficitAcumulado)
+      deficitAcumulado = Math.round((deficitAcumulado - usadoNoDeficit) * 100) / 100
+      liquidoMes = Math.round((liquidoMes - usadoNoDeficit) * 100) / 100
+
+      if (liquidoMes > 0) {
+        mesesComSaldo.push({
+          mesRef,
+          saldoBruto: Math.round(saldoBruto * 100) / 100,
+          totalRetiradasCaixinhas: Math.round(totalRetiradasCaixinhas * 100) / 100,
+          totalAlocado: Math.round(totalAlocado * 100) / 100,
+          saldoDisponivel: liquidoMes,
+        })
+      }
+    } else if (liquidoMes < 0) {
+      // Mês no vermelho (ou alocação acima da sobra do mês): consome as
+      // sobras dos meses anteriores; o que não couber vira déficit
+      const naoCoberto = consumirDasSobras(-liquidoMes)
+      deficitAcumulado = Math.round((deficitAcumulado + naoCoberto) * 100) / 100
     }
 
     // Avançar para o próximo mês
     mesAtual = addMonths(mesAtual, 1)
+  }
+
+  // Arredondar sobras remanescentes para exibição
+  for (const m of mesesComSaldo) {
+    m.saldoDisponivel = Math.round(m.saldoDisponivel * 100) / 100
   }
 
   const totalDisponivel = Math.round(

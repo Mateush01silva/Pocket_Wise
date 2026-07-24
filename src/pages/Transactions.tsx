@@ -27,17 +27,26 @@ interface QuickRowState {
   status: LancamentoStatus
 }
 
-const criarLinhaRapidaVazia = (tipo: TransactionType): QuickRowState => ({
-  tipo,
-  data: format(new Date(), 'yyyy-MM-dd'),
-  categoria_id: '',
-  observacao: '',
-  forma_pagamento: 'dinheiro',
-  cartao_id: '',
-  conta_id: '',
-  valor: '',
-  status: 'pago',
-})
+// Despesa nasce como compra no crédito (status 'projetado') quando o usuário
+// tem cartão ativo — mesmo padrão do TransactionModal. Com um único cartão,
+// ele já vem selecionado; sem cartão, mantém dinheiro/pago.
+const criarLinhaRapidaVazia = (
+  tipo: TransactionType,
+  cartoesAtivos: { id: string }[] = []
+): QuickRowState => {
+  const usarCredito = tipo === 'despesa' && cartoesAtivos.length > 0
+  return {
+    tipo,
+    data: format(new Date(), 'yyyy-MM-dd'),
+    categoria_id: '',
+    observacao: '',
+    forma_pagamento: usarCredito ? 'credito' : 'dinheiro',
+    cartao_id: usarCredito && cartoesAtivos.length === 1 ? cartoesAtivos[0].id : '',
+    conta_id: '',
+    valor: '',
+    status: usarCredito ? 'projetado' : 'pago',
+  }
+}
 
 type SortField = 'data' | 'categoria' | 'valor' | 'status' | 'forma_pagamento' | 'cadastro'
 type SortOrder = 'asc' | 'desc'
@@ -199,9 +208,11 @@ export function Transactions() {
       .map((c) => ({ value: c.id, label: c.nome }))
   }, [categorias, quickRow.tipo])
 
+  const cartoesAtivosQuick = useMemo(() => cartoes.filter((c) => c.ativo), [cartoes])
+
   const cartaoQuickOptions = useMemo(
-    () => cartoes.filter((c) => c.ativo).map((c) => ({ value: c.id, label: c.nome })),
-    [cartoes]
+    () => cartoesAtivosQuick.map((c) => ({ value: c.id, label: c.nome })),
+    [cartoesAtivosQuick]
   )
 
   const contaQuickOptions = useMemo(
@@ -218,14 +229,14 @@ export function Transactions() {
       return
     }
     const tipoInicial: TransactionType = filterTipo === 'receita' ? 'receita' : 'despesa'
-    setQuickRow(criarLinhaRapidaVazia(tipoInicial))
+    setQuickRow(criarLinhaRapidaVazia(tipoInicial, cartoesAtivosQuick))
     setIsQuickAdding(true)
-  }, [getLimit, lancamentos.length, navigate, filterTipo])
+  }, [getLimit, lancamentos.length, navigate, filterTipo, cartoesAtivosQuick])
 
   const cancelarLinhaRapida = useCallback(() => {
     setIsQuickAdding(false)
-    setQuickRow(criarLinhaRapidaVazia('despesa'))
-  }, [])
+    setQuickRow(criarLinhaRapidaVazia('despesa', cartoesAtivosQuick))
+  }, [cartoesAtivosQuick])
 
   // Monta o payload comum (linha rápida → criação ou "+ opções")
   const montarPayloadQuick = useCallback((): Partial<CreateLancamentoInput> => {
@@ -285,7 +296,7 @@ export function Transactions() {
       // Mantém a linha aberta para lançamentos em sequência, preservando
       // tipo/data/forma para agilizar
       setQuickRow((prev) => ({
-        ...criarLinhaRapidaVazia(prev.tipo),
+        ...criarLinhaRapidaVazia(prev.tipo, cartoesAtivosQuick),
         data: prev.data,
         forma_pagamento: prev.forma_pagamento,
         cartao_id: prev.cartao_id,
@@ -298,7 +309,7 @@ export function Transactions() {
     } finally {
       setIsSavingQuick(false)
     }
-  }, [quickRow, montarPayloadQuick, createLancamento])
+  }, [quickRow, montarPayloadQuick, createLancamento, cartoesAtivosQuick])
 
   // Abre o formulário completo já preenchido com o que foi digitado na linha
   const abrirOpcoesCompletas = useCallback(() => {
@@ -597,9 +608,44 @@ export function Transactions() {
 
   const handleBulkMarkAsPaid = useCallback(async () => {
     if (selectedIds.length === 0) return
-    if (!(await confirmDialog({ title: `Marcar ${selectedIds.length} transação(ões) como paga(s)?` }))) return
-    await runBulk((id) => marcarComoPago(id), `${selectedIds.length} transação(ões) marcada(s) como paga(s)`)
-  }, [selectedIds, marcarComoPago, runBulk])
+
+    // Compras no crédito não podem ser marcadas como pagas avulsas: sem conta
+    // de débito vinculada, o saldo da conta nunca é descontado e os números
+    // divergem do banco real. O caminho certo é "Pagar fatura" (em Cartões),
+    // que pergunta a conta e debita tudo atomicamente.
+    const selecionados = lancamentos.filter((l) => selectedIds.includes(l.id))
+    const idsCredito = selecionados
+      .filter((l) => l.forma_pagamento === 'credito' && l.status !== 'pago')
+      .map((l) => l.id)
+    const idsPagaveis = selectedIds.filter((id) => !idsCredito.includes(id))
+
+    if (idsPagaveis.length === 0) {
+      toast.info(
+        'Compras no crédito são quitadas pela fatura: use "Pagar fatura" na tela de Cartões para debitar a conta corretamente.'
+      )
+      return
+    }
+
+    if (!(await confirmDialog({ title: `Marcar ${idsPagaveis.length} transação(ões) como paga(s)?` }))) return
+    setIsBulkProcessing(true)
+    try {
+      for (const id of idsPagaveis) {
+        await marcarComoPago(id)
+      }
+      toast.success(`${idsPagaveis.length} transação(ões) marcada(s) como paga(s)`)
+      if (idsCredito.length > 0) {
+        toast.info(
+          `${idsCredito.length} compra(s) no crédito não foi(ram) alterada(s): use "Pagar fatura" em Cartões para quitá-las debitando a conta.`
+        )
+      }
+      setSelectedIds([])
+    } catch (error) {
+      console.error('Erro na ação em massa:', error)
+      toast.error('Não foi possível concluir a ação em todas as transações. Verifique e tente novamente.')
+    } finally {
+      setIsBulkProcessing(false)
+    }
+  }, [selectedIds, lancamentos, marcarComoPago])
 
   const handleBulkMarkAsPendente = useCallback(async () => {
     if (selectedIds.length === 0) return
@@ -1125,7 +1171,23 @@ export function Transactions() {
                     <td className="p-2">
                       <select
                         value={quickRow.forma_pagamento}
-                        onChange={(e) => setQuickRow((p) => ({ ...p, forma_pagamento: e.target.value as PaymentMethod, cartao_id: '', conta_id: '' }))}
+                        onChange={(e) => {
+                          const novaForma = e.target.value as PaymentMethod
+                          setQuickRow((p) => ({
+                            ...p,
+                            forma_pagamento: novaForma,
+                            cartao_id: '',
+                            conta_id: '',
+                            // Crédito nasce 'projetado'; ao sair do crédito,
+                            // volta para 'pago' (mesmo comportamento do modal)
+                            status:
+                              novaForma === 'credito'
+                                ? 'projetado'
+                                : p.status === 'projetado'
+                                ? 'pago'
+                                : p.status,
+                          }))
+                        }}
                         className="w-full px-2 py-1.5 bg-dark-800 border border-dark-600 rounded text-sm text-gray-100 focus:outline-none focus:ring-1 focus:ring-primary-500"
                       >
                         <option value="dinheiro">Dinheiro</option>

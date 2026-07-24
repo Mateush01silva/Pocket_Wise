@@ -5,6 +5,7 @@ import { useNotificacoesStore, type Notificacao } from '../store/useNotificacoes
 import { useTransacoesStore } from '../store/useTransacoesStore'
 import { useOrcamentosStore } from '../store/useOrcamentosStore'
 import { useCartoesStore } from '../store/useCartoesStore'
+import { consomeLimiteCartao, somarFatura } from '../lib/faturaUtils'
 import { cn } from '../lib/cn'
 
 export function NotificationBell() {
@@ -28,14 +29,11 @@ export function NotificationBell() {
     return cartoes
       .filter((c) => c.ativo && c.limite && c.limite > 0)
       .map((c) => {
-        const totalUsado = lancamentos
-          .filter(
-            (l) =>
-              l.cartao_id === c.id &&
-              l.forma_pagamento === 'credito' &&
-              l.status === 'projetado'
-          )
-          .reduce((sum, l) => sum + l.valor, 0)
+        // Mesmo critério da tela de cartões: só compras já realizadas não
+        // pagas (e parcelas) consomem limite; receitas/estornos abatem
+        const totalUsado = somarFatura(
+          lancamentos.filter((l) => l.cartao_id === c.id && consomeLimiteCartao(l))
+        )
         return {
           id: c.id,
           nome: c.nome,

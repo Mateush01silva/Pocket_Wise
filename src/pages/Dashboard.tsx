@@ -26,11 +26,38 @@ import { learningContent } from '../lib/learningContent'
 import { PossoComprarFloating } from '../components/PossoComprarFloating'
 import { usePermissions } from '../hooks/usePermissions'
 
+// Dispensas persistidas em localStorage, por mês (YYYY-MM) e com o valor no
+// momento da dispensa: o aviso só reaparece quando vira o mês ou quando o
+// valor cresce depois da dispensa (ex.: lançamento retroativo esquecido).
+function lerDispensa(chave: string): { mes: string; valor: number } | null {
+  try {
+    const raw = localStorage.getItem(chave)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (typeof parsed?.mes === 'string' && typeof parsed?.valor === 'number') return parsed
+    return null
+  } catch {
+    return null
+  }
+}
+
+function gravarDispensa(chave: string, mes: string, valor: number) {
+  try {
+    localStorage.setItem(chave, JSON.stringify({ mes, valor }))
+  } catch {
+    // localStorage indisponível — o aviso apenas volta a aparecer
+  }
+}
+
+const DISPENSA_ALOCACAO_KEY = 'pocketwise-dispensa-alocacao'
+const DISPENSA_RECEITAS_KEY = 'pocketwise-dispensa-ajuste-receitas'
+
 export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isAlocarSaldoModalOpen, setIsAlocarSaldoModalOpen] = useState(false)
   const [isGastosModalOpen, setIsGastosModalOpen] = useState(false)
-  const [ajusteReceitasDismissed, setAjusteReceitasDismissed] = useState(false)
+  const [dispensaAlocacao, setDispensaAlocacao] = useState(() => lerDispensa(DISPENSA_ALOCACAO_KEY))
+  const [dispensaReceitas, setDispensaReceitas] = useState(() => lerDispensa(DISPENSA_RECEITAS_KEY))
   const [ajustandoReceitas, setAjustandoReceitas] = useState(false)
   const [periodFilter, setPeriodFilter] = useState<PeriodFilterValue>({
     tipo: 'mes-atual',
@@ -177,10 +204,22 @@ export function Dashboard() {
   // Saldo disponível para alocar (alias para compatibilidade)
   const saldoMesAnterior = saldoAcumuladoDisponivel
 
-  // Verificar se deve mostrar sugestão de alocação (saldo positivo e caixinhas existem)
+  // Sugestão de alocação: aparece na virada do mês (fechamento do mês
+  // anterior) e reaparece se o saldo disponível CRESCER depois de dispensada
+  // (ex.: lançamento retroativo esquecido). Fora isso, fica dispensada.
+  const mesAtualChave = format(startOfMonth(new Date()), 'yyyy-MM')
   const mostrarSugestaoAlocacao = useMemo(() => {
-    return saldoMesAnterior > 0 && caixinhasInitialized && caixinhas.some(c => c.ativa)
-  }, [saldoMesAnterior, caixinhasInitialized, caixinhas])
+    if (!(saldoMesAnterior > 0 && caixinhasInitialized && caixinhas.some(c => c.ativa))) {
+      return false
+    }
+    if (!dispensaAlocacao || dispensaAlocacao.mes !== mesAtualChave) return true
+    return saldoMesAnterior > dispensaAlocacao.valor + 0.01
+  }, [saldoMesAnterior, caixinhasInitialized, caixinhas, dispensaAlocacao, mesAtualChave])
+
+  const handleDispensarAlocacao = useCallback(() => {
+    gravarDispensa(DISPENSA_ALOCACAO_KEY, mesAtualChave, saldoMesAnterior)
+    setDispensaAlocacao({ mes: mesAtualChave, valor: saldoMesAnterior })
+  }, [mesAtualChave, saldoMesAnterior])
 
   // Get recent transactions (last 5) - ordenar por data de cadastro (created_at)
   const transacoesRecentes = [...lancamentos]
@@ -277,6 +316,19 @@ export function Dashboard() {
     !!orcamentoAtual && categoriasBudgetReceitas.length > 0 && receitasPagasMes > receitasOrcadas + 0.01
   const excessoReceitas = superouReceitas ? receitasPagasMes - receitasOrcadas : 0
 
+  // Aviso informativo (a projeção já se ajusta sozinha): dispensável por mês,
+  // reaparece só se o excesso crescer depois da dispensa
+  const mostrarAvisoReceitas = useMemo(() => {
+    if (!superouReceitas) return false
+    if (!dispensaReceitas || dispensaReceitas.mes !== mesAtualYYYYMM) return true
+    return excessoReceitas > dispensaReceitas.valor + 0.01
+  }, [superouReceitas, excessoReceitas, dispensaReceitas, mesAtualYYYYMM])
+
+  const handleDispensarReceitas = useCallback(() => {
+    gravarDispensa(DISPENSA_RECEITAS_KEY, mesAtualYYYYMM, excessoReceitas)
+    setDispensaReceitas({ mes: mesAtualYYYYMM, valor: excessoReceitas })
+  }, [mesAtualYYYYMM, excessoReceitas])
+
   const handleAjustarReceitas = async () => {
     if (!orcamentoAtual || categoriasBudgetReceitas.length === 0) return
     setAjustandoReceitas(true)
@@ -311,7 +363,7 @@ export function Dashboard() {
         }
       }
 
-      setAjusteReceitasDismissed(true)
+      handleDispensarReceitas()
     } catch (err) {
       console.error('Erro ao ajustar receitas:', err)
     } finally {
@@ -506,18 +558,19 @@ export function Dashboard() {
         <CaixinhasObjetivosWidget />
       </div>
 
-      {/* Revenue auto-adjustment alert */}
-      {canEdit && superouReceitas && !ajusteReceitasDismissed && (
+      {/* Aviso: receitas acima do previsto (projeção já ajustada automaticamente) */}
+      {canEdit && mostrarAvisoReceitas && (
         <div className="flex flex-col sm:flex-row items-start gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
           <TrendingUp className="w-5 h-5 text-green-400 shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-green-300">
-              Suas receitas superaram o planejado!
+              Suas receitas superaram o previsto em {formatCurrency(excessoReceitas)}
             </p>
             <p className="text-xs text-gray-400 mt-1">
-              Você recebeu <span className="text-green-400 font-medium">{formatCurrency(receitasPagasMes)}</span> este mês, mas havia planejado{' '}
-              <span className="text-gray-300 font-medium">{formatCurrency(receitasOrcadas)}</span>{' '}
-              (<span className="text-green-400">+{formatCurrency(excessoReceitas)}</span>). Deseja atualizar o orçamento para refletir a receita real e aumentar a projeção de saldo?
+              Você recebeu <span className="text-green-400 font-medium">{formatCurrency(receitasPagasMes)}</span> este mês
+              (previsto: <span className="text-gray-300 font-medium">{formatCurrency(receitasOrcadas)}</span>).{' '}
+              A projeção de saldo <span className="text-gray-300 font-medium">já considera o valor real automaticamente</span>.
+              Se quiser, você também pode gravar esses valores no planejamento de receitas do mês.
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -527,15 +580,15 @@ export function Dashboard() {
               disabled={ajustandoReceitas}
               className="text-xs whitespace-nowrap"
             >
-              {ajustandoReceitas ? 'Ajustando...' : 'Ajustar orçamento'}
+              {ajustandoReceitas ? 'Gravando...' : 'Gravar no orçamento'}
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setAjusteReceitasDismissed(true)}
+              onClick={handleDispensarReceitas}
               className="text-xs text-gray-400"
             >
-              Ignorar
+              Entendi
             </Button>
           </div>
         </div>
@@ -766,6 +819,14 @@ export function Dashboard() {
                 </p>
               </div>
               <div className="flex gap-2 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDispensarAlocacao}
+                  className="text-gray-400"
+                >
+                  Agora não
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"

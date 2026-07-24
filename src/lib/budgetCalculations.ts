@@ -193,6 +193,39 @@ export function calcularProjecaoMensal(
   // RECEITAS ORÇADAS (planejadas) - base para o saldo do orçamento
   const receitasOrcadas = categoriasBudgetReceita.reduce((sum, cb) => sum + cb.valor_orcado, 0)
 
+  // AUTO-AJUSTE DE RECEITAS: quando o realizado supera o previsto, a projeção
+  // passa a considerar o realizado — categoria a categoria (max(orçado, recebido))
+  // e somando receitas recebidas em categorias fora do orçamento. Nada é gravado
+  // no orçamento: o valor_orcado permanece como o usuário planejou.
+  const receitasPagasPorCategoria = lancamentos
+    .filter(
+      (l) =>
+        l.tipo === 'receita' &&
+        l.status === 'pago' &&
+        l.data.substring(0, 7) === anoMes
+    )
+    .reduce(
+      (acc, l) => {
+        const key = l.categoria_id || 'sem-categoria'
+        acc[key] = (acc[key] || 0) + l.valor
+        return acc
+      },
+      {} as Record<string, number>
+    )
+
+  const idsCategoriasOrcadas = new Set(categoriasBudgetReceita.map((cb) => cb.categoria_id))
+  const receitasEfetivasOrcadas = categoriasBudgetReceita.reduce(
+    (sum, cb) => sum + Math.max(cb.valor_orcado, receitasPagasPorCategoria[cb.categoria_id] || 0),
+    0
+  )
+  const receitasPagasForaOrcamento = Object.entries(receitasPagasPorCategoria)
+    .filter(([catId]) => !idsCategoriasOrcadas.has(catId))
+    .reduce((sum, [, valor]) => sum + valor, 0)
+
+  const receitasConsideradas =
+    Math.round((receitasEfetivasOrcadas + receitasPagasForaOrcamento) * 100) / 100
+  const excessoReceitas = Math.max(0, Math.round((receitasConsideradas - receitasOrcadas) * 100) / 100)
+
   // RETIRADAS DE CAIXINHAS destinadas a compor o orçamento deste mês
   // Essas retiradas são dinheiro que já estava guardado e agora será usado
   let totalRetiradasCaixinhas = 0
@@ -202,8 +235,8 @@ export function calcularProjecaoMensal(
     totalRetiradasCaixinhas = totalRetiradas
   }
 
-  // RECEITAS TOTAIS = Receitas orçadas + Retiradas de caixinhas
-  const receitasTotais = receitasOrcadas + totalRetiradasCaixinhas
+  // RECEITAS TOTAIS = Receitas consideradas (com auto-ajuste) + Retiradas de caixinhas
+  const receitasTotais = receitasConsideradas + totalRetiradasCaixinhas
 
   // Despesas efetivadas no mês (pagas + projetadas de cartão)
   // Projetadas são incluídas pois representam gastos já comprometidos
@@ -251,6 +284,9 @@ export function calcularProjecaoMensal(
     saude,
     percentual_mes_decorrido: percentualMesDecorrido,
     percentual_orcamento_usado: percentualOrcamentoUsado,
+    receitas_orcadas: receitasOrcadas,
+    receitas_consideradas: receitasConsideradas,
+    excesso_receitas: excessoReceitas,
   }
 }
 

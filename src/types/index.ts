@@ -473,6 +473,10 @@ export interface ProjecaoMensal {
   saude: SaudeFinanceira
   percentual_mes_decorrido: number
   percentual_orcamento_usado: number
+  // Receitas: previsto vs. considerado (auto-ajuste quando o realizado supera o previsto)
+  receitas_orcadas: number
+  receitas_consideradas: number
+  excesso_receitas: number
 }
 
 export interface CategoriaEmRisco {
