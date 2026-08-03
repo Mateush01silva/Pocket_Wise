@@ -10,6 +10,7 @@ import { useFamilyStore } from '../store/useFamilyStore'
 import { TransactionModal } from '../components/TransactionModal'
 import { usePermissions } from '../hooks/usePermissions'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
+import { encontrarLancamentosParecidos, montarMensagemDuplicados } from '../lib/duplicadosUtils'
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Lancamento, CreateLancamentoInput, PaymentMethod, LancamentoStatus, TransactionType } from '../types'
@@ -285,6 +286,24 @@ export function Transactions() {
       return
     }
 
+    // Mesma detecção de duplicados do modal completo: mesmo tipo, data,
+    // valor e categoria já lançados pedem confirmação antes de salvar
+    const parecidos = encontrarLancamentosParecidos(lancamentos, {
+      tipo: quickRow.tipo,
+      data: quickRow.data,
+      valor: valorNum,
+      categoria_id: quickRow.categoria_id,
+    })
+    if (parecidos.length > 0) {
+      const confirmar = await confirmDialog({
+        title: 'Possível lançamento duplicado',
+        message: montarMensagemDuplicados(parecidos),
+        confirmLabel: 'Lançar mesmo assim',
+        cancelLabel: 'Revisar',
+      })
+      if (!confirmar) return
+    }
+
     setIsSavingQuick(true)
     try {
       const payload = montarPayloadQuick()
@@ -309,7 +328,7 @@ export function Transactions() {
     } finally {
       setIsSavingQuick(false)
     }
-  }, [quickRow, montarPayloadQuick, createLancamento, cartoesAtivosQuick])
+  }, [quickRow, montarPayloadQuick, createLancamento, cartoesAtivosQuick, lancamentos])
 
   // Abre o formulário completo já preenchido com o que foi digitado na linha
   const abrirOpcoesCompletas = useCallback(() => {

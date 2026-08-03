@@ -1,8 +1,14 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
+import { AlertTriangle } from 'lucide-react'
 import { Modal } from './ui/Modal'
-import { Button, Input, Select, CurrencyInput } from './ui'
+import { Button, Input, Select, CurrencyInput, confirmDialog } from './ui'
 import { useCategoriasStore, useCartoesStore, useContasBancariasStore, useTransacoesStore } from '../store'
+import {
+  encontrarLancamentosParecidos,
+  descreverLancamento,
+  montarMensagemDuplicados,
+} from '../lib/duplicadosUtils'
 import type { CreateLancamentoInput, Lancamento } from '../types'
 import { format } from 'date-fns'
 
@@ -47,6 +53,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
   const cartoes = useCartoesStore((state) => state.cartoes)
   const contas = useContasBancariasStore((state) => state.contas)
   const fetchContas = useContasBancariasStore((state) => state.fetchContas)
+  const lancamentos = useTransacoesStore((state) => state.lancamentos)
   const createLancamento = useTransacoesStore((state) => state.createLancamento)
   const createLancamentoParcelado = useTransacoesStore(
     (state) => state.createLancamentoParcelado
@@ -108,6 +115,22 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
       label: p.nome,
     }))
   }, [cartoes, formData.cartao_id])
+
+  // Possíveis duplicados: lançamentos já existentes com o mesmo tipo, data,
+  // valor e categoria do que está sendo preenchido. Só na criação — na
+  // edição o lançamento casaria consigo mesmo.
+  const possiveisDuplicados = useMemo(() => {
+    if (editingLancamento || !isOpen) return []
+    if (!formData.tipo || !formData.data || !formData.categoria_id || !formData.valor || formData.valor <= 0) {
+      return []
+    }
+    return encontrarLancamentosParecidos(lancamentos, {
+      tipo: formData.tipo,
+      data: formData.data,
+      valor: formData.valor,
+      categoria_id: formData.categoria_id,
+    })
+  }, [editingLancamento, isOpen, lancamentos, formData.tipo, formData.data, formData.valor, formData.categoria_id])
 
   const contaOptions = useMemo(() => {
     return contas.filter(c => c.ativo).map((conta) => ({
@@ -189,6 +212,22 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
         toast.error('Selecione a conta bancária para esta forma de pagamento')
         setIsLoading(false)
         return
+      }
+
+      // Guarda contra duplicados na criação: além do aviso inline no
+      // formulário, pede confirmação explícita (o aviso pode passar batido
+      // em lançamentos rápidos em sequência)
+      if (!editingLancamento && possiveisDuplicados.length > 0) {
+        const confirmar = await confirmDialog({
+          title: 'Possível lançamento duplicado',
+          message: montarMensagemDuplicados(possiveisDuplicados),
+          confirmLabel: 'Lançar mesmo assim',
+          cancelLabel: 'Revisar',
+        })
+        if (!confirmar) {
+          setIsLoading(false)
+          return
+        }
       }
 
       // Se está editando
@@ -414,6 +453,29 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
             required
           />
         </div>
+
+        {/* Aviso de possível duplicidade (mesmo tipo, data, valor e categoria) */}
+        {possiveisDuplicados.length > 0 && (
+          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <div className="flex items-center gap-2 text-sm font-medium text-amber-300">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              {possiveisDuplicados.length === 1
+                ? 'Já existe um lançamento parecido'
+                : `Já existem ${possiveisDuplicados.length} lançamentos parecidos`}
+            </div>
+            <ul className="text-xs text-gray-300 mt-2 space-y-1">
+              {possiveisDuplicados.slice(0, 3).map((l) => (
+                <li key={l.id}>• {descreverLancamento(l)}</li>
+              ))}
+              {possiveisDuplicados.length > 3 && (
+                <li className="text-gray-500">…e mais {possiveisDuplicados.length - 3}</li>
+              )}
+            </ul>
+            <p className="text-xs text-gray-500 mt-2">
+              Mesma data, valor e categoria. Se não for duplicado, pode salvar normalmente.
+            </p>
+          </div>
+        )}
 
         {/* Status */}
         <Select
