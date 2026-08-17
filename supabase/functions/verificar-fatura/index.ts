@@ -37,6 +37,8 @@ interface FaturaTransacao {
 
 interface ExtracaoIA {
   total_fatura: number | null
+  periodo_inicio: string | null
+  periodo_fim: string | null
   transacoes: FaturaTransacao[]
 }
 
@@ -77,6 +79,68 @@ function parseInvoiceDate(dateStr: string, defaultYear: number): Date | null {
   const m3 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
   if (m3) return new Date(parseInt(m3[1]), parseInt(m3[2]) - 1, parseInt(m3[3]))
   return null
+}
+
+// ---------------------------------------------------------------------------
+// Resolve o período de compras declarado na própria fatura ("Período de
+// Compras: 15/07 até 15/08"). Trata virada de ano (ex.: 15/12 até 15/01).
+// ---------------------------------------------------------------------------
+function resolvePeriodoFatura(
+  periodoInicio: string | null | undefined,
+  periodoFim: string | null | undefined,
+  anoFatura: number,
+): { inicio: Date; fim: Date } | null {
+  if (!periodoInicio || !periodoFim) return null
+
+  const fim = parseInvoiceDate(periodoFim, anoFatura)
+  if (!fim) return null
+
+  const mIni = periodoInicio.trim().match(/^(\d{1,2})\/(\d{1,2})/)
+  const anoInicio = mIni && parseInt(mIni[2]) > fim.getMonth() + 1 ? anoFatura - 1 : anoFatura
+
+  const inicio = parseInvoiceDate(periodoInicio, anoInicio)
+  if (!inicio) return null
+
+  return { inicio, fim }
+}
+
+// ---------------------------------------------------------------------------
+// Filtra lançamentos avulsos (não parcelados) para o período de compras
+// declarado na própria fatura, com margem de alguns dias para absorver
+// pequenas divergências de lançamento/processamento perto das bordas do
+// ciclo. Parcelas são sempre mantidas: elas guardam a data da compra
+// ORIGINAL (não a data da parcela atual), então costumam cair fora do
+// período mesmo pertencendo legitimamente a esta fatura.
+// ---------------------------------------------------------------------------
+const PERIODO_BUFFER_DIAS = 3
+
+function filtrarPorPeriodoFatura(
+  appItems: TransacaoSimples[],
+  periodo: { inicio: Date; fim: Date } | null,
+): { dentro: TransacaoSimples[]; fora: TransacaoSimples[] } {
+  if (!periodo) return { dentro: appItems, fora: [] }
+
+  const MS_DIA = 24 * 60 * 60 * 1000
+  const inicioMs = periodo.inicio.getTime() - PERIODO_BUFFER_DIAS * MS_DIA
+  const fimMs = periodo.fim.getTime() + PERIODO_BUFFER_DIAS * MS_DIA
+
+  const dentro: TransacaoSimples[] = []
+  const fora: TransacaoSimples[] = []
+
+  for (const item of appItems) {
+    if (item.parcela) {
+      dentro.push(item)
+      continue
+    }
+    const dataMs = new Date(item.data).getTime()
+    if (Number.isNaN(dataMs) || (dataMs >= inicioMs && dataMs <= fimMs)) {
+      dentro.push(item)
+    } else {
+      fora.push(item)
+    }
+  }
+
+  return { dentro, fora }
 }
 
 // ---------------------------------------------------------------------------
@@ -151,9 +215,16 @@ function gerarResumo(params: {
   totalPdf: number | null
   totalApp: number
   diferencaTotal: number | null
+  periodoFatura: { inicio: Date; fim: Date } | null
+  qtdForaPeriodo: number
 }): string {
-  const { noPdfNaoNoApp, noAppNaoNoPdf, totalPdf, totalApp, diferencaTotal } = params
+  const { noPdfNaoNoApp, noAppNaoNoPdf, totalPdf, totalApp, diferencaTotal, periodoFatura, qtdForaPeriodo } = params
   const partes: string[] = []
+
+  if (periodoFatura) {
+    const fmtDia = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+    partes.push(`Período verificado: ${fmtDia(periodoFatura.inicio)} a ${fmtDia(periodoFatura.fim)} (conforme a própria fatura).`)
+  }
 
   if (diferencaTotal !== null) {
     if (Math.abs(diferencaTotal) < 0.10) {
@@ -178,6 +249,12 @@ function gerarResumo(params: {
     if (noAppNaoNoPdf.length > 0) {
       partes.push(`${noAppNaoNoPdf.length} lançamento(s) do app não ${noAppNaoNoPdf.length === 1 ? 'foi encontrado' : 'foram encontrados'} na fatura.`)
     }
+  }
+
+  if (qtdForaPeriodo > 0) {
+    partes.push(
+      `${qtdForaPeriodo} lançamento(s) do app ${qtdForaPeriodo === 1 ? 'está fora' : 'estão fora'} do período desta fatura e ${qtdForaPeriodo === 1 ? 'foi ignorado' : 'foram ignorados'} na comparação (provavelmente pertence a outra fatura).`,
+    )
   }
 
   return partes.join(' ')
@@ -209,6 +286,7 @@ REGRAS ADICIONAIS:
 4. "valor" deve ser número positivo (converta "R$ 77,08" → 77.08 e "1.234,56" → 1234.56).
 5. "data" deve ser exatamente como aparece na planilha (ex: "10/03" ou "10/03/2026").
 6. Capture o total/valor a pagar da fatura se houver linha específica para isso.
+7. Procure uma linha indicando o PERÍODO DE COMPRAS coberto por esta fatura (rótulos comuns: "Período de Compras", "Período da fatura", "Compras no período de"). Normalmente aparece como um intervalo, ex: "15/07 até 15/08" ou "15/07/2026 a 15/08/2026". Extraia a data de início em "periodo_inicio" e a data de fim em "periodo_fim", exatamente como aparecem na planilha. Se não encontrar essa linha, retorne null para os dois.
 
 === PLANILHA (texto tabulado, colunas separadas por tab) ===
 ${excelTexto}
@@ -216,6 +294,8 @@ ${excelTexto}
 Retorne JSON com esta estrutura EXATA:
 {
   "total_fatura": <número com o total a pagar da fatura, ou null se não encontrado>,
+  "periodo_inicio": <data de início do período de compras como aparece na planilha, ou null>,
+  "periodo_fim": <data de fim do período de compras como aparece na planilha, ou null>,
   "transacoes": [
     {"data": "<data como aparece>", "descricao": "<estabelecimento ou descrição>", "valor": <número positivo>}
   ]
@@ -441,6 +521,8 @@ serve(async (req) => {
       if (jsonStart === -1 || jsonEnd === -1 || jsonEnd < jsonStart) throw new Error('no JSON')
       extracao = JSON.parse(content.slice(jsonStart, jsonEnd + 1)) as ExtracaoIA
       if (!Array.isArray(extracao.transacoes)) extracao.transacoes = []
+      if (extracao.periodo_inicio === undefined) extracao.periodo_inicio = null
+      if (extracao.periodo_fim === undefined) extracao.periodo_fim = null
       // Accept both key names for backward compat with cached responses
       if ((extracao as any).total_pdf !== undefined && extracao.total_fatura === undefined) {
         extracao.total_fatura = (extracao as any).total_pdf
@@ -460,7 +542,14 @@ serve(async (req) => {
     const anoFaturaMatch = periodo.match(/\b(20\d{2})\b/)
     const anoFatura = anoFaturaMatch ? parseInt(anoFaturaMatch[1]) : new Date().getFullYear()
 
-    const { no_ext_nao_no_app, no_app_nao_no_ext } = matchTransacoes(transacoes, extracao.transacoes, anoFatura)
+    // Restringe a comparação ao período de compras real desta fatura (extraído
+    // da própria planilha), usando a data de compra — assim como o cartão
+    // oficial considera. Parcelas ficam de fora do filtro pois guardam a data
+    // da compra original, não a da parcela atual.
+    const periodoFatura = resolvePeriodoFatura(extracao.periodo_inicio, extracao.periodo_fim, anoFatura)
+    const { dentro: transacoesNoPeriodo, fora: transacoesForaPeriodo } = filtrarPorPeriodoFatura(transacoes, periodoFatura)
+
+    const { no_ext_nao_no_app, no_app_nao_no_ext } = matchTransacoes(transacoesNoPeriodo, extracao.transacoes, anoFatura)
 
     const totalPdf = extracao.total_fatura ?? null
     const diferencaTotal = totalPdf !== null ? totalPdf - total_app : null
@@ -471,6 +560,8 @@ serve(async (req) => {
       totalPdf,
       totalApp: total_app,
       diferencaTotal,
+      periodoFatura,
+      qtdForaPeriodo: transacoesForaPeriodo.length,
     })
 
     const analise = {
