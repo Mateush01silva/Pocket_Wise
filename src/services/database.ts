@@ -77,28 +77,51 @@ export const lancamentosService = {
       return { data: null, error: new Error('User has no family'), count: null }
     }
 
-    let query = supabase
-      .from('lancamentos')
-      .select('*', { count: 'exact' })
-      .eq('family_id', familyId)
-      .order('data', { ascending: false })
+    // O PostgREST devolve no máximo 1.000 linhas por requisição (max_rows).
+    // Sem paginar, famílias com mais de 1.000 lançamentos perdiam em silêncio
+    // os mais antigos da lista — inclusive lançamentos recém-criados com data
+    // passada, que "sumiam" logo após salvar. Busca página a página até acabar.
+    // Ordem estável (data, id) para que nenhuma linha se repita ou escape
+    // entre as páginas quando há datas iguais.
+    const PAGE_SIZE = 1000
+    const MAX_PAGES = 50
+    const todos: Lancamento[] = []
+    let total: number | null = null
 
-    // Apply filters
-    if (filters) {
-      if (filters.tipo) query = query.eq('tipo', filters.tipo)
-      if (filters.categoria_id) query = query.eq('categoria_id', filters.categoria_id)
-      if (filters.cartao_id) query = query.eq('cartao_id', filters.cartao_id)
-      if (filters.status) query = query.eq('status', filters.status)
-      if (filters.forma_pagamento) query = query.eq('forma_pagamento', filters.forma_pagamento)
-      if (filters.data_inicio) query = query.gte('data', filters.data_inicio)
-      if (filters.data_fim) query = query.lte('data', filters.data_fim)
-      if (filters.valor_min) query = query.gte('valor', filters.valor_min)
-      if (filters.valor_max) query = query.lte('valor', filters.valor_max)
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const from = page * PAGE_SIZE
+      let query = supabase
+        .from('lancamentos')
+        .select('*', { count: 'exact' })
+        .eq('family_id', familyId)
+        .order('data', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, from + PAGE_SIZE - 1)
+
+      // Apply filters
+      if (filters) {
+        if (filters.tipo) query = query.eq('tipo', filters.tipo)
+        if (filters.categoria_id) query = query.eq('categoria_id', filters.categoria_id)
+        if (filters.cartao_id) query = query.eq('cartao_id', filters.cartao_id)
+        if (filters.status) query = query.eq('status', filters.status)
+        if (filters.forma_pagamento) query = query.eq('forma_pagamento', filters.forma_pagamento)
+        if (filters.data_inicio) query = query.gte('data', filters.data_inicio)
+        if (filters.data_fim) query = query.lte('data', filters.data_fim)
+        if (filters.valor_min) query = query.gte('valor', filters.valor_min)
+        if (filters.valor_max) query = query.lte('valor', filters.valor_max)
+      }
+
+      const { data, error, count } = await query
+      if (error) return { data: null, error, count: null }
+
+      const linhas = (data ?? []) as Lancamento[]
+      todos.push(...linhas)
+      total = count ?? total
+
+      if (linhas.length < PAGE_SIZE || (total !== null && todos.length >= total)) break
     }
 
-    const { data, error, count } = await query
-
-    return { data: data as Lancamento[] | null, error, count }
+    return { data: todos, error: null, count: total ?? todos.length }
   },
 
   /**
