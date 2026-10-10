@@ -165,6 +165,12 @@ export interface Lancamento {
   status: LancamentoStatus
   data_vencimento_fatura: string | null
   assinatura_id: string | null
+  tags: string[] // Tags personalizadas (ex.: "Viagem Europa 2026")
+  // Gasto em moeda estrangeira: `valor` segue sempre em R$; estes campos
+  // guardam o valor original e a cotação usada (null = lançamento em R$)
+  moeda_original: string | null
+  valor_original: number | null
+  cotacao: number | null
   created_at: string
   updated_at: string
 }
@@ -290,6 +296,10 @@ export interface CreateLancamentoInput {
   status?: LancamentoStatus
   data_vencimento_fatura?: string | null
   assinatura_id?: string | null
+  tags?: string[]
+  moeda_original?: string | null
+  valor_original?: number | null
+  cotacao?: number | null
 }
 
 export interface UpdateLancamentoInput extends Partial<CreateLancamentoInput> {

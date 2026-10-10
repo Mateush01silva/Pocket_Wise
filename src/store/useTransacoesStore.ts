@@ -176,6 +176,10 @@ export const useTransacoesStore = create<TransacoesStore>()(
             parcelas.push({
               ...lancamentoData,
               valor: valorParcela,
+              valor_original:
+                lancamentoData.valor_original != null
+                  ? lancamentoData.valor_original / numeroParcelas
+                  : lancamentoData.valor_original,
               observacao: `Parcela ${i}/${numeroParcelas}${lancamentoData.observacao ? ` - ${lancamentoData.observacao}` : ''}`,
               parcela_atual: i,
               parcela_total: numeroParcelas,

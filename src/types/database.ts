@@ -160,6 +160,10 @@ export interface Database {
           grupo_parcelas_id: string | null
           status: 'pago' | 'pendente' | 'projetado'
           data_vencimento_fatura: string | null
+          tags: string[]
+          moeda_original: string | null
+          valor_original: number | null
+          cotacao: number | null
           created_at: string
           updated_at: string
         }
@@ -180,6 +184,10 @@ export interface Database {
           grupo_parcelas_id?: string | null
           status?: 'pago' | 'pendente' | 'projetado'
           data_vencimento_fatura?: string | null
+          tags?: string[]
+          moeda_original?: string | null
+          valor_original?: number | null
+          cotacao?: number | null
           created_at?: string
           updated_at?: string
         }

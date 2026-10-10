@@ -1,8 +1,10 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { Modal } from './ui/Modal'
 import { Button, Input, Select, CurrencyInput, confirmDialog } from './ui'
+import { TagInput } from './TagInput'
+import { MOEDAS, buscarCotacaoAtual, lerUltimaCotacao, salvarUltimaCotacao } from '../lib/moedas'
 import { useCategoriasStore, useCartoesStore, useContasBancariasStore, useTransacoesStore } from '../store'
 import {
   encontrarLancamentosParecidos,
@@ -70,6 +72,61 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
   const [isRecorrente, setIsRecorrente] = useState<boolean>(false)
   const [mesesRecorrencia, setMesesRecorrencia] = useState<number>(3)
   const [isLoading, setIsLoading] = useState(false)
+
+  // Lançamento em moeda estrangeira: o usuário informa o valor na moeda e a
+  // cotação; o valor em R$ (campo `valor`) é calculado a partir deles
+  const [usarMoeda, setUsarMoeda] = useState(false)
+  const [moeda, setMoeda] = useState('EUR')
+  const [valorOriginal, setValorOriginal] = useState<number>(0)
+  const [cotacaoInput, setCotacaoInput] = useState('')
+  const [buscandoCotacao, setBuscandoCotacao] = useState(false)
+  const cotacaoNum = parseFloat(cotacaoInput.replace(',', '.')) || 0
+
+  // Tags já usadas em outros lançamentos (sugestões ao digitar)
+  const tagsExistentes = useMemo(() => {
+    const todas = new Set<string>()
+    for (const l of lancamentos) for (const t of l.tags || []) todas.add(t)
+    return Array.from(todas).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [lancamentos])
+
+  const resetarMoeda = () => {
+    setUsarMoeda(false)
+    setMoeda('EUR')
+    setValorOriginal(0)
+    setCotacaoInput('')
+  }
+
+  const alternarMoeda = (ativo: boolean) => {
+    setUsarMoeda(ativo)
+    if (ativo && !cotacaoInput) {
+      const ultima = lerUltimaCotacao(moeda)
+      if (ultima) setCotacaoInput(String(ultima).replace('.', ','))
+    }
+  }
+
+  const trocarMoeda = (codigo: string) => {
+    setMoeda(codigo)
+    const ultima = lerUltimaCotacao(codigo)
+    setCotacaoInput(ultima ? String(ultima).replace('.', ',') : '')
+  }
+
+  const atualizarCotacao = async () => {
+    setBuscandoCotacao(true)
+    const cotacao = await buscarCotacaoAtual(moeda)
+    setBuscandoCotacao(false)
+    if (cotacao) {
+      setCotacaoInput(cotacao.toFixed(4).replace('.', ','))
+    } else {
+      toast.error('Não foi possível buscar a cotação. Digite manualmente.')
+    }
+  }
+
+  // Valor em R$ = valor na moeda × cotação (arredondado em centavos)
+  useEffect(() => {
+    if (!usarMoeda) return
+    const emReais = Math.round(valorOriginal * cotacaoNum * 100) / 100
+    setFormData((f) => (f.valor === emReais ? f : { ...f, valor: emReais }))
+  }, [usarMoeda, valorOriginal, cotacaoNum])
 
   // Filtrar categorias principais por tipo (ordenadas alfabeticamente para
   // facilitar encontrar a categoria no momento do lançamento)
@@ -168,16 +225,27 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
         conta_id: editingLancamento.conta_id || undefined,
         observacao: editingLancamento.observacao || undefined,
         status: editingLancamento.status || 'pago',
+        tags: editingLancamento.tags || [],
       })
       setParcelasInput(String(editingLancamento.parcela_total || 1))
+      if (editingLancamento.moeda_original && editingLancamento.valor_original != null) {
+        setUsarMoeda(true)
+        setMoeda(editingLancamento.moeda_original)
+        setValorOriginal(editingLancamento.valor_original)
+        setCotacaoInput(String(editingLancamento.cotacao ?? '').replace('.', ','))
+      } else {
+        resetarMoeda()
+      }
     } else if (isOpen && !editingLancamento) {
       // Abrindo para criar: aplica os defaults (crédito/projetado quando há
       // cartão) e mescla dados pré-preenchidos (ex.: "+ opções" da linha
       // rápida), que têm prioridade sobre os defaults
       setFormData({ ...criarFormPadrao(), ...(initialDataRef.current || {}) })
+      resetarMoeda()
     } else if (!isOpen) {
       // Reset form when closing
       setFormData(criarFormPadrao())
+      resetarMoeda()
       setParcelasInput('1')
       setIsRecorrente(false)
       setMesesRecorrencia(3)
@@ -198,6 +266,12 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
 
       if (formData.valor <= 0) {
         toast.error('O valor deve ser maior que zero')
+        setIsLoading(false)
+        return
+      }
+
+      if (usarMoeda && (valorOriginal <= 0 || cotacaoNum <= 0)) {
+        toast.error('Informe o valor na moeda estrangeira e a cotação')
         setIsLoading(false)
         return
       }
@@ -230,6 +304,16 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
         }
       }
 
+      // Campos extras comuns a todos os fluxos de gravação. Ao desligar a
+      // moeda estrangeira, grava null explicitamente (limpa na edição).
+      const extras = {
+        tags: formData.tags || [],
+        moeda_original: usarMoeda ? moeda : null,
+        valor_original: usarMoeda ? valorOriginal : null,
+        cotacao: usarMoeda ? cotacaoNum : null,
+      }
+      if (usarMoeda) salvarUltimaCotacao(moeda, cotacaoNum)
+
       // Se está editando
       if (editingLancamento) {
         const wasParcelado = editingLancamento.grupo_parcelas_id != null
@@ -255,6 +339,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
             portador_id: formData.portador_id,
             conta_id: formData.conta_id,
             observacao: formData.observacao,
+            ...extras,
             status: formData.status || 'projetado',
           }
           await createLancamentoParcelado(lancamentoData, parcelasNum)
@@ -274,6 +359,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
             portador_id: formData.portador_id,
             conta_id: formData.conta_id,
             observacao: formData.observacao,
+            ...extras,
             status: formData.status || 'projetado',
           }
           await createLancamentoParcelado(lancamentoData, parcelasNum)
@@ -290,6 +376,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
             portador_id: formData.portador_id,
             conta_id: formData.conta_id,
             observacao: formData.observacao,
+            ...extras,
             status: formData.status,
           })
         }
@@ -307,6 +394,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
           portador_id: formData.portador_id,
           conta_id: formData.conta_id,
           observacao: formData.observacao,
+          ...extras,
           status: formData.status || 'pago',
         }
 
@@ -334,6 +422,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
       setParcelasInput('1')
       setIsRecorrente(false)
       setMesesRecorrencia(3)
+      resetarMoeda()
       onClose()
     } catch (error) {
       console.error('Erro ao criar transação:', error)
@@ -351,6 +440,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
       setParcelasInput('1')
       setIsRecorrente(false)
       setMesesRecorrencia(3)
+      resetarMoeda()
       onClose()
     }
   }
@@ -439,9 +529,10 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
         {/* Valor e Data */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <CurrencyInput
-            label="Valor *"
+            label={usarMoeda ? 'Valor em R$ (calculado)' : 'Valor *'}
             value={formData.valor}
             onChange={(value) => setFormData({ ...formData, valor: value })}
+            disabled={usarMoeda}
             required
           />
 
@@ -452,6 +543,63 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
             onChange={(e) => setFormData({ ...formData, data: e.target.value })}
             required
           />
+        </div>
+
+        {/* Moeda estrangeira */}
+        <div className="p-3 bg-dark-700/40 border border-dark-600 rounded-lg space-y-3">
+          <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-200">
+            <input
+              type="checkbox"
+              checked={usarMoeda}
+              onChange={(e) => alternarMoeda(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-600 text-primary-500 focus:ring-primary-500"
+            />
+            💱 Gasto em outra moeda
+          </label>
+          {usarMoeda && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Select
+                  label="Moeda"
+                  value={moeda}
+                  onChange={(e) => trocarMoeda(e.target.value)}
+                  options={MOEDAS.map((m) => ({ value: m.codigo, label: `${m.codigo} — ${m.nome}` }))}
+                />
+                <CurrencyInput
+                  label={`Valor em ${moeda}`}
+                  prefix={MOEDAS.find((m) => m.codigo === moeda)?.simbolo}
+                  value={valorOriginal}
+                  onChange={setValorOriginal}
+                />
+                <div>
+                  <Input
+                    label="Cotação (R$)"
+                    type="text"
+                    inputMode="decimal"
+                    value={cotacaoInput}
+                    onChange={(e) => setCotacaoInput(e.target.value.replace(/[^0-9.,]/g, ''))}
+                    placeholder="Ex.: 6,15"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between gap-3 text-xs text-gray-400">
+                <span>
+                  {valorOriginal > 0 && cotacaoNum > 0
+                    ? `${valorOriginal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} ${moeda} × ${cotacaoNum.toLocaleString('pt-BR', { maximumFractionDigits: 6 })} = R$ ${(formData.valor ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                    : `Informe o valor em ${moeda} e quanto custa 1 ${moeda} em reais`}
+                </span>
+                <button
+                  type="button"
+                  onClick={atualizarCotacao}
+                  disabled={buscandoCotacao}
+                  className="inline-flex items-center gap-1 text-primary-400 hover:text-primary-300 shrink-0 disabled:opacity-50"
+                >
+                  <RefreshCw size={12} className={buscandoCotacao ? 'animate-spin' : ''} />
+                  Cotação de hoje
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Aviso de possível duplicidade (mesmo tipo, data, valor e categoria) */}
@@ -659,6 +807,15 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
             </div>
           </div>
         )}
+
+        {/* Tags */}
+        <TagInput
+          label="Tags"
+          value={formData.tags || []}
+          onChange={(tags) => setFormData({ ...formData, tags })}
+          suggestions={tagsExistentes}
+          helperText="Agrupe gastos de qualquer categoria, ex.: Viagem Europa 2026. Enter para adicionar."
+        />
 
         {/* Observação */}
         <div>
