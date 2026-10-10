@@ -10,6 +10,7 @@ import { useFamilyStore } from '../store/useFamilyStore'
 import { TransactionModal } from '../components/TransactionModal'
 import { usePermissions } from '../hooks/usePermissions'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
+import { formatarMoeda } from '../lib/moedas'
 import { encontrarLancamentosParecidos, montarMensagemDuplicados } from '../lib/duplicadosUtils'
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -71,6 +72,7 @@ export function Transactions() {
   const [filterFormaPagamento, setFilterFormaPagamento] = useState<string>('all')
   const [filterCartao, setFilterCartao] = useState<string>('all')
   const [filterCriadoPor, setFilterCriadoPor] = useState<string>('all')
+  const [filterTag, setFilterTag] = useState<string>('all')
   const [periodFilter, setPeriodFilter] = useState<PeriodFilterValue>({
     tipo: 'mes-atual',
     dataInicio: startOfMonth(new Date()),
@@ -440,6 +442,13 @@ export function Transactions() {
     }
   }, [recalcularTodasDatasFatura])
 
+  // Tags existentes (para o filtro)
+  const tagOptions = useMemo(() => {
+    const todas = new Set<string>()
+    for (const l of lancamentos) for (const t of l.tags || []) todas.add(t)
+    return Array.from(todas).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [lancamentos])
+
   // Filter and search transactions
   const filteredLancamentos = useMemo(() => {
     let result = lancamentos.filter(lancamento => {
@@ -463,6 +472,9 @@ export function Transactions() {
 
       // Filter by who created (criado_por)
       if (filterCriadoPor !== 'all' && lancamento.criado_por !== filterCriadoPor) return false
+
+      // Filter by tag
+      if (filterTag !== 'all' && !(lancamento.tags || []).includes(filterTag)) return false
 
       // Filter by date range (usando PeriodFilter)
       // Se toggle ativo: usa data_vencimento_fatura para crédito (mês que será pago)
@@ -510,7 +522,8 @@ export function Transactions() {
         const portadorName = getPortadorName(lancamento.cartao_id, lancamento.portador_id).toLowerCase()
 
         // Busca por texto (categoria, subcategoria, observação, responsável, portador) ou valor
-        const matchesText = catName.includes(search) || subCatName.includes(search) || obs.includes(search) || memberName.includes(search) || portadorName.includes(search)
+        const tagsTexto = (lancamento.tags || []).join(' ').toLowerCase()
+        const matchesText = tagsTexto.includes(search) || catName.includes(search) || subCatName.includes(search) || obs.includes(search) || memberName.includes(search) || portadorName.includes(search)
         const matchesValue = valorStr.includes(search.replace(',', '.')) ||
                            valorFormatado.includes(search) ||
                            search.replace(/[^\d,.-]/g, '').replace(',', '.') === valorStr
@@ -550,7 +563,7 @@ export function Transactions() {
     })
 
     return result
-  }, [lancamentos, filterTipo, filterStatus, filterCategoria, filterSubcategoria, filterFormaPagamento, filterCartao, filterCriadoPor, periodFilter, valorMin, valorMax, searchTerm, sortField, sortOrder, getCategoryName, getMemberName, getPortadorName, filtrarPorDataFatura])
+  }, [lancamentos, filterTipo, filterStatus, filterCategoria, filterSubcategoria, filterFormaPagamento, filterCartao, filterCriadoPor, filterTag, periodFilter, valorMin, valorMax, searchTerm, sortField, sortOrder, getCategoryName, getMemberName, getPortadorName, filtrarPorDataFatura])
 
   // Limpar filtros avançados
   const clearAdvancedFilters = useCallback(() => {
@@ -576,7 +589,7 @@ export function Transactions() {
   // Reset para página 1 quando filtros mudam
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, filterTipo, filterStatus, filterCategoria, filterSubcategoria, filterFormaPagamento, filterCartao, filterCriadoPor, periodFilter, valorMin, valorMax, filtrarPorDataFatura])
+  }, [searchTerm, filterTipo, filterStatus, filterCategoria, filterSubcategoria, filterFormaPagamento, filterCartao, filterCriadoPor, filterTag, periodFilter, valorMin, valorMax, filtrarPorDataFatura])
 
   // Pagination
   const totalPages = Math.ceil(filteredLancamentos.length / itemsPerPage)
@@ -845,6 +858,18 @@ export function Transactions() {
                   ...cartoes.map(cartao => ({ value: cartao.id, label: cartao.nome })),
                 ]}
               />
+
+              {/* Filter by tag - só aparece quando há tags cadastradas */}
+              {tagOptions.length > 0 && (
+                <Select
+                  value={filterTag}
+                  onChange={(e) => setFilterTag(e.target.value)}
+                  options={[
+                    { value: 'all', label: 'Todas as tags' },
+                    ...tagOptions.map((tag) => ({ value: tag, label: `#${tag}` })),
+                  ]}
+                />
+              )}
 
               {/* Filter by who created (Lançado por) - só aparece quando há múltiplos membros */}
               {familyMembers.length > 1 && (
@@ -1332,6 +1357,24 @@ export function Transactions() {
                               Parcela {lancamento.parcela_atual}/{lancamento.parcela_total}
                             </p>
                           )}
+                          {(lancamento.tags || []).length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {lancamento.tags.map((tag) => (
+                                <button
+                                  key={tag}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setFilterTag(tag)
+                                  }}
+                                  title="Filtrar por esta tag"
+                                  className="px-1.5 py-0.5 rounded-full bg-primary-500/15 text-primary-300 text-[11px] hover:bg-primary-500/25"
+                                >
+                                  #{tag}
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="p-4">
@@ -1356,6 +1399,12 @@ export function Transactions() {
                         }`}>
                           {lancamento.tipo === 'receita' ? '+' : '-'} {formatCurrency(lancamento.valor)}
                         </p>
+                        {lancamento.moeda_original && lancamento.valor_original != null && (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {formatarMoeda(lancamento.valor_original, lancamento.moeda_original)}
+                            {lancamento.cotacao ? ` @ ${lancamento.cotacao.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}` : ''}
+                          </p>
+                        )}
                       </td>
                       <td className="p-4 text-center">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

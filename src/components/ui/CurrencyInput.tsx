@@ -6,12 +6,14 @@ export interface CurrencyInputProps extends Omit<InputHTMLAttributes<HTMLInputEl
   label?: string
   error?: string
   helperText?: string
+  // Símbolo exibido à esquerda (padrão: R$)
+  prefix?: string
   value?: number
   onChange?: (value: number) => void
 }
 
 const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
-  ({ className, label, error, helperText, value, onChange, ...props }, ref) => {
+  ({ className, label, error, helperText, prefix = 'R$', value, onChange, ...props }, ref) => {
     const [displayValue, setDisplayValue] = useState(() => {
       if (value === undefined || value === 0) return ''
       return formatCurrencyDisplay(value)
@@ -50,7 +52,7 @@ const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
         )}
         <div className="relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-            R$
+            {prefix}
           </span>
           <input
             ref={ref}
@@ -59,7 +61,8 @@ const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
             value={displayValue}
             onChange={handleChange}
             className={cn(
-              'w-full pl-12 pr-4 py-2 bg-dark-800 border rounded-lg text-gray-100 placeholder-gray-500',
+              prefix.length > 2 ? 'pl-16' : 'pl-12',
+              'w-full pr-4 py-2 bg-dark-800 border rounded-lg text-gray-100 placeholder-gray-500',
               'focus:outline-none focus:ring-2 focus:border-transparent transition-all',
               error
                 ? 'border-red-500 focus:ring-red-500'
