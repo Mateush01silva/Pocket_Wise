@@ -312,7 +312,7 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
         valor_original: usarMoeda ? valorOriginal : null,
         cotacao: usarMoeda ? cotacaoNum : null,
       }
-      if (usarMoeda) salvarUltimaCotacao(moeda, cotacaoNum)
+      if (usarMoeda && !editingLancamento) salvarUltimaCotacao(moeda, cotacaoNum)
 
       // Se está editando
       if (editingLancamento) {
@@ -573,12 +573,13 @@ export function TransactionModal({ isOpen, onClose, editingLancamento, initialDa
                 />
                 <div>
                   <Input
-                    label="Cotação (R$)"
+                    label="Cotação fixa (R$)"
                     type="text"
                     inputMode="decimal"
                     value={cotacaoInput}
                     onChange={(e) => setCotacaoInput(e.target.value.replace(/[^0-9.,]/g, ''))}
                     placeholder="Ex.: 6,15"
+                    helperText="Fica salva para os próximos lançamentos"
                   />
                 </div>
               </div>
