@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { usePlan } from '../hooks/usePlan'
 import { Card, CardContent, Button, Select, Input, Tabs, confirmDialog } from '../components/ui'
-import { Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw, Clock, Pause, Eye, User, Settings2 } from 'lucide-react'
+import { Tag, Plus, Search, Trash2, Check, List, TrendingUp, TrendingDown, Edit2, ArrowUpDown, ArrowUp, ArrowDown, Filter, X, RefreshCw, Clock, Pause, Eye, User, Settings2 } from 'lucide-react'
 import { formatCurrency } from '../utils/currency'
 import { useTransacoesStore, useCategoriasStore, useCartoesStore, useContasBancariasStore } from '../store'
 import { useFamilyStore } from '../store/useFamilyStore'
@@ -11,6 +11,7 @@ import { TransactionModal } from '../components/TransactionModal'
 import { usePermissions } from '../hooks/usePermissions'
 import { PeriodFilter, type PeriodFilterValue } from '../components/PeriodFilter'
 import { formatarMoeda } from '../lib/moedas'
+import { BulkTagModal } from '../components/BulkTagModal'
 import { encontrarLancamentosParecidos, montarMensagemDuplicados } from '../lib/duplicadosUtils'
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -615,6 +616,19 @@ export function Transactions() {
     )
   }, [])
 
+  // Soma apenas do que está selecionado
+  const totaisSelecionados = useMemo(() => {
+    const ids = new Set(selectedIds)
+    let receitas = 0
+    let despesas = 0
+    for (const l of lancamentos) {
+      if (!ids.has(l.id)) continue
+      if (l.tipo === 'receita') receitas += l.valor
+      else despesas += l.valor
+    }
+    return { receitas, despesas, saldo: receitas - despesas }
+  }, [selectedIds, lancamentos])
+
   // Bulk actions — com estado de processamento para desabilitar os botões
   // durante o await (evita duplo clique e dá feedback visual)
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
@@ -636,6 +650,56 @@ export function Transactions() {
       }
     },
     [selectedIds]
+  )
+
+  // Tags em lote: adiciona/remove sem tocar nas demais tags de cada transação.
+  // Só o campo `tags` é enviado — não afeta valor, status nem saldo das contas.
+  const [showBulkTagModal, setShowBulkTagModal] = useState(false)
+
+  const tagsNaSelecao = useMemo(() => {
+    const ids = new Set(selectedIds)
+    const todas = new Set<string>()
+    for (const l of lancamentos) if (ids.has(l.id)) for (const t of l.tags || []) todas.add(t)
+    return Array.from(todas).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [selectedIds, lancamentos])
+
+  const handleBulkTags = useCallback(
+    async (modo: 'adicionar' | 'remover', tags: string[]) => {
+      const alvo = new Set(tags.map((t) => t.toLowerCase()))
+      const idsAlterados: string[] = []
+      for (const id of selectedIds) {
+        const atual = useTransacoesStore.getState().lancamentos.find((l) => l.id === id)
+        if (!atual) continue
+        const tagsAtuais = atual.tags || []
+        const novas =
+          modo === 'adicionar'
+            ? [
+                ...tagsAtuais,
+                ...tags.filter((t) => !tagsAtuais.some((x) => x.toLowerCase() === t.toLowerCase())),
+              ]
+            : tagsAtuais.filter((t) => !alvo.has(t.toLowerCase()))
+        if (novas.length === tagsAtuais.length && novas.every((t, i) => t === tagsAtuais[i])) continue
+        await updateLancamento(id, { tags: novas })
+        idsAlterados.push(id)
+      }
+      // updateLancamento não lança em caso de falha: confere o resultado na store
+      const falhas = idsAlterados.filter((id) => {
+        const l = useTransacoesStore.getState().lancamentos.find((x) => x.id === id)
+        const tem = (l?.tags || []).some((t) => alvo.has(t.toLowerCase()))
+        return modo === 'adicionar' ? !tem : tem
+      })
+      if (falhas.length > 0) {
+        toast.error(`${falhas.length} transação(ões) não puderam ser atualizadas. Tente novamente.`)
+      } else {
+        toast.success(
+          modo === 'adicionar'
+            ? `Tag adicionada em ${idsAlterados.length} transação(ões)`
+            : `Tag removida de ${idsAlterados.length} transação(ões)`
+        )
+        setSelectedIds([])
+      }
+    },
+    [selectedIds, updateLancamento]
   )
 
   const handleBulkMarkAsPaid = useCallback(async () => {
@@ -1001,14 +1065,44 @@ export function Transactions() {
       </div>
 
       {/* Bulk Actions */}
-      {selectedIds.length > 0 && canEdit && (
+      {selectedIds.length > 0 && (
         <Card>
           <CardContent>
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <p className="text-sm text-gray-400">
-                {selectedIds.length} transação(ões) selecionada(s)
-              </p>
+              <div>
+                <p className="text-sm text-gray-400">
+                  {selectedIds.length} transação(ões) selecionada(s)
+                </p>
+                <p className="text-sm mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5">
+                  {totaisSelecionados.receitas > 0 && (
+                    <span className="text-green-400">
+                      Receitas: {formatCurrency(totaisSelecionados.receitas)}
+                    </span>
+                  )}
+                  {totaisSelecionados.despesas > 0 && (
+                    <span className="text-red-400">
+                      Despesas: {formatCurrency(totaisSelecionados.despesas)}
+                    </span>
+                  )}
+                  {totaisSelecionados.receitas > 0 && totaisSelecionados.despesas > 0 && (
+                    <span className="text-gray-200 font-medium">
+                      Saldo: {formatCurrency(totaisSelecionados.saldo)}
+                    </span>
+                  )}
+                </p>
+              </div>
+              {canEdit && (
               <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowBulkTagModal(true)}
+                  disabled={isBulkProcessing}
+                  className="gap-2 text-primary-400 hover:text-primary-300"
+                >
+                  <Tag className="w-4 h-4" />
+                  Tags
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1050,10 +1144,20 @@ export function Transactions() {
                   Deletar
                 </Button>
               </div>
+              )}
             </div>
           </CardContent>
         </Card>
       )}
+
+      <BulkTagModal
+        isOpen={showBulkTagModal}
+        onClose={() => setShowBulkTagModal(false)}
+        quantidade={selectedIds.length}
+        tagsExistentes={tagOptions}
+        tagsNaSelecao={tagsNaSelecao}
+        onConfirm={handleBulkTags}
+      />
 
       {/* Transactions Table */}
       <Card className="overflow-hidden">

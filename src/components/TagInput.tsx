@@ -71,8 +71,10 @@ export function TagInput({ value, onChange, suggestions = [], label, helperText 
         />
       </div>
       {disponiveis.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {disponiveis.slice(0, 8).map((s) => (
+        <div className="mt-2">
+          <p className="text-xs text-gray-500 mb-1">Tags já cadastradas (clique para usar):</p>
+          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+          {disponiveis.map((s) => (
             <button
               key={s}
               type="button"
@@ -86,6 +88,7 @@ export function TagInput({ value, onChange, suggestions = [], label, helperText 
               #{s}
             </button>
           ))}
+          </div>
         </div>
       )}
       {helperText && <p className="mt-1 text-sm text-gray-400">{helperText}</p>}
